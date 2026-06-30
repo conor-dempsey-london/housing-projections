@@ -8,45 +8,40 @@ from pathlib import Path
 from housing_projections.config import DEFAULT_SAMPLE_KWARGS, CENSUS_REL_ERROR, CENSUS_ABS_FLOOR
 
 
-def posterior_predictive_with_zero_snap(model_instance, snap_threshold=0.5):
-    """
-    Draw posterior predictive samples, snapping near-zero P_like
-    values to exactly zero to represent missing planning observations.
-    """
-    model_instance._require_trace()
-    with model_instance.model:
-        post_pred = pm.sample_posterior_predictive(model_instance.trace)
-
-    if 'P_like' in post_pred.posterior_predictive:
-        P_pred = post_pred.posterior_predictive['P_like'].values
-        post_pred.posterior_predictive['P_like'].values[:] = np.where(
-            np.abs(P_pred) < snap_threshold, 0.0, P_pred)
-
-    return post_pred
-
-
 class DwellingModel(ABC):
     """
     Base class for all dwelling inference models.
 
     Subclasses must implement:
         - build()        — constructs and returns the pm.Model
-        - var_names()    — list of scalar parameter names for diagnostics
+        - var_names      — list of scalar parameter names for diagnostics
+        - name           — short model identifier e.g. 'M3'
+        - description    — one-line description of what the model adds
 
     Subclasses may override:
-        - prior_predictive_checks()
-        - posterior_predictive_checks()
-        - sample_kwargs                — default sampling configuration
+        - snap_zeros     — set True to snap near-zero P_like to 0 in
+                           posterior predictive (default False)
+        - max_lag        — set to an int to unlock n_lags / lag_alpha
+                           properties (default None)
+        - sample_kwargs  — default sampling configuration
     """
 
-    # ── Default sampling config — override in subclass if needed ─────────────
-    # Shared across all models — override in subclass if needed
+    # ── Shared observation model parameters ──────────────────────────────────
     nu_obs           = 4.0
-    sigma_obs        = 2.0   
+    sigma_obs        = 2.0
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
 
+    # ── Sampling defaults ─────────────────────────────────────────────────────
     sample_kwargs    = DEFAULT_SAMPLE_KWARGS
+
+    # ── Lag structure — override max_lag in subclasses that have a lag ────────
+    max_lag          = None
+
+    # ── Posterior predictive zero-snapping ────────────────────────────────────
+    # Set True in models with zero-inflated planning likelihood (M4+)
+    snap_zeros       = False
+    _snap_threshold  = 0.5
 
     def __init__(self, data: dict):
         """
@@ -54,16 +49,15 @@ class DwellingModel(ABC):
         ----------
         data : dict — output of make_data_dict(), contains D, P_obs, E_obs etc.
         """
-        self.data    = data
-        self.model   = None
-        self.trace   = None
-        self._built  = False
+        self.data  = data
+        self.model = None
+        self.trace = None
 
     # ── Abstract interface ────────────────────────────────────────────────────
 
     @abstractmethod
     def build(self) -> pm.Model:
-        """Construct and return the pm.Model. Sets self.model."""
+        """Construct the pm.Model, assign to self.model, and return it."""
         ...
 
     @property
@@ -84,6 +78,25 @@ class DwellingModel(ABC):
         """One-line description of what this model adds over the previous."""
         ...
 
+    # ── Derived lag properties ────────────────────────────────────────────────
+
+    @property
+    def n_lags(self) -> int:
+        """Number of lag terms (max_lag + 1). Requires max_lag to be set."""
+        if self.max_lag is None:
+            raise AttributeError(
+                f"{self.name} has no lag structure (max_lag is None)"
+            )
+        return self.max_lag + 1
+
+    @property
+    def lag_alpha(self) -> np.ndarray:
+        """
+        Dirichlet concentration prior for lag weights.
+        Concentrates mass on shorter lags: [4, 2, 1, 1][:n_lags].
+        """
+        return np.array([4.0, 2.0, 1.0, 1.0])[:self.n_lags]
+
     # ── Concrete methods — shared across all models ───────────────────────────
 
     def __repr__(self):
@@ -92,12 +105,14 @@ class DwellingModel(ABC):
     def sample(self, use_nutpie=True, **kwargs):
         """
         Build (if needed) and sample from the model.
+
+        Parameters
+        ----------
         use_nutpie : bool — use nutpie sampler if available (default True)
-        kwargs override self.sample_kwargs.
+        **kwargs   : override self.sample_kwargs
         """
-        if not self._built:
+        if self.model is None:
             self.build()
-            self._built = True
 
         merged = {**self.sample_kwargs, **kwargs}
 
@@ -105,8 +120,8 @@ class DwellingModel(ABC):
             if use_nutpie:
                 try:
                     import nutpie
-                    compiled     = nutpie.compile_pymc_model(self.model)
-                    self.trace   = nutpie.sample(
+                    compiled   = nutpie.compile_pymc_model(self.model)
+                    self.trace = nutpie.sample(
                         compiled,
                         draws         = merged.get('draws',         500),
                         tune          = merged.get('tune',          500),
@@ -121,23 +136,49 @@ class DwellingModel(ABC):
             else:
                 self.trace = pm.sample(**merged)
         return self.trace
-    
+
+    def run(self, results_dir='results/traces', **kwargs):
+        """
+        Sample, print diagnostics, and save in one call.
+
+        Parameters
+        ----------
+        results_dir : str
+        **kwargs    : passed through to sample()
+
+        Returns
+        -------
+        az.InferenceData
+        """
+        self.sample(**kwargs)
+        self.diagnostics()
+        self.save(results_dir=results_dir)
+        return self.trace
 
     def prior_predictive(self, draws=200):
         """Draw prior predictive samples."""
-        if not self._built:
+        if self.model is None:
             self.build()
-            self._built = True
-
         with self.model:
             return pm.sample_prior_predictive(draws=draws)
 
     def posterior_predictive(self):
-        """Draw posterior predictive samples. Requires trace."""
+        """
+        Draw posterior predictive samples. Requires trace.
+
+        If snap_zeros is True (set on M4+), near-zero P_like values are
+        snapped to exactly 0 to represent missing planning observations.
+        """
         self._require_trace()
         with self.model:
-            return pm.sample_posterior_predictive(self.trace)
-        
+            post_pred = pm.sample_posterior_predictive(self.trace)
+
+        if self.snap_zeros and 'P_like' in post_pred.posterior_predictive:
+            P_pred = post_pred.posterior_predictive['P_like'].values
+            post_pred.posterior_predictive['P_like'].values[:] = np.where(
+                np.abs(P_pred) < self._snap_threshold, 0.0, P_pred)
+
+        return post_pred
 
     def save(self, results_dir='results/traces'):
         self._require_trace()
@@ -145,10 +186,8 @@ class DwellingModel(ABC):
         tmp_path = Path(results_dir) / f'{self.name}_tmp.nc'
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Write to temp file first — always safe since it's a new file
         self.trace.to_netcdf(str(tmp_path))
 
-        # Atomically replace the existing file
         try:
             tmp_path.replace(path)
         except PermissionError:
@@ -162,11 +201,7 @@ class DwellingModel(ABC):
     def load(self, results_dir='results/traces'):
         """Load trace from netcdf."""
         path = Path(results_dir) / f'{self.name}.nc'
-        
-        # Close existing trace if loaded to release file lock
-        if self.trace is not None:
-            self.trace = None
-        
+        self.trace = None   # release any existing file lock
         self.trace = az.from_netcdf(str(path))
         return self.trace
 
@@ -185,9 +220,8 @@ class DwellingModel(ABC):
 
     def graph(self):
         """Display the model graph."""
-        if not self._built:
+        if self.model is None:
             self.build()
-            self._built = True
         return pm.model_to_graphviz(self.model)
 
     # ── Shared utilities ──────────────────────────────────────────────────────
@@ -216,7 +250,7 @@ class DwellingModel(ABC):
                     sigma=sigma_plan, observed=P_obs)
         pm.StudentT('E_like', nu=self.nu_obs, mu=z,
                     sigma=sigma_ben,  observed=E_obs)
-        
+
     def add_ben_likelihood(self, z, E_obs, sigma_ben=None):
         """
         Add BEN likelihood only — for models where planning has a custom
@@ -225,7 +259,6 @@ class DwellingModel(ABC):
         sigma = sigma_ben if sigma_ben is not None else self.sigma_obs
         pm.StudentT('E_like', nu=self.nu_obs, mu=z,
                     sigma=sigma, observed=E_obs)
-        
 
     # ── Private helpers ───────────────────────────────────────────────────────
 
@@ -235,7 +268,7 @@ class DwellingModel(ABC):
                 f"No trace found for {self.name}. "
                 f"Run .sample() or .load() first."
             )
-        
+
     def _close_trace(self):
         """
         Explicitly close all xarray file handles held by the trace.

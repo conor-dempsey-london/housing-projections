@@ -9,7 +9,6 @@ from housing_projections.config import DEFAULT_SAMPLE_KWARGS
 from housing_projections.data import load_data, make_data_dict
 from housing_projections.outliers import apply_outlier_exclusion, plot_outlier_areas, plot_outlier_map
 from housing_projections.models import M0
-from housing_projections.sampling import run_model
 from housing_projections.diagnostics import full_diagnostics
 from housing_projections.plots import (
     plot_sample_areas,
@@ -68,7 +67,7 @@ print(f"Prior z 1st:   {np.percentile(z_prior,  1):.3f}")
 plot_prior_predictive(prior, data, title='M0')
 
 # %% Sample
-run_model(m0, results_dir=RESULTS_DIR, **SAMPLE_KWARGS)
+m0.run(results_dir=RESULTS_DIR, **SAMPLE_KWARGS)
 
 # %% Traces
 plot_parameter_trace(m0.trace, m0.var_names, title='M0')

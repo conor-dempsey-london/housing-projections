@@ -15,20 +15,27 @@ def weights_to_dense(w):
     return libpysal.weights.full(w)[0]
 
 
+def build_weights_libpysal(gdf):
+    """
+    Build row-normalised Queen contiguity weights as a libpysal object.
+    Use this when you need a libpysal weights object (e.g. for Moran's I).
+    """
+    w           = Queen.from_dataframe(gdf, silence_warnings=True, use_index=False)
+    w.transform = 'r'
+    return w
+
+
 def build_spatial_weights(gdf):
     """
     Build row-normalised queen contiguity spatial weights matrix.
     Returns dense numpy array of shape (n_areas, n_areas).
+    Use this when you need a numpy matrix (e.g. for PyMC/pytensor).
     """
-
-    w           = Queen.from_dataframe(gdf, silence_warnings=True)
-    w.transform = 'r'
-
+    w = build_weights_libpysal(gdf)
     W = np.zeros((len(gdf), len(gdf)))
     for i, neighbours in w.neighbors.items():
         for j, wij in zip(neighbours, w.weights[i]):
             W[i, j] = wij
-
     return W
 
 
@@ -49,7 +56,7 @@ def add_spatial_lag_features(gdf, feature_cols, use_index=False):
     -------
     GeoDataFrame with additional lag columns
     """
-    w       = build_weights(gdf, use_index=use_index)
+    w       = build_weights_libpysal(gdf)
     W_dense = weights_to_dense(w)
 
     gdf_out = gdf.copy()
@@ -84,7 +91,7 @@ class SpatialLagTransformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        w       = build_weights(X)
+        w       = build_weights_libpysal(X)
         W_dense = weights_to_dense(w)
 
         feature_arr = X[self.feature_cols].values

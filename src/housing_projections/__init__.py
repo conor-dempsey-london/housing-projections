@@ -3,7 +3,6 @@ from housing_projections import (
     diagnostics,
     plots,
     reporting,
-    sampling,
     outliers,
     spatial,
 )

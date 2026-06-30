@@ -2,9 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS
-from housing_projections.spatial import build_weights, morans_i
+from housing_projections.spatial import build_weights_libpysal, morans_i
 import matplotlib.patches as mpatches
-from housing_projections.spatial import build_weights
 from esda.moran import Moran, Moran_Local
 import matplotlib.cm as mcm
 import matplotlib.colors as mcolors
@@ -16,7 +15,7 @@ def plot_morans_i_by_year(gdf):
     Compute and plot Moran's I for planning and BEN separately for each year.
     """
 
-    w = build_weights(gdf)
+    w = build_weights_libpysal(gdf)
 
     results_plan = []
     results_ben  = []
@@ -352,13 +351,13 @@ def plot_spatial_autocorrelation_change(gdf,
                                          col_2011='dwellings_2011',
                                          col_2021='dwellings_2021',
                                          quantile_clip=0.95):
-    from housing_projections.spatial import build_weights
+    from housing_projections.spatial import build_weights_libpysal
     from esda.moran import Moran, Moran_Local
 
     D    = gdf[col_2021].values - gdf[col_2011].values
     clip = np.quantile(np.abs(D), quantile_clip)
 
-    w     = build_weights(gdf)
+    w     = build_weights_libpysal(gdf)
     moran = Moran(D, w)
 
     print(f"\n── Moran's I: intercensal change ─────────────────────────────")

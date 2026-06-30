@@ -2,10 +2,7 @@ import numpy as np
 import arviz as az
 import pandas as pd
 
-from esda.moran import Moran
-from libpysal.weights import Queen
-
-from housing_projections.spatial import build_spatial_weights
+from housing_projections.spatial import build_spatial_weights, build_weights_libpysal, morans_i
 
 def check_rhat(trace, var_names=None, threshold=1.01, verbose=False):
     """
@@ -114,7 +111,7 @@ def check_morans_i(trace, data, verbose=False):
     Returns
     -------
     dict with keys 'planning' and 'ben', each containing
-    {'I': float, 'p_value': float}
+    {'I': float, 'p_value': float, 'z_score': float}
     """
     z_post      = trace.posterior['z'].values
     z_mean_post = z_post.mean(axis=(0, 1))
@@ -122,15 +119,11 @@ def check_morans_i(trace, data, verbose=False):
     resid_plan  = (data['P_obs'] - z_mean_post).mean(axis=1)
     resid_ben   = (data['E_obs'] - z_mean_post).mean(axis=1)
 
-    w = Queen.from_dataframe(data['gdf'], use_index=False)
-    w.transform = 'r'
-
-    moran_plan = Moran(resid_plan, w)
-    moran_ben  = Moran(resid_ben,  w)
+    w = build_weights_libpysal(data['gdf'])
 
     result = {
-        'planning': {'I': moran_plan.I, 'p_value': moran_plan.p_sim},
-        'ben':      {'I': moran_ben.I,  'p_value': moran_ben.p_sim},
+        'planning': morans_i(resid_plan, w),
+        'ben':      morans_i(resid_ben,  w),
     }
 
     if verbose:

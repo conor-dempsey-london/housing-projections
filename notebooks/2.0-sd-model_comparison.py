@@ -12,7 +12,6 @@ from pathlib import Path
 
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
-import housing_projections.sampling as sampling
 import housing_projections.reporting as reporting
 from housing_projections.models import M0, M0h, M1, M2, M3, M4, M5, M5b, M6
 from housing_projections.config import DEFAULT_SAMPLE_KWARGS
@@ -89,8 +88,7 @@ for name, model in models.items():
     trace_path = Path(RESULTS_DIR) / f'{name}.nc'
     if RESAMPLE.get(name, False) or not trace_path.exists():
         print(f"\nSampling {name}: {model.description}")
-        sampling.run_model(model, results_dir=RESULTS_DIR,
-                           **SAMPLE_KWARGS)
+        model.run(results_dir=RESULTS_DIR, **SAMPLE_KWARGS)
         
     else:
         print(f"\nLoading {name} from {trace_path}")
