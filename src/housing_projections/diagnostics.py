@@ -224,6 +224,7 @@ def compute_lag_weights(trace, verbose=False):
         'hi':               hi,
         'implied_mean_lag': implied_mean_lag,
         'n_lags':           n_lags,
+        'lambda_flat':      lambda_flat,
     }
 
     if verbose:

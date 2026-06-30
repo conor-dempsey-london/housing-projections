@@ -10,21 +10,61 @@ import housing_projections.diagnostics as diagnostics
 # the standard suite. Each function takes (trace, data, title).
 # Add new models here — no changes needed elsewhere.
 
+def plot_lag_diagnostics(trace, data, title='M3'):
+    """
+    Orchestrate all M3 lag diagnostic plots.
+    Computes lag weights and residuals via diagnostics, then passes
+    pre-computed results to the individual plot functions.
+    """
+    if 'lambda_weights' not in trace.posterior:
+        print(f"{title}: lambda_weights fixed — skipping lag diagnostics")
+        return
+    lag_results = diagnostics.compute_lag_weights(trace, verbose=True)
+    resids      = diagnostics.compute_lag_residuals(trace, data)
+    plots.plot_lag_weights(lag_results, title=title)
+    plots.plot_lag_residuals(resids, title=title)
+    plots.plot_lag_residuals_by_year(resids, title=title)
+    plots.plot_lag_effect(trace, data, title=title)
+    plots.plot_lag_shift(trace, data, title=title)
+
+
+def plot_missingness_diagnostics(trace, data, title='M4',
+                                  trace_before=None, post_pred_before=None,
+                                  post_pred_after=None):
+    """
+    Orchestrate all M4 missingness diagnostic plots.
+    Computes lag residuals via diagnostics, then passes pre-computed
+    results to plot functions. Pass trace_before and post_pred_before
+    for M3 vs M4 comparison plots.
+    """
+    plots.plot_missingness_posterior(trace, title=title)
+    plots.plot_zero_inflation_check(trace, data, title=title)
+    resids = diagnostics.compute_lag_residuals(trace, data)
+    plots.plot_zero_residuals(resids, data['P_obs'], title=title)
+    plots.plot_missing_statistics(trace, data, title=title)
+
+    if trace_before is not None:
+        plots.plot_missingness_effect_on_z(trace_before, trace, data, title=title)
+
+    if post_pred_before is not None and post_pred_after is not None:
+        plots.plot_negative_tail_comparison(post_pred_before, post_pred_after, data, title=title)
+
+
 def plot_spatial_diagnostics_report(trace, data, title=''):
     stats_dict = diagnostics.compute_spatial_misallocation_stats(trace, data)
     plots.plot_spatial_diagnostics(stats_dict, title=title)
 
 
 MODEL_DIAGNOSTICS = {
-    'M3': [plots.plot_lag_diagnostics],
-    'M4': [plots.plot_lag_diagnostics,
-           plots.plot_missingness_diagnostics],
-    'M5': [plots.plot_lag_diagnostics,
-           plots.plot_missingness_diagnostics],
-    'M5b': [plots.plot_lag_diagnostics,
-            plots.plot_missingness_diagnostics,
+    'M3':  [plot_lag_diagnostics],
+    'M4':  [plot_lag_diagnostics,
+            plot_missingness_diagnostics],
+    'M5':  [plot_lag_diagnostics,
+            plot_missingness_diagnostics],
+    'M5b': [plot_lag_diagnostics,
+            plot_missingness_diagnostics,
             plots.plot_twocomp_diagnostics],
-    'M6':  [plots.plot_missingness_diagnostics,
+    'M6':  [plot_missingness_diagnostics,
             plot_spatial_diagnostics_report],
 }
 
@@ -34,11 +74,10 @@ MODEL_DIAGNOSTICS = {
 
 def get_model_comparisons():
     return {
-        ('M3', 'M4'):   missingness_comparison_report,
-        ('M4', 'M5'):   missingness_comparison_report,
-        ('M5', 'M5b'):  missingness_comparison_report,
-        ('M5', 'M6'):   missingness_comparison_report,
-        ('M5', 'M6'):   spatial_misallocation_comparison,
+        ('M3', 'M4'):  missingness_comparison_report,
+        ('M4', 'M5'):  missingness_comparison_report,
+        ('M5', 'M5b'): missingness_comparison_report,
+        ('M5', 'M6'):  spatial_misallocation_comparison,
     }
 
 

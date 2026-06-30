@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import time
 from scipy import stats
 
-from housing_projections.diagnostics import compute_lag_weights, compute_lag_residuals
 from housing_projections.config import INFER_YEARS, COLOURS
 
 
@@ -425,19 +424,20 @@ def plot_parameter_trace(trace, var_names, title=''):
 
 # ── M3 specific ───────────────────────────────────────────────────────────────
 
-def plot_lag_weights(trace, title=''):
+def plot_lag_weights(lag_results, title=''):
     """
     Plot posterior distributions and bar chart of M3 lag weights.
-    """
 
-    lag_results = compute_lag_weights(trace, verbose=True)
+    Parameters
+    ----------
+    lag_results : dict returned by diagnostics.compute_lag_weights
+    """
     means       = lag_results['means']
     lo          = lag_results['lo']
     hi          = lag_results['hi']
     n_lags      = lag_results['n_lags']
     lags        = list(range(n_lags))
-
-    lambda_flat = trace.posterior['lambda_weights'].values.reshape(-1, n_lags)
+    lambda_flat = lag_results['lambda_flat']
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
@@ -472,13 +472,14 @@ def plot_lag_weights(trace, title=''):
     return fig, axes
 
 
-def plot_lag_residuals(trace, data, title=''):
+def plot_lag_residuals(resids, title=''):
     """
     Compare planning residuals with and without lag correction.
+
+    Parameters
+    ----------
+    resids : dict returned by diagnostics.compute_lag_residuals
     """
-
-    resids = compute_lag_residuals(trace, data)
-
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     # Residual distributions
@@ -508,13 +509,14 @@ def plot_lag_residuals(trace, data, title=''):
     return fig, axes
 
 
-def plot_lag_residuals_by_year(trace, data, title=''):
+def plot_lag_residuals_by_year(resids, title=''):
     """
     Compare mean planning residuals by year with and without lag correction.
+
+    Parameters
+    ----------
+    resids : dict returned by diagnostics.compute_lag_residuals
     """
-
-    resids = compute_lag_residuals(trace, data)
-
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.plot(INFER_YEARS, resids['no_lag'].mean(axis=0),
             marker='o', color='steelblue', label='Without lag')
@@ -666,17 +668,6 @@ def plot_lag_shift(trace, data, title='M3'):
     plt.suptitle(f'{title} — temporal redistribution from lag model')
     plt.tight_layout()
     plt.show()
-
-
-def plot_lag_diagnostics(trace, data, title='M3'):
-    if 'lambda_weights' not in trace.posterior:
-        print(f"{title}: lambda_weights fixed — skipping lag diagnostics")
-        return
-    plot_lag_weights(trace, title=title)
-    plot_lag_residuals(trace, data, title=title)
-    plot_lag_residuals_by_year(trace, data, title=title)
-    plot_lag_effect(trace, data, title=title)
-    plot_lag_shift(trace, data, title=title)
 
 
 
@@ -847,16 +838,17 @@ def plot_missingness_effect_on_z(
     plt.show()
 
 
-def plot_zero_residuals(trace, data, title=''):
+def plot_zero_residuals(resids, P_obs, title=''):
     """
     Residuals specifically for zero planning observations —
     how well does the model explain zeros vs non-zeros.
-    """
-    # Compute lagged P_mean using posterior lambda weights
-    resids      = compute_lag_residuals(trace, data)
-    resid_plan  = resids['with_lag']
 
-    P_obs       = data['P_obs']
+    Parameters
+    ----------
+    resids : dict returned by diagnostics.compute_lag_residuals
+    P_obs  : (n_areas, n_years)
+    """
+    resid_plan  = resids['with_lag']
     is_zero     = np.abs(P_obs) < 1e-6
 
     _, axes   = plt.subplots(1, 2, figsize=(12, 4))
@@ -1064,25 +1056,6 @@ def plot_missing_statistics(trace, data, title=''):
     print(f"  Mean z where planning=0 and z<0:     "
           f"{z_neg_missing.mean():.2f}" if len(z_neg_missing) > 0
           else "  No negative z at zeros")
-
-
-def plot_missingness_diagnostics(trace, data, title='M4',
-                         trace_before=None, post_pred_before=None,
-                         post_pred_after=None):
-    """
-    Convenience wrapper for all M4-specific diagnostic plots.
-    Pass trace_before and post_pred_before for M3 vs M4 comparison plots.
-    """
-    plot_missingness_posterior(trace, title=title)
-    plot_zero_inflation_check(trace, data, title=title)
-    plot_zero_residuals(trace, data, title=title)
-    plot_missing_statistics(trace, data, title=title)
-
-    if trace_before is not None:
-        plot_missingness_effect_on_z(trace_before, trace, data, title=title)
-
-    if post_pred_before is not None and post_pred_after is not None:
-        plot_negative_tail_comparison(post_pred_before, post_pred_after, data, title=title)
 
 
 def plot_twocomp_diagnostics(trace, data, title='M5b'):
