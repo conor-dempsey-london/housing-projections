@@ -27,9 +27,14 @@ build-backend = "uv_build"
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["win-64"]
+platforms = ["win-64", "osx-arm64"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --tb=short"
 
 [tool.pixi.tasks]
+test = "pytest"
 
 [tool.pixi.dependencies]
 fiona = ">=1.9" 
@@ -43,8 +48,8 @@ llvm-openmp = "*"
 nutpie = ">=0.16.10,<0.17"
 
 [tool.pixi.pypi-dependencies]
-pld-database-live = { path = "../pld_database_live", editable = true }
 housing_projections = { path = ".", editable = true }
 pymc = "*"
 arviz = "*"
 graphviz = "*"
+pytest = "*"

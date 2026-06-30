@@ -29,3 +29,4 @@ results/traces/M5b.nc
 results/traces/M6.nc
 .gitattributes
 .vscode/settings.json
+pixi.lock
