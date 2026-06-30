@@ -236,21 +236,39 @@ def compute_lag_weights(trace, verbose=False):
     return result
 
 
-def compute_lag_residuals(trace, data):
+def compute_lag_residuals(trace, data, lambda_weights=None):
     """
     Compute planning residuals with and without lag correction.
+
+    Parameters
+    ----------
+    trace          : az.InferenceData
+    data           : dict
+    lambda_weights : array-like, optional
+        Fixed lag weights to use when lambda_weights is not a sampled
+        variable in the posterior (e.g. M6 where they are a model constant).
+        Ignored if lambda_weights is present in trace.posterior.
 
     Returns
     -------
     dict with keys 'no_lag', 'with_lag'
     each of shape (n_areas, n_years)
     """
-    z_post      = trace.posterior['z'].values
-    lambda_post = trace.posterior['lambda_weights'].values
+    z_post = trace.posterior['z'].values
+    z_mean = z_post.mean(axis=(0, 1))
+    plain  = data['P_obs'] - z_mean
 
-    z_mean      = z_post.mean(axis=(0, 1))
-    lambda_mean = lambda_post.mean(axis=(0, 1))
-    n_lags      = len(lambda_mean)
+    if 'lambda_weights' in trace.posterior:
+        # Sampled weights — average over chains and draws
+        lambda_mean = trace.posterior['lambda_weights'].values.mean(axis=(0, 1))
+    elif lambda_weights is not None:
+        # Fixed weights passed in explicitly by the caller
+        lambda_mean = np.asarray(lambda_weights)
+    else:
+        # Model has no lag component at all
+        return {'no_lag': plain, 'with_lag': plain}
+
+    n_lags  = len(lambda_mean)
     n_years     = data['n_years']
 
     P_mean_post = np.zeros_like(z_mean)
@@ -260,7 +278,7 @@ def compute_lag_residuals(trace, data):
             P_mean_post[:, t]  += lambda_mean[k] * z_mean[:, t_src]
 
     return {
-        'no_lag':   data['P_obs'] - z_mean,
+        'no_lag':   plain,
         'with_lag': data['P_obs'] - P_mean_post,
     }
 
