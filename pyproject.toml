@@ -6,15 +6,14 @@ readme = "README.md"
 authors = [
     { name = "Sadhbh Dempsey", email = "conor.dempsey@london.gov.uk" }
 ]
-requires-python = ">=3.11.9"
+requires-python = ">=3.12.9"
 dependencies = [
     "boto3>=1.42.39",
-    "elasticsearch>=9.3.0",
+    "elasticsearch>=8.3.0",
     "geopandas>=1.1.2",
     "ipykernel>=7.1.0",
     "matplotlib>=3.10.8",
     "openpyxl>=3.1.5",
-    "pandas>=3.0.0",
     "python-dotenv>=1.2.1",
     "seaborn>=0.13.2",
 ]
@@ -25,3 +24,27 @@ housing-projections = "housing_projections:main"
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+fiona = ">=1.9" 
+pysal = "*"
+
+nomkl = "*"
+blas = { version = "*", build = "*openblas*" }
+libblas = { version = "*", build = "*openblas*" }
+liblapack = { version = "*", build = "*openblas*" }
+llvm-openmp = "*"
+nutpie = ">=0.16.10,<0.17"
+
+[tool.pixi.pypi-dependencies]
+pld-database-live = { path = "../pld_database_live", editable = true }
+housing_projections = { path = ".", editable = true }
+pymc = "*"
+arviz = "*"
+graphviz = "*"
