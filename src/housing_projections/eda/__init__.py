@@ -1,0 +1,38 @@
+from .comparison import (
+    plot_census_stocks,
+    plot_stock_scatter,
+    plot_cumulative_vs_intercensal,
+    compute_overall_correlation,
+    plot_per_area_correlation,
+    plot_annual_p_vs_e,
+)
+
+from .timeseries import (
+    plot_distributions_by_year,
+    plot_mean_trends,
+    plot_year_correlation,
+    compute_autocorrelations,
+    compute_crosscorrelations,
+    compute_crosscorrelations_prewhitened,
+    plot_autocorrelations,
+    plot_crosscorrelations,
+)
+
+from .agreement import (
+    compute_agreement_stats,
+    classify_lsoas,
+    full_agreement_analysis,
+    plot_total_agreement,
+    plot_category_breakdown,
+    plot_category_examples,
+    plot_lag_candidates,
+    plot_sign_disagreements,
+)
+
+from .spatial import (
+    plot_morans_i_by_year,
+    plot_spatial_distribution,
+    plot_mean_change_maps,
+    plot_source_disagreement_map,
+    plot_intercensal_change_map,
+)

@@ -1,2 +1,9 @@
-def main() -> None:
-    print("Hello from housing-projections!")
+from housing_projections import (
+    data,
+    diagnostics,
+    plots,
+    reporting,
+    sampling,
+    outliers,
+    spatial,
+)
