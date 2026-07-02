@@ -70,16 +70,19 @@ def load_data(data_path):
         os.path.join(data_path, 'ben', 'final_residential_uprn_net_changes_by_oa_fy (1).csv'),
     )
 
-    # OA to LSOA 2021 lookup for aggregating Ben's estimates to LSOA level
-    oa_lookup = gla_data.load_geography_lookup(year=2021, smallest_geography='oa')[['OA21CD', 'LSOA21CD']]
-
-    df_ben = df_ben.merge(oa_lookup, on='OA21CD', how='left')
-
-    df_ben = df_ben[['financial_year', 'uprn_net_change', 'LSOA21CD']].groupby(['LSOA21CD', 'financial_year']).sum()
+    # aggregate Ben's OA-level estimates to LSOA level
+    df_ben = gla_data.aggregate(
+        df_ben[['OA21CD', 'financial_year', 'uprn_net_change']],
+        from_geography='oa',
+        to_geography='lsoa',
+        value_cols=['uprn_net_change'],
+        year=2021,
+    ).set_index(['LSOA21CD', 'financial_year'])
 
     df_ben = df_ben.unstack().fillna(0).droplevel(0, axis=1)
     cols_ben = [f'{x}_ben' for x in df_ben.columns]
     df_ben.columns = cols_ben
+    df_ben = df_ben.reset_index()
 
     df_ben['total_change_2011_to_2021_ben'] = df_ben[INFER_COLS_BEN].sum(axis=1)
 
@@ -99,7 +102,7 @@ def load_data(data_path):
         how='left'
     )
 
-    dwellings = dwellings.merge(df_ben, left_on='LSOA21CD', right_index=True, how='left').fillna(0)
+    dwellings = dwellings.merge(df_ben, on='LSOA21CD', how='left').fillna(0)
 
     dwellings.insert(4, 'total_change_2011_to_2021_ben', dwellings.pop('total_change_2011_to_2021_ben'))
     dwellings.insert(5, 'intercensal_completions', dwellings.pop('intercensal_completions'))
