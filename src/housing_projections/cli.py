@@ -67,7 +67,7 @@ def cmd_run_models(args):
     print(f'\n── Loading data from {args.data_path} ───────────────────────────')
     validate_data_path(args.data_path)
     gdf = load_data(args.data_path)
-    gdf = apply_outlier_exclusion(gdf)
+    gdf, _ = apply_outlier_exclusion(gdf)
     data = make_data_dict(gdf, n_areas=args.n_areas)
 
     print(f'   {data["n_areas"]} LSOAs, {data["n_years"]} inference years')
@@ -131,7 +131,7 @@ def cmd_report(args):
     print(f'\n── Loading data from {args.data_path} ───────────────────────────')
     validate_data_path(args.data_path)
     gdf = load_data(args.data_path)
-    gdf = apply_outlier_exclusion(gdf)
+    gdf, _ = apply_outlier_exclusion(gdf)
     data = make_data_dict(gdf, n_areas=args.n_areas)
 
     model_names = (_parse_model_list(args.models) if args.models
