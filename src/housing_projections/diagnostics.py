@@ -200,8 +200,9 @@ def compute_model_comparison(traces, verbose=True):
     """
     Compare models using Leave-One-Out cross-validation (LOO-CV).
 
-    Requires traces sampled with ``idata_kwargs={'log_likelihood': True}``
-    (the default sampling config already sets this).
+    Uses LOO-CV (PSIS-LOO). Requires traces sampled with
+    ``idata_kwargs={'log_likelihood': True}`` (the default sampling config
+    already sets this).
 
     Parameters
     ----------
@@ -213,7 +214,7 @@ def compute_model_comparison(traces, verbose=True):
     pd.DataFrame — ArviZ LOO comparison table, models ranked best-to-worst.
         Key columns: ``loo``, ``se``, ``p_loo``, ``d_loo``, ``weight``.
     """
-    comparison = az.compare(traces, ic='loo')
+    comparison = az.compare(traces)
 
     if verbose:
         print("\n── LOO model comparison ─────────────────────────────────────")
