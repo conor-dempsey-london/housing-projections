@@ -212,13 +212,15 @@ def compute_model_comparison(traces, verbose=True):
     Returns
     -------
     pd.DataFrame — ArviZ LOO comparison table, models ranked best-to-worst.
-        Key columns: ``loo``, ``se``, ``p_loo``, ``d_loo``, ``weight``.
+        Key columns: ``elpd``, ``se``, ``p``, ``elpd_diff``, ``weight``.
     """
     comparison = az.compare(traces)
 
     if verbose:
         print("\n── LOO model comparison ─────────────────────────────────────")
-        print(comparison[['loo', 'se', 'p_loo', 'd_loo', 'weight']].to_string())
+        display_cols = [c for c in ('elpd', 'se', 'p', 'elpd_diff', 'weight')
+                        if c in comparison.columns]
+        print(comparison[display_cols].to_string())
         best = comparison.index[0]
         print(f"\n  Best model: {best}")
 

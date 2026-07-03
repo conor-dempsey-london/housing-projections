@@ -227,15 +227,17 @@ def _build_executive_summary(data, traces, comparison_df, sensitivity_summary):
         else:
             sens = float('nan')
 
-        loo_val = comparison_df.loc[name, 'loo'] if (
-            comparison_df is not None and name in comparison_df.index) else float('nan')
-        d_loo = comparison_df.loc[name, 'd_loo'] if (
-            comparison_df is not None and name in comparison_df.index) else float('nan')
+        loo_val = comparison_df.loc[name, 'elpd'] if (
+            comparison_df is not None and name in comparison_df.index
+            and 'elpd' in comparison_df.columns) else float('nan')
+        d_loo = comparison_df.loc[name, 'elpd_diff'] if (
+            comparison_df is not None and name in comparison_df.index
+            and 'elpd_diff' in comparison_df.columns) else float('nan')
 
         rows.append({
             'Model': name,
-            'LOO': loo_val,
-            'ΔLOO vs best': d_loo,
+            'ELPD': loo_val,
+            'ΔELPD vs best': d_loo,
             'Divergences': n_div,
             'Max R̂': float(diag['rhat']['max_rhat']) if diag.get('rhat') else float('nan'),
         })
@@ -421,7 +423,7 @@ def _build_model_comparison(traces, comparison_df):
     # LOO table
     if comparison_df is not None:
         html += '<h3>LOO-CV comparison</h3>'
-        cols = [c for c in ['loo', 'se', 'p_loo', 'd_loo', 'dse', 'weight']
+        cols = [c for c in ['elpd', 'se', 'p', 'elpd_diff', 'dse', 'weight']
                 if c in comparison_df.columns]
         html += _df_to_html(comparison_df[cols].reset_index().rename(columns={'index': 'Model'}))
 

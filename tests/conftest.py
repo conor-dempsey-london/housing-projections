@@ -27,7 +27,8 @@ N_DRAWS  = 40
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def make_idata(posterior: dict, sample_stats: dict | None = None) -> az.InferenceData:
+def make_idata(posterior: dict, sample_stats: dict | None = None,
+               log_likelihood: dict | None = None) -> az.InferenceData:
     """
     Build an az.InferenceData from plain numpy dicts.
 
@@ -38,7 +39,32 @@ def make_idata(posterior: dict, sample_stats: dict | None = None) -> az.Inferenc
     groups: dict = {'posterior': posterior}
     if sample_stats is not None:
         groups['sample_stats'] = sample_stats
+    if log_likelihood is not None:
+        groups['log_likelihood'] = log_likelihood
     return az.from_dict(groups)
+
+
+@pytest.fixture(scope='session')
+def mock_traces_with_ll(data_dict, rng):
+    """
+    Two minimal InferenceData objects with log_likelihood groups,
+    suitable for testing compute_model_comparison (az.compare).
+    """
+    n_areas = data_dict['n_areas']
+    n_years = data_dict['n_years']
+    n_obs   = n_areas * n_years
+
+    traces = {}
+    for name in ('MA', 'MB'):
+        z = rng.normal(1.0, 2.0, size=(N_CHAINS, N_DRAWS, n_areas, n_years))
+        # log_likelihood shape: (chains, draws, n_obs) — one value per observation
+        ll = rng.normal(-1.5, 0.3, size=(N_CHAINS, N_DRAWS, n_obs))
+        traces[name] = make_idata(
+            posterior={'z': z},
+            sample_stats={'diverging': np.zeros((N_CHAINS, N_DRAWS), dtype=bool)},
+            log_likelihood={'obs': ll},
+        )
+    return traces
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
