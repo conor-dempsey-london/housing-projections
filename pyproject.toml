@@ -71,7 +71,7 @@ nutpie = ">=0.16.10,<0.17"
 [tool.pixi.pypi-dependencies]
 pld-database-live = { git = "https://github.com/JamesB686/pld_database_live", branch = "make-installable" }
 housing_projections = { path = ".", editable = true }
-gla_data = { path = "../gla-data", editable = true }
+gla_data = "*"
 pymc = "*"
 arviz = "*"
 graphviz = "*"
