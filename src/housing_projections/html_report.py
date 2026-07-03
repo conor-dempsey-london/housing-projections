@@ -615,7 +615,8 @@ def _build_conclusions(comparison_df, sensitivity_summary):
 # ── Main entry point ──────────────────────────────────────────────────────────
 
 def generate_report(data, traces, model_classes=None, output_path='results/report.html',
-                    title='Housing Projections: Model Analysis Report'):
+                    title='Housing Projections: Model Analysis Report',
+                    comparison_df=None):
     """
     Generate a self-contained HTML analysis report.
 
@@ -626,12 +627,13 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
     model_classes : dict[str, type] or None — model class objects for descriptions
     output_path   : str
     title         : str
+    comparison_df : pd.DataFrame or None — pre-computed LOO comparison table.
+                    If None and len(traces) > 1, LOO is computed here.
     """
     print('  Building sections...')
 
     # ── LOO comparison ────────────────────────────────────────────────────────
-    comparison_df = None
-    if len(traces) > 1:
+    if comparison_df is None and len(traces) > 1:
         try:
             print('  Computing LOO comparison...')
             comparison_df = compute_model_comparison(traces, verbose=False)

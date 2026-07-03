@@ -8,11 +8,13 @@ Commands
   report       Generate a self-contained HTML analysis report.
 """
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
 
 import arviz as az
+import pandas as pd
 
 from housing_projections.data import load_data, make_data_dict, validate_data_path
 from housing_projections.diagnostics import compute_model_comparison
@@ -26,6 +28,9 @@ from housing_projections.sensitivity import (
 )
 
 _ALL_MODELS = {m.name: m for m in [M0, M0h, M1, M2, M3, M4, M5, M5b, M6, M7, M8, M9]}
+
+_COMPARISON_CSV  = 'comparison.csv'
+_COMPARISON_META = 'comparison_meta.json'
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,6 +59,59 @@ def _discover_traces(traces_dir):
     if not d.exists():
         return []
     return [p.stem for p in sorted(d.glob('*.nc'))]
+
+
+def _trace_mtimes(traces_dir, model_names):
+    """Return {name: mtime} for each trace file that exists."""
+    return {
+        name: Path(traces_dir, f'{name}.nc').stat().st_mtime
+        for name in model_names
+        if Path(traces_dir, f'{name}.nc').exists()
+    }
+
+
+def _load_comparison_cache(traces_dir):
+    """
+    Load cached LOO comparison if it is still valid (all trace files unchanged).
+
+    Returns pd.DataFrame or None.
+    """
+    meta_path = Path(traces_dir) / _COMPARISON_META
+    csv_path  = Path(traces_dir) / _COMPARISON_CSV
+    if not meta_path.exists() or not csv_path.exists():
+        return None
+    try:
+        meta = json.loads(meta_path.read_text())
+        current_mtimes = _trace_mtimes(traces_dir, list(meta['mtimes']))
+        if current_mtimes == meta['mtimes']:
+            df = pd.read_csv(csv_path, index_col=0)
+            print('  LOO comparison loaded from cache.')
+            return df
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def _save_comparison_cache(traces_dir, comparison_df, model_names):
+    """Persist LOO comparison results and trace mtimes to disk."""
+    meta = {'mtimes': _trace_mtimes(traces_dir, model_names)}
+    Path(traces_dir, _COMPARISON_META).write_text(json.dumps(meta))
+    comparison_df.to_csv(Path(traces_dir) / _COMPARISON_CSV)
+
+
+def _data_matching_traces(gdf, traces, n_areas_hint=None):
+    """
+    Build a data dict whose n_areas matches the loaded traces.
+
+    If traces were sampled on the full dataset but --n-areas was passed to the
+    CLI, the shapes would mismatch. We infer the correct n_areas from the trace.
+    """
+    first_trace  = next(iter(traces.values()))
+    trace_n_areas = first_trace.posterior['z'].shape[2]
+    if n_areas_hint is not None and n_areas_hint != trace_n_areas:
+        print(f'  Note: --n-areas={n_areas_hint} ignored; '
+              f'traces have {trace_n_areas} areas.')
+    return make_data_dict(gdf, n_areas=trace_n_areas)
 
 
 # ── run-models ────────────────────────────────────────────────────────────────
@@ -90,6 +148,11 @@ def cmd_run_models(args):
         m.save(results_dir=args.traces_dir)
         print(f'  {name} saved.')
 
+    # Invalidate comparison cache since traces have changed
+    for p in [Path(args.traces_dir) / _COMPARISON_CSV,
+              Path(args.traces_dir) / _COMPARISON_META]:
+        p.unlink(missing_ok=True)
+
     print('\nDone. Run `housing-projections compare` to see LOO results.')
 
 
@@ -109,7 +172,15 @@ def cmd_compare(args):
         sys.exit(1)
 
     print(f'\n── LOO model comparison ({len(traces)} models) ──────────────────')
-    comparison = compute_model_comparison(traces, verbose=True)
+    comparison = _load_comparison_cache(args.traces_dir)
+    if comparison is None:
+        comparison = compute_model_comparison(traces, verbose=True)
+        _save_comparison_cache(args.traces_dir, comparison, list(traces))
+    else:
+        display_cols = [c for c in ('elpd', 'se', 'p', 'elpd_diff', 'weight')
+                        if c in comparison.columns]
+        print(comparison[display_cols].to_string())
+        print(f'\n  Best model: {comparison.index[0]}')
 
     print('\n── Model agreement (z posterior correlation) ────────────────────')
     corr = compute_model_agreement_matrix(traces)
@@ -133,7 +204,6 @@ def cmd_report(args):
     validate_data_path(args.data_path)
     gdf = load_data(args.data_path)
     gdf, _ = apply_outlier_exclusion(gdf)
-    data = make_data_dict(gdf, n_areas=args.n_areas)
 
     model_names = (_parse_model_list(args.models) if args.models
                    else _discover_traces(args.traces_dir))
@@ -145,6 +215,22 @@ def cmd_report(args):
     print('\n── Loading traces ───────────────────────────────────────────────')
     traces = _load_traces(args.traces_dir, model_names)
 
+    # Build data dict matching the n_areas the traces were actually sampled on
+    data = _data_matching_traces(gdf, traces, n_areas_hint=args.n_areas)
+    print(f'   {data["n_areas"]} LSOAs, {data["n_years"]} inference years')
+
+    # Load or compute LOO comparison (shared cache with `compare` command)
+    comparison_df = None
+    if len(traces) > 1:
+        comparison_df = _load_comparison_cache(args.traces_dir)
+        if comparison_df is None:
+            print('  Computing LOO comparison (this may take a while)...')
+            try:
+                comparison_df = compute_model_comparison(traces, verbose=False)
+                _save_comparison_cache(args.traces_dir, comparison_df, list(traces))
+            except Exception as exc:  # noqa: BLE001
+                print(f'  Warning: LOO comparison failed ({exc}), skipping.')
+
     model_classes = {name: _ALL_MODELS[name] for name in traces if name in _ALL_MODELS}
 
     print(f'\n── Generating report → {args.output} ────────────────────────────')
@@ -155,18 +241,13 @@ def cmd_report(args):
         model_classes=model_classes,
         output_path=args.output,
         title=args.title,
+        comparison_df=comparison_df,
     )
     print(f'\nReport written to {args.output}')
 
     # Export uncertainty CSV alongside the report
-    if len(traces) > 1:
-        try:
-            from housing_projections.diagnostics import compute_model_comparison
-            comparison_df = compute_model_comparison(traces, verbose=False)
-        except Exception as exc:  # noqa: BLE001
-            print(f'  Warning: LOO comparison failed ({exc}), using equal weights')
-            comparison_df = None
-        lsoa_codes = gdf['LSOA21CD'].values if 'LSOA21CD' in gdf.columns else None
+    if len(traces) > 1 and comparison_df is not None:
+        lsoa_codes = data['gdf']['LSOA21CD'].values if 'LSOA21CD' in data['gdf'].columns else None
         unc_df = compute_decomposed_uncertainty(
             traces, comparison_df=comparison_df, lsoa_codes=lsoa_codes,
         )
