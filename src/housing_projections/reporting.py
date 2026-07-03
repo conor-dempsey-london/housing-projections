@@ -1,9 +1,42 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import housing_projections.plots as plots
-import housing_projections.diagnostics as diagnostics
+from housing_projections.diagnostics import (
+    full_diagnostics,
+    compute_lag_weights,
+    compute_lag_residuals,
+    compute_spatial_misallocation_stats,
+    _check_census_constraint,
+    _check_calibration,
+    _check_morans_i,
+)
+from housing_projections.plots.core import (
+    plot_prior_predictive,
+    plot_parameter_trace,
+    plot_posterior_predictive,
+    plot_sample_areas,
+    plot_residual_analysis,
+    plot_uncertainty_vs_disagreement,
+    plot_residuals_by_year,
+    plot_residuals_vs_D,
+)
+from housing_projections.plots.model import (
+    plot_lag_weights,
+    plot_lag_residuals,
+    plot_lag_residuals_by_year,
+    plot_lag_effect,
+    plot_lag_shift,
+    plot_missingness_posterior,
+    plot_zero_inflation_check,
+    plot_zero_residuals,
+    plot_missing_statistics,
+    plot_missingness_effect_on_z,
+    plot_negative_tail_comparison,
+    plot_twocomp_diagnostics,
+    plot_spatial_diagnostics,
+)
 
+__all__ = ["full_report", "run_comparison_reports"]
 
 # ── Model diagnostic registry ─────────────────────────────────────────────────
 # Maps model name to list of extra diagnostic functions to call after
@@ -19,13 +52,13 @@ def plot_lag_diagnostics(trace, data, title='M3', model=None):
     if 'lambda_weights' not in trace.posterior:
         print(f"{title}: lambda_weights fixed — skipping lag diagnostics")
         return
-    lag_results = diagnostics.compute_lag_weights(trace, verbose=True)
-    resids      = diagnostics.compute_lag_residuals(trace, data)
-    plots.plot_lag_weights(lag_results, title=title)
-    plots.plot_lag_residuals(resids, title=title)
-    plots.plot_lag_residuals_by_year(resids, title=title)
-    plots.plot_lag_effect(trace, data, title=title)
-    plots.plot_lag_shift(trace, data, title=title)
+    lag_results = compute_lag_weights(trace, verbose=True)
+    resids      = compute_lag_residuals(trace, data)
+    plot_lag_weights(lag_results, title=title)
+    plot_lag_residuals(resids, title=title)
+    plot_lag_residuals_by_year(resids, title=title)
+    plot_lag_effect(trace, data, title=title)
+    plot_lag_shift(trace, data, title=title)
 
 
 def plot_missingness_diagnostics(trace, data, title='M4', model=None,
@@ -38,23 +71,23 @@ def plot_missingness_diagnostics(trace, data, title='M4', model=None,
     for M3 vs M4 comparison plots.
     """
     lambda_weights = getattr(model, 'lambda_weights', None)
-    plots.plot_missingness_posterior(trace, title=title)
-    plots.plot_zero_inflation_check(trace, data, title=title)
-    resids = diagnostics.compute_lag_residuals(trace, data,
+    plot_missingness_posterior(trace, title=title)
+    plot_zero_inflation_check(trace, data, title=title)
+    resids = compute_lag_residuals(trace, data,
                                                lambda_weights=lambda_weights)
-    plots.plot_zero_residuals(resids, data['P_obs'], title=title)
-    plots.plot_missing_statistics(trace, data, title=title)
+    plot_zero_residuals(resids, data['P_obs'], title=title)
+    plot_missing_statistics(trace, data, title=title)
 
     if trace_before is not None:
-        plots.plot_missingness_effect_on_z(trace_before, trace, data, title=title)
+        plot_missingness_effect_on_z(trace_before, trace, data, title=title)
 
     if post_pred_before is not None and post_pred_after is not None:
-        plots.plot_negative_tail_comparison(post_pred_before, post_pred_after, data, title=title)
+        plot_negative_tail_comparison(post_pred_before, post_pred_after, data, title=title)
 
 
 def plot_spatial_diagnostics_report(trace, data, title='', model=None):
-    stats_dict = diagnostics.compute_spatial_misallocation_stats(trace, data)
-    plots.plot_spatial_diagnostics(stats_dict, title=title)
+    stats_dict = compute_spatial_misallocation_stats(trace, data)
+    plot_spatial_diagnostics(stats_dict, title=title)
 
 
 MODEL_DIAGNOSTICS = {
@@ -65,7 +98,7 @@ MODEL_DIAGNOSTICS = {
             plot_missingness_diagnostics],
     'M5b': [plot_lag_diagnostics,
             plot_missingness_diagnostics,
-            plots.plot_twocomp_diagnostics],
+            lambda trace, data, title='', model=None: plot_twocomp_diagnostics(trace, data, title=title)],
     'M6':  [plot_missingness_diagnostics,
             plot_spatial_diagnostics_report],
 }
@@ -100,35 +133,35 @@ def full_report(trace, data, post_pred, prior=None,
         print(f"  z 99th:     {np.percentile(z_prior, 99):.3f}")
         print(f"  z 1st:      {np.percentile(z_prior,  1):.3f}")
         print(f"  P(|z| < 3): {(np.abs(z_prior) < 3).mean():.3f}")
-        plots.plot_prior_predictive(prior, data, title=t)
+        plot_prior_predictive(prior, data, title=t)
 
     # Sampling diagnostics
-    diagnostics.full_diagnostics(trace, data, model=model, verbose=True)
+    full_diagnostics(trace, data, model=model, verbose=True)
 
     # Parameter traces
     if model is not None:
-        plots.plot_parameter_trace(trace, model.var_names, title=t)
+        plot_parameter_trace(trace, model.var_names, title=t)
 
     # Posterior predictive vs observed
-    plots.plot_posterior_predictive(post_pred, data, title=t)
+    plot_posterior_predictive(post_pred, data, title=t)
 
     # Sample area plots
-    plots.plot_sample_areas(trace, data, title=t, random_state=random_state)
+    plot_sample_areas(trace, data, title=t, random_state=random_state)
 
     # Residual analysis
-    plots.plot_residual_analysis(trace, data, title=t)
+    plot_residual_analysis(trace, data, title=t)
 
     # Uncertainty vs disagreement
     z_post = trace.posterior['z'].values
     fig, ax = plt.subplots(figsize=(8, 5))
-    plots.plot_uncertainty_vs_disagreement(
+    plot_uncertainty_vs_disagreement(
         ax, z_post, data['P_obs'], data['E_obs'])
     plt.suptitle(f'{t} — uncertainty vs source disagreement')
     plt.tight_layout()
     plt.show()
 
     # Census constraint check
-    census    = diagnostics.check_census_constraint(trace, data, verbose=True)
+    census    = _check_census_constraint(trace, data, verbose=True)
     z_sums    = z_post.sum(axis=-1).reshape(-1, data['n_areas'])
     residuals = (z_sums - data['D'][None, :]).ravel()
     fig, ax   = plt.subplots(figsize=(8, 4))
@@ -152,7 +185,7 @@ def full_report(trace, data, post_pred, prior=None,
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
     for ax, resid, label in zip(axes, [resid_plan, resid_ben],
                                  ['Planning', 'BEN']):
-        plots.plot_residuals_by_year(ax, resid, label)
+        plot_residuals_by_year(ax, resid, label)
     plt.suptitle(f'{t} — mean residuals by year')
     plt.tight_layout()
     plt.show()
@@ -161,14 +194,14 @@ def full_report(trace, data, post_pred, prior=None,
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
     for ax, resid, label in zip(axes, [resid_plan, resid_ben],
                                  ['Planning', 'BEN']):
-        plots.plot_residuals_vs_D(ax, resid, data['D'], label)
+        plot_residuals_vs_D(ax, resid, data['D'], label)
     plt.suptitle(f'{t} — residuals vs census diff')
     plt.tight_layout()
     plt.show()
 
     # Calibration and Moran's I
-    diagnostics.check_calibration(trace, data, verbose=True)
-    diagnostics.check_morans_i(trace, data, verbose=True)
+    _check_calibration(trace, data, verbose=True)
+    _check_morans_i(trace, data, verbose=True)
 
     # Model-specific diagnostics from registry
     if model is not None:
@@ -201,13 +234,13 @@ def missingness_comparison_report(trace_before, trace_after, data,
     label_before = parts[0].strip()
     label_after  = parts[1].strip()
 
-    plots.plot_negative_tail_comparison(
+    plot_negative_tail_comparison(
         post_pred_before, post_pred_after, data,
         title=title,
         label_before=label_before,
         label_after=label_after)
 
-    plots.plot_missingness_effect_on_z(
+    plot_missingness_effect_on_z(
         trace_before, trace_after, data,
         title=title,
         label_before=label_before,
@@ -225,26 +258,26 @@ def spatial_misallocation_comparison(trace_m5, trace_m6, data,
     label_after  = parts[1].strip()
 
     # ── Alpha spatial posterior ───────────────────────────────────────────
-    stats_m6 = diagnostics.compute_spatial_misallocation_stats(
+    stats_m6 = compute_spatial_misallocation_stats(
         trace_m6, data)
-    plots.plot_spatial_diagnostics(stats_m6, title=label_after)
+    plot_spatial_diagnostics(stats_m6, title=label_after)
 
     # ── Moran's I on planning residuals ───────────────────────────────────
     print(f"\nMoran's I on planning residuals — {label_before}:")
-    diagnostics.check_morans_i(trace_m5, data, verbose=True)
+    _check_morans_i(trace_m5, data, verbose=True)
 
     print(f"\nMoran's I on planning residuals — {label_after}:")
-    diagnostics.check_morans_i(trace_m6, data, verbose=True)
+    _check_morans_i(trace_m6, data, verbose=True)
 
     # ── Change in z inference ─────────────────────────────────────────────
-    plots.plot_missingness_effect_on_z(
+    plot_missingness_effect_on_z(
         trace_m5, trace_m6, data,
         title=title,
         label_before=label_before,
         label_after=label_after)
 
     # ── Negative tail ─────────────────────────────────────────────────────
-    plots.plot_negative_tail_comparison(
+    plot_negative_tail_comparison(
         post_pred_m5, post_pred_m6, data,
         title=title,
         label_before=label_before,

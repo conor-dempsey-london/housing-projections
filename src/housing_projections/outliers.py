@@ -9,7 +9,7 @@ from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YE
 
 # ── Detection ─────────────────────────────────────────────────────────────────
 
-def find_outliers(gdf, max_plausible=2000, min_plausible=-500,
+def _find_outliers(gdf, max_plausible=2000, min_plausible=-500,
                   discrepancy_threshold=500):
     """
     Find suspicious observations in planning and BEN data.
@@ -99,22 +99,22 @@ def find_outliers(gdf, max_plausible=2000, min_plausible=-500,
     return pd.DataFrame(records)
 
 
-def get_hard_outlier_lsoa_indices(outlier_df):
+def _get_hard_outlier_lsoa_indices(outlier_df):
     """Return unique LSOA indices with hard outliers only."""
     hard = outlier_df[outlier_df['severity'] == 'hard']
     return sorted(hard['lsoa_idx'].unique().tolist())
 
 
-def get_soft_outlier_lsoa_indices(outlier_df):
+def _get_soft_outlier_lsoa_indices(outlier_df):
     """Return unique LSOA indices with soft outliers only (excluding hard)."""
-    hard_idx = set(get_hard_outlier_lsoa_indices(outlier_df))
+    hard_idx = set(_get_hard_outlier_lsoa_indices(outlier_df))
     soft     = outlier_df[outlier_df['severity'] == 'soft']
     return sorted(set(soft['lsoa_idx'].unique().tolist()) - hard_idx)
 
 
 # ── Analysis ──────────────────────────────────────────────────────────────────
 
-def analyse_outliers(gdf, outlier_df, verbose=True):
+def _analyse_outliers(gdf, outlier_df, verbose=True):
     """
     Print a summary of detected outliers broken down by severity.
 
@@ -171,10 +171,10 @@ def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
     severity : 'hard', 'soft', or 'both'
     """
     if severity == 'hard':
-        indices = get_hard_outlier_lsoa_indices(outlier_df)
+        indices = _get_hard_outlier_lsoa_indices(outlier_df)
         sev_label = 'hard'
     elif severity == 'soft':
-        indices = get_soft_outlier_lsoa_indices(outlier_df)
+        indices = _get_soft_outlier_lsoa_indices(outlier_df)
         sev_label = 'soft'
     else:
         indices   = sorted(outlier_df['lsoa_idx'].unique().tolist())
@@ -232,7 +232,7 @@ def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
 
 # ── Exclusion ─────────────────────────────────────────────────────────────────
 
-def exclude_hard_outlier_lsoas(gdf, outlier_df, verbose=True):
+def _exclude_hard_outlier_lsoas(gdf, outlier_df, verbose=True):
     """
     Return a copy of gdf with hard outlier LSOAs removed.
     Soft outlier LSOAs are retained.
@@ -247,8 +247,8 @@ def exclude_hard_outlier_lsoas(gdf, outlier_df, verbose=True):
     -------
     GeoDataFrame with hard outlier LSOAs removed and index reset
     """
-    hard_indices = get_hard_outlier_lsoa_indices(outlier_df)
-    soft_indices = get_soft_outlier_lsoa_indices(outlier_df)
+    hard_indices = _get_hard_outlier_lsoa_indices(outlier_df)
+    soft_indices = _get_soft_outlier_lsoa_indices(outlier_df)
 
     mask     = ~pd.Series(range(len(gdf))).isin(hard_indices)
     gdf_clean = gdf[mask.values].reset_index(drop=True)
@@ -285,16 +285,16 @@ def apply_outlier_exclusion(gdf, max_plausible=2000, min_plausible=-500,
     tuple of (GeoDataFrame, pd.DataFrame)
         cleaned GeoDataFrame and full outlier_df for inspection
     """
-    outlier_df = find_outliers(
+    outlier_df = _find_outliers(
         gdf,
         max_plausible         = max_plausible,
         min_plausible         = min_plausible,
         discrepancy_threshold = discrepancy_threshold,
     )
 
-    analyse_outliers(gdf, outlier_df, verbose=verbose)
+    _analyse_outliers(gdf, outlier_df, verbose=verbose)
 
-    gdf_clean = exclude_hard_outlier_lsoas(gdf, outlier_df, verbose=verbose)
+    gdf_clean = _exclude_hard_outlier_lsoas(gdf, outlier_df, verbose=verbose)
 
     if verbose:
         print(f"\n   To inspect flagged areas further:")
@@ -320,8 +320,8 @@ def plot_outlier_map(gdf, outlier_df):
     gdf        : GeoDataFrame — full dataset (before exclusion)
     outlier_df : pd.DataFrame — output of find_outliers()
     """
-    hard_indices = set(get_hard_outlier_lsoa_indices(outlier_df))
-    soft_indices = set(get_soft_outlier_lsoa_indices(outlier_df))
+    hard_indices = set(_get_hard_outlier_lsoa_indices(outlier_df))
+    soft_indices = set(_get_soft_outlier_lsoa_indices(outlier_df))
 
     def classify(idx):
         if idx in hard_indices:

@@ -1,6 +1,10 @@
 from housing_projections.data import load_data, make_data_dict, select_spatial_sample
 from housing_projections.diagnostics import full_diagnostics
-from housing_projections.outliers import apply_outlier_exclusion, plot_outlier_areas, plot_outlier_map
+from housing_projections.outliers import (
+    apply_outlier_exclusion,
+    plot_outlier_areas,
+    plot_outlier_map,
+)
 from housing_projections.plots import (
     plot_sample_areas,
     plot_posterior_predictive,

@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+
+__all__ = ["DwellingModel"]
 import pymc as pm
 import arviz as az
 import numpy as np

@@ -4,7 +4,7 @@ import pandas as pd
 
 from housing_projections.spatial import build_spatial_weights, build_weights_libpysal, morans_i
 
-def check_rhat(trace, var_names=None, threshold=1.01, verbose=False):
+def _check_rhat(trace, var_names=None, threshold=1.01, verbose=False):
     """
     Check r-hat convergence for all or specified variables.
 
@@ -28,7 +28,7 @@ def check_rhat(trace, var_names=None, threshold=1.01, verbose=False):
     return {'summary': summary, 'problematic': problematic}
 
 
-def check_divergences(trace, verbose=False):
+def _check_divergences(trace, verbose=False):
     """
     Check number of divergences in trace.
 
@@ -48,7 +48,7 @@ def check_divergences(trace, verbose=False):
     return n_divergences
 
 
-def check_calibration(trace, data, alpha=0.1, verbose=False):
+def _check_calibration(trace, data, alpha=0.1, verbose=False):
     """
     Check calibration coverage of posterior credible intervals
     against planning and BEN observations.
@@ -79,7 +79,7 @@ def check_calibration(trace, data, alpha=0.1, verbose=False):
     return coverage
 
 
-def check_census_constraint(trace, data, verbose=False):
+def _check_census_constraint(trace, data, verbose=False):
     """
     Check how well the census constraint is satisfied in the posterior.
 
@@ -104,7 +104,7 @@ def check_census_constraint(trace, data, verbose=False):
     return result
 
 
-def check_morans_i(trace, data, verbose=False):
+def _check_morans_i(trace, data, verbose=False):
     """
     Compute Moran's I on mean posterior residuals for planning and BEN.
 
@@ -134,7 +134,7 @@ def check_morans_i(trace, data, verbose=False):
     return result
 
 
-def check_residuals(trace, data, verbose=False):
+def _check_residuals(trace, data, verbose=False):
     """
     Compute residual statistics for planning and BEN.
 
@@ -182,12 +182,12 @@ def full_diagnostics(trace, data, model=None, verbose=True):
     var_names = model.var_names if model is not None else None
 
     return {
-        'rhat':             check_rhat(trace,             var_names=var_names, verbose=verbose),
-        'divergences':      check_divergences(trace,                           verbose=verbose),
-        'calibration':      check_calibration(trace, data,                     verbose=verbose),
-        'census':           check_census_constraint(trace, data,               verbose=verbose),
-        'residuals':        check_residuals(trace, data,                       verbose=verbose),
-        'morans_i':         check_morans_i(trace, data,                        verbose=verbose),
+        'rhat':        _check_rhat(trace,             var_names=var_names, verbose=verbose),
+        'divergences': _check_divergences(trace,                           verbose=verbose),
+        'calibration': _check_calibration(trace, data,                     verbose=verbose),
+        'census':      _check_census_constraint(trace, data,               verbose=verbose),
+        'residuals':   _check_residuals(trace, data,                       verbose=verbose),
+        'morans_i':    _check_morans_i(trace, data,                        verbose=verbose),
     }
 
 

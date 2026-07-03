@@ -3,7 +3,7 @@ import geopandas as gpd
 import pandas as pd
 import pytest
 
-from housing_projections.outliers import apply_outlier_exclusion, get_hard_outlier_lsoa_indices
+from housing_projections.outliers import apply_outlier_exclusion, _get_hard_outlier_lsoa_indices
 
 
 class TestApplyOutlierExclusion:
@@ -26,5 +26,5 @@ class TestApplyOutlierExclusion:
 
     def test_hard_outliers_removed(self, outlier_gdf):
         gdf_clean, outlier_df = apply_outlier_exclusion(outlier_gdf, verbose=False)
-        hard_idx = get_hard_outlier_lsoa_indices(outlier_df)
+        hard_idx = _get_hard_outlier_lsoa_indices(outlier_df)
         assert len(gdf_clean) == len(outlier_gdf) - len(hard_idx)
