@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS
-from housing_projections.spatial import build_weights_libpysal, morans_i
+from housing_projections.spatial import build_weights_libpysal, compute_morans_i
 import matplotlib.patches as mpatches
 from esda.moran import Moran, Moran_Local
 import matplotlib.cm as mcm
@@ -21,8 +21,8 @@ def plot_morans_i_by_year(gdf):
     results_ben  = []
 
     for col_p, col_b, yr in zip(INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS):
-        results_plan.append(morans_i(gdf[col_p].values, w))
-        results_ben.append(morans_i(gdf[col_b].values,  w))
+        results_plan.append(compute_morans_i(gdf[col_p].values, w))
+        results_ben.append(compute_morans_i(gdf[col_b].values,  w))
 
     df_plan = pd.DataFrame(results_plan, index=INFER_YEARS)
     df_ben  = pd.DataFrame(results_ben,  index=INFER_YEARS)

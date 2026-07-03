@@ -162,6 +162,16 @@ def _analyse_outliers(gdf, outlier_df, verbose=True):
     return result
 
 
+def plot_hard_outlier_areas(gdf, outlier_df, n_cols=3):
+    """Plot time series for hard-outlier LSOAs only."""
+    plot_outlier_areas(gdf, outlier_df, severity='hard', n_cols=n_cols)
+
+
+def plot_soft_outlier_areas(gdf, outlier_df, n_cols=3):
+    """Plot time series for soft-outlier LSOAs only."""
+    plot_outlier_areas(gdf, outlier_df, severity='soft', n_cols=n_cols)
+
+
 def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
     """
     Plot planning and BEN time series for flagged areas.

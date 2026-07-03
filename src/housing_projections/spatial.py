@@ -102,7 +102,7 @@ class SpatialLagTransformer(BaseEstimator, TransformerMixin):
 
 # ── Moran's I ─────────────────────────────────────────────────────────────────
 
-def morans_i(values, w, permutations=999):
+def compute_morans_i(values, w, permutations=999):
     """
     Compute Moran's I for a vector of values given a weights matrix.
 
@@ -116,7 +116,6 @@ def morans_i(values, w, permutations=999):
     -------
     dict with keys 'I', 'p_value', 'z_score'
     """
-
     m = Moran(values, w, permutations=permutations)
     return {
         'I':       m.I,
@@ -125,7 +124,7 @@ def morans_i(values, w, permutations=999):
     }
 
 
-def morans_i_by_year(values_by_year, w, permutations=999):
+def compute_morans_i_by_year(values_by_year, w, permutations=999):
     """
     Compute Moran's I for each year independently.
 
@@ -139,7 +138,7 @@ def morans_i_by_year(values_by_year, w, permutations=999):
     pd.DataFrame with columns I, p_value, z_score indexed by year
     """
     results = [
-        morans_i(values_by_year[:, t], w, permutations=permutations)
+        compute_morans_i(values_by_year[:, t], w, permutations=permutations)
         for t in range(values_by_year.shape[1])
     ]
     return pd.DataFrame(results)

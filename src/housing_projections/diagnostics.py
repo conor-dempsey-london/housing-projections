@@ -2,7 +2,7 @@ import numpy as np
 import arviz as az
 import pandas as pd
 
-from housing_projections.spatial import build_spatial_weights, build_weights_libpysal, morans_i
+from housing_projections.spatial import build_spatial_weights, build_weights_libpysal, compute_morans_i
 
 def _check_rhat(trace, var_names=None, threshold=1.01, verbose=False):
     """
@@ -122,8 +122,8 @@ def _check_morans_i(trace, data, verbose=False):
     w = build_weights_libpysal(data['gdf'])
 
     result = {
-        'planning': morans_i(resid_plan, w),
-        'ben':      morans_i(resid_ben,  w),
+        'planning': compute_morans_i(resid_plan, w),
+        'ben':      compute_morans_i(resid_ben,  w),
     }
 
     if verbose:

@@ -43,7 +43,7 @@ __all__ = ["full_report", "run_comparison_reports"]
 # the standard suite. Each function takes (trace, data, title, model).
 # Add new models here — no changes needed elsewhere.
 
-def plot_lag_diagnostics(trace, data, title='M3', model=None):
+def _plot_lag_diagnostics(trace, data, title='M3', model=None):
     """
     Orchestrate all M3 lag diagnostic plots.
     Computes lag weights and residuals via diagnostics, then passes
@@ -61,7 +61,7 @@ def plot_lag_diagnostics(trace, data, title='M3', model=None):
     plot_lag_shift(trace, data, title=title)
 
 
-def plot_missingness_diagnostics(trace, data, title='M4', model=None,
+def _plot_missingness_diagnostics(trace, data, title='M4', model=None,
                                   trace_before=None, post_pred_before=None,
                                   post_pred_after=None):
     """
@@ -85,22 +85,22 @@ def plot_missingness_diagnostics(trace, data, title='M4', model=None,
         plot_negative_tail_comparison(post_pred_before, post_pred_after, data, title=title)
 
 
-def plot_spatial_diagnostics_report(trace, data, title='', model=None):
+def _plot_spatial_diagnostics_report(trace, data, title='', model=None):
     stats_dict = compute_spatial_misallocation_stats(trace, data)
     plot_spatial_diagnostics(stats_dict, title=title)
 
 
 MODEL_DIAGNOSTICS = {
-    'M3':  [plot_lag_diagnostics],
-    'M4':  [plot_lag_diagnostics,
-            plot_missingness_diagnostics],
-    'M5':  [plot_lag_diagnostics,
-            plot_missingness_diagnostics],
-    'M5b': [plot_lag_diagnostics,
-            plot_missingness_diagnostics,
+    'M3':  [_plot_lag_diagnostics],
+    'M4':  [_plot_lag_diagnostics,
+            _plot_missingness_diagnostics],
+    'M5':  [_plot_lag_diagnostics,
+            _plot_missingness_diagnostics],
+    'M5b': [_plot_lag_diagnostics,
+            _plot_missingness_diagnostics,
             lambda trace, data, title='', model=None: plot_twocomp_diagnostics(trace, data, title=title)],
-    'M6':  [plot_missingness_diagnostics,
-            plot_spatial_diagnostics_report],
+    'M6':  [_plot_missingness_diagnostics,
+            _plot_spatial_diagnostics_report],
 }
 
 

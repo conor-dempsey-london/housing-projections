@@ -280,5 +280,5 @@ class DwellingModel(ABC):
             return
         try:
             self.trace.close()
-        except Exception:
+        except Exception:  # noqa: BLE001 — intentionally swallow close() errors on Windows
             pass

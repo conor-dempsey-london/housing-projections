@@ -3,6 +3,8 @@ from housing_projections.diagnostics import full_diagnostics
 from housing_projections.outliers import (
     apply_outlier_exclusion,
     plot_outlier_areas,
+    plot_hard_outlier_areas,
+    plot_soft_outlier_areas,
     plot_outlier_map,
 )
 from housing_projections.plots import (
@@ -17,8 +19,8 @@ from housing_projections.reporting import full_report, run_comparison_reports
 from housing_projections.spatial import (
     build_weights_libpysal,
     build_spatial_weights,
-    morans_i,
-    morans_i_by_year,
+    compute_morans_i,
+    compute_morans_i_by_year,
     add_spatial_lag_features,
     SpatialLagTransformer,
 )
@@ -33,6 +35,8 @@ __all__ = [
     # outliers
     "apply_outlier_exclusion",
     "plot_outlier_areas",
+    "plot_hard_outlier_areas",
+    "plot_soft_outlier_areas",
     "plot_outlier_map",
     # plots
     "plot_sample_areas",
@@ -47,8 +51,8 @@ __all__ = [
     # spatial
     "build_weights_libpysal",
     "build_spatial_weights",
-    "morans_i",
-    "morans_i_by_year",
+    "compute_morans_i",
+    "compute_morans_i_by_year",
     "add_spatial_lag_features",
     "SpatialLagTransformer",
 ]

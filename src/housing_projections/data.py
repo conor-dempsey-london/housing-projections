@@ -39,7 +39,26 @@ def load_csv(
 
 
 def load_data(data_path):
+    """
+    Load, merge, and return a GeoDataFrame of London LSOAs with all data
+    needed for modelling: census dwelling counts (2011 and 2021), planning
+    completions (PLD), and BEN current estimates.
 
+    Parameters
+    ----------
+    data_path : str or Path
+        Root directory containing the raw data subdirectories:
+        - ``pld/lsoa_completions_time_series_pivot.csv``
+        - ``ben/final_residential_uprn_net_changes_by_oa_fy (1).csv``
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        One row per LSOA (2021 boundaries). Key columns:
+        ``LSOA21CD``, ``dwellings_2011``, ``dwellings_2021``,
+        ``intercensal_change``, planning columns (INFER_COLS_PLAN),
+        BEN columns (INFER_COLS_BEN), plus ``geometry``.
+    """
     # get completions
     completions = load_csv(
         os.path.join(data_path, 'pld'),
@@ -150,7 +169,29 @@ def select_spatial_sample(gdf, n_areas=200,
     return gdf_sample
 
 def make_data_dict(gdf, n_areas=None):
+    """
+    Convert a GeoDataFrame into the dict format expected by all models
+    and diagnostic functions.
 
+    Parameters
+    ----------
+    gdf      : gpd.GeoDataFrame — output of ``load_data()`` or ``select_spatial_sample()``
+    n_areas  : int or None — if given, take only the first ``n_areas`` rows (for quick tests)
+
+    Returns
+    -------
+    dict with keys:
+        ``D``            — census intercensal change (n_areas,)
+        ``P_obs``        — planning completions (n_areas, n_years)
+        ``E_obs``        — BEN estimates (n_areas, n_years)
+        ``P_obs_full``   — planning over full time window (n_areas, n_years_full)
+        ``E_obs_full``   — BEN over full time window (n_areas, n_years_full)
+        ``n_years``      — number of inference years
+        ``n_years_full`` — number of years in full time window
+        ``n_areas``      — number of LSOAs
+        ``gdf``          — GeoDataFrame (possibly subsetted)
+        ``D_full_mean``  — mean intercensal change over the full (unsubsetted) dataset
+    """
     D_full_mean = float(
         (gdf['dwellings_2021'] - gdf['dwellings_2011']).mean()
     )
