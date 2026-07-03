@@ -21,6 +21,15 @@ from housing_projections.plots import (
     plot_spatial_diagnostics,
 )
 from housing_projections.reporting import full_report, run_comparison_reports
+from housing_projections.sensitivity import (
+    compute_model_agreement_matrix,
+    compute_z_ensemble,
+    compute_z_model_sensitivity,
+    plot_model_agreement_matrix,
+    plot_sensitivity_vs_disagreement,
+    plot_z_range_distribution,
+    plot_z_sensitivity_map,
+)
 from housing_projections.spatial import (
     SpatialLagTransformer,
     add_spatial_lag_features,
@@ -55,6 +64,14 @@ __all__ = [
     # reporting
     "full_report",
     "run_comparison_reports",
+    # sensitivity
+    "compute_z_model_sensitivity",
+    "compute_model_agreement_matrix",
+    "compute_z_ensemble",
+    "plot_z_sensitivity_map",
+    "plot_model_agreement_matrix",
+    "plot_z_range_distribution",
+    "plot_sensitivity_vs_disagreement",
     # spatial
     "build_weights_libpysal",
     "build_spatial_weights",
