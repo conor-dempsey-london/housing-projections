@@ -20,6 +20,7 @@ from housing_projections.html_report import generate_report
 from housing_projections.models import M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M0h, M5b
 from housing_projections.outliers import apply_outlier_exclusion
 from housing_projections.sensitivity import (
+    compute_decomposed_uncertainty,
     compute_model_agreement_matrix,
     compute_z_model_sensitivity,
 )
@@ -156,6 +157,22 @@ def cmd_report(args):
         title=args.title,
     )
     print(f'\nReport written to {args.output}')
+
+    # Export uncertainty CSV alongside the report
+    if len(traces) > 1:
+        try:
+            from housing_projections.diagnostics import compute_model_comparison
+            comparison_df = compute_model_comparison(traces, verbose=False)
+        except Exception as exc:  # noqa: BLE001
+            print(f'  Warning: LOO comparison failed ({exc}), using equal weights')
+            comparison_df = None
+        lsoa_codes = gdf['LSOA21CD'].values if 'LSOA21CD' in gdf.columns else None
+        unc_df = compute_decomposed_uncertainty(
+            traces, comparison_df=comparison_df, lsoa_codes=lsoa_codes,
+        )
+        csv_path = Path(args.output).with_suffix('.uncertainty.csv')
+        unc_df.to_csv(csv_path, index=False)
+        print(f'Uncertainty estimates written to {csv_path}')
 
 
 # ── Argument parser ───────────────────────────────────────────────────────────

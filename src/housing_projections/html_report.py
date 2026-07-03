@@ -28,9 +28,12 @@ from housing_projections.eda import (
     plot_total_agreement,
 )
 from housing_projections.sensitivity import (
+    compute_decomposed_uncertainty,
     compute_model_agreement_matrix,
     compute_z_ensemble,
     compute_z_model_sensitivity,
+    plot_ensemble_mean_map,
+    plot_estimate_vs_uncertainty,
     plot_model_agreement_matrix,
     plot_sensitivity_vs_disagreement,
     plot_z_range_distribution,
@@ -453,11 +456,11 @@ def _build_model_comparison(traces, comparison_df):
     return html, summary
 
 
-def _build_sensitivity_summary(sensitivity_summary, data, traces):
+def _build_sensitivity_summary(sensitivity_summary, data, traces, comparison_df=None):
     gdf = data['gdf']
     html = ''
 
-    std_col = sensitivity_summary['z_std_across_models']
+    std_col   = sensitivity_summary['z_std_across_models']
     range_col = sensitivity_summary['z_range_across_models']
 
     html += _stat_row([
@@ -472,7 +475,6 @@ def _build_sensitivity_summary(sensitivity_summary, data, traces):
         'means that, on average, different model assumptions shift the inferred annual '
         'dwelling delivery by less than one dwelling per LSOA. Areas with high sensitivity '
         'are typically those with high source disagreement or sparse data.'
-
     )
 
     # Sensitivity map
@@ -500,14 +502,78 @@ def _build_sensitivity_summary(sensitivity_summary, data, traces):
     except Exception:
         pass
 
-    # Ensemble z
-    ensemble = compute_z_ensemble(traces)
-    ensemble_mean = float(ensemble.mean())
-    ensemble_std  = float(ensemble.std())
-    html += _finding(
-        f'LOO-stacking ensemble z: mean = {ensemble_mean:.2f}, '
-        f'std = {ensemble_std:.2f} dwellings/year across all LSOAs and years.'
-    )
+    # ── Decomposed uncertainty ────────────────────────────────────────────────
+    html += _subsection('Decomposed Uncertainty', '')
+
+    html += '''
+    <p>A credible interval from a single model only captures <em>within-model</em> uncertainty
+    (sampling variance given that model's assumptions). If different models place z in very
+    different locations for the same LSOA, the true uncertainty is larger than any single
+    model interval suggests.</p>
+    <p>We decompose total uncertainty into two components:</p>
+    <ul>
+      <li><strong>Within-model:</strong> LOO-weighted average of per-model posterior SDs —
+          how wide the posterior is given each model's assumptions.</li>
+      <li><strong>Between-model:</strong> std of posterior means across models —
+          how much the estimate itself shifts when model assumptions change.</li>
+    </ul>
+    <p>Total uncertainty = √(within² + between²). The <strong>confidence tier</strong>
+    (High / Medium / Low) is assigned by the coefficient of variation of total uncertainty
+    relative to the ensemble mean estimate.</p>
+    '''
+
+    try:
+        lsoa_codes = gdf['LSOA21CD'].values if 'LSOA21CD' in gdf.columns else None
+        unc_df = compute_decomposed_uncertainty(
+            traces, comparison_df=comparison_df, lsoa_codes=lsoa_codes,
+        )
+
+        # Summary stats
+        html += _stat_row([
+            ('Mean within-model uncertainty', f'{unc_df["z_within_uncertainty"].mean():.2f} dw/yr'),
+            ('Mean between-model uncertainty', f'{unc_df["z_between_uncertainty"].mean():.2f} dw/yr'),
+            ('Mean total uncertainty', f'{unc_df["z_total_uncertainty"].mean():.2f} dw/yr'),
+        ])
+
+        tier_counts = unc_df['confidence_tier'].value_counts()
+        n = len(unc_df)
+        tier_html = ' | '.join(
+            f'<strong>{t}</strong>: {tier_counts.get(t, 0)} ({tier_counts.get(t, 0)/n*100:.0f}%)'
+            for t in ('High', 'Medium', 'Low')
+        )
+        html += f'<p>Confidence tier distribution: {tier_html}</p>'
+
+        dominant = 'between-model' if (
+            unc_df['z_between_uncertainty'].mean() > unc_df['z_within_uncertainty'].mean()
+        ) else 'within-model'
+        html += _finding(
+            f'The dominant source of uncertainty is <strong>{dominant}</strong>. '
+            + ('Model choice drives more uncertainty than sampling variance — '
+               'this suggests the ensemble estimate is more trustworthy than any single model.'
+               if dominant == 'between-model'
+               else 'Sampling variance dominates — models broadly agree on where z is, '
+                    'but each has wide posteriors.')
+        )
+
+        # Ensemble mean + uncertainty maps
+        fig = plot_ensemble_mean_map(gdf.iloc[:len(unc_df)].copy(), unc_df)
+        html += _html_fig(
+            fig,
+            'Left: LOO-stacking ensemble mean z (dwelling delivery rate). '
+            'Right: total uncertainty — areas in red should be interpreted with more caution.'
+        )
+
+        # Estimate vs uncertainty scatter + decomposition
+        fig = plot_estimate_vs_uncertainty(unc_df)
+        html += _html_fig(
+            fig,
+            'Left: ensemble mean z vs total uncertainty, coloured by confidence tier. '
+            'Right: within-model vs between-model uncertainty decomposition. '
+            'Points above the diagonal are LSOAs where model choice matters more than sampling noise.'
+        )
+
+    except Exception:
+        html += '<p><em>Uncertainty decomposition could not be computed.</em></p>'
 
     return html
 
@@ -618,7 +684,7 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
     sens_html = ''
     if sensitivity_summary is not None:
         try:
-            sens_html = _build_sensitivity_summary(sensitivity_summary, data, traces)
+            sens_html = _build_sensitivity_summary(sensitivity_summary, data, traces, comparison_df=comparison_df)
         except Exception as e:
             sens_html = f'<p>[Error: {e}]</p>'
     else:
