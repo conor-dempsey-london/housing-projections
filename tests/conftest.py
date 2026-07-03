@@ -15,6 +15,7 @@ from housing_projections.config import (
     INFER_COLS_BEN,
     INFER_COLS_PLAN,
 )
+from housing_projections.data import make_data_dict
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,6 @@ def synthetic_gdf(rng):
 
 @pytest.fixture(scope='session')
 def data_dict(synthetic_gdf):
-    from housing_projections.data import make_data_dict
     return make_data_dict(synthetic_gdf)
 
 

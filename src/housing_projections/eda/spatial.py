@@ -352,8 +352,6 @@ def plot_spatial_autocorrelation_change(gdf,
                                          col_2011='dwellings_2011',
                                          col_2021='dwellings_2021',
                                          quantile_clip=0.95):
-    from housing_projections.spatial import build_weights_libpysal
-
     D     = gdf[col_2021].values - gdf[col_2011].values
     w     = build_weights_libpysal(gdf)
     moran = Moran(D, w)

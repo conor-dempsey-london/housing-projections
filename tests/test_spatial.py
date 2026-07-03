@@ -3,6 +3,7 @@ Tests for housing_projections.spatial — public API smoke tests.
 All tests use the synthetic 3×3 GDF from conftest and run offline.
 """
 import numpy as np
+import pandas as pd
 
 from housing_projections.config import INFER_COLS_PLAN
 from housing_projections.spatial import (
@@ -53,7 +54,6 @@ class TestMoransI:
         assert -1.0 <= result['I'] <= 1.0
 
     def test_by_year_returns_dataframe(self, synthetic_gdf):
-        import pandas as pd
         w = build_weights_libpysal(synthetic_gdf)
         values_by_year = synthetic_gdf[INFER_COLS_PLAN].values.astype(float)
         df = compute_morans_i_by_year(values_by_year, w, permutations=9)

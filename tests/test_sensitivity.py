@@ -1,5 +1,6 @@
 """Unit tests for housing_projections.sensitivity — no real traces required."""
 import numpy as np
+import pandas as pd
 
 from housing_projections.sensitivity import (
     compute_model_agreement_matrix,
@@ -147,7 +148,6 @@ class TestComputeZEnsemble:
         np.testing.assert_allclose(ensemble, z, atol=1e-10)
 
     def test_with_comparison_df(self):
-        import pandas as pd
         traces = _make_traces(n_models=2)
         comp = pd.DataFrame({'weight': [0.8, 0.2]}, index=['M0', 'M1'])
         ensemble = compute_z_ensemble(traces, comparison_df=comp)

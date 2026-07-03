@@ -12,12 +12,22 @@ import os
 import sys
 from pathlib import Path
 
+import arviz as az
+
+from housing_projections.data import load_data, make_data_dict, validate_data_path
+from housing_projections.diagnostics import compute_model_comparison
+from housing_projections.html_report import generate_report
+from housing_projections.models import M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M0h, M5b
+from housing_projections.outliers import apply_outlier_exclusion
+from housing_projections.sensitivity import (
+    compute_model_agreement_matrix,
+    compute_z_model_sensitivity,
+)
+
+_ALL_MODELS = {m.name: m for m in [M0, M0h, M1, M2, M3, M4, M5, M5b, M6, M7, M8, M9]}
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _all_model_names():
-    from housing_projections.models import M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M0h, M5b
-    return {m.name: m for m in [M0, M0h, M1, M2, M3, M4, M5, M5b, M6, M7, M8, M9]}
-
 
 def _parse_model_list(s):
     """Parse 'M0,M3,M5' → ['M0', 'M3', 'M5']."""
@@ -26,7 +36,6 @@ def _parse_model_list(s):
 
 def _load_traces(traces_dir, model_names):
     """Load saved .nc traces. Silently skips models with no saved file."""
-    import arviz as az
     traces = {}
     for name in model_names:
         path = Path(traces_dir) / f'{name}.nc'
@@ -49,14 +58,10 @@ def _discover_traces(traces_dir):
 # ── run-models ────────────────────────────────────────────────────────────────
 
 def cmd_run_models(args):
-    from housing_projections.data import load_data, make_data_dict, validate_data_path
-    from housing_projections.outliers import apply_outlier_exclusion
-
-    all_models = _all_model_names()
-    model_names = _parse_model_list(args.models) if args.models else list(all_models)
-    invalid = [n for n in model_names if n not in all_models]
+    model_names = _parse_model_list(args.models) if args.models else list(_ALL_MODELS)
+    invalid = [n for n in model_names if n not in _ALL_MODELS]
     if invalid:
-        print(f'Unknown model(s): {invalid}. Available: {list(all_models)}', file=sys.stderr)
+        print(f'Unknown model(s): {invalid}. Available: {list(_ALL_MODELS)}', file=sys.stderr)
         sys.exit(1)
 
     print(f'\n── Loading data from {args.data_path} ───────────────────────────')
@@ -70,7 +75,7 @@ def cmd_run_models(args):
     os.makedirs(args.traces_dir, exist_ok=True)
 
     for name in model_names:
-        ModelClass = all_models[name]
+        ModelClass = _ALL_MODELS[name]
         # M8 requires borough_idx — skip unless user provides borough data
         if name == 'M8' and 'borough_idx' not in data:
             print('\n  [skip] M8 requires borough_idx in data dict. '
@@ -90,12 +95,6 @@ def cmd_run_models(args):
 # ── compare ───────────────────────────────────────────────────────────────────
 
 def cmd_compare(args):
-    from housing_projections.diagnostics import compute_model_comparison
-    from housing_projections.sensitivity import (
-        compute_model_agreement_matrix,
-        compute_z_model_sensitivity,
-    )
-
     model_names = (_parse_model_list(args.models) if args.models
                    else _discover_traces(args.traces_dir))
     if not model_names:
@@ -129,10 +128,6 @@ def cmd_compare(args):
 # ── report ────────────────────────────────────────────────────────────────────
 
 def cmd_report(args):
-    from housing_projections.data import load_data, make_data_dict, validate_data_path
-    from housing_projections.html_report import generate_report
-    from housing_projections.outliers import apply_outlier_exclusion
-
     print(f'\n── Loading data from {args.data_path} ───────────────────────────')
     validate_data_path(args.data_path)
     gdf = load_data(args.data_path)
@@ -149,8 +144,7 @@ def cmd_report(args):
     print('\n── Loading traces ───────────────────────────────────────────────')
     traces = _load_traces(args.traces_dir, model_names)
 
-    all_models = _all_model_names()
-    model_classes = {name: all_models[name] for name in traces if name in all_models}
+    model_classes = {name: _ALL_MODELS[name] for name in traces if name in _ALL_MODELS}
 
     print(f'\n── Generating report → {args.output} ────────────────────────────')
     os.makedirs(Path(args.output).parent, exist_ok=True)

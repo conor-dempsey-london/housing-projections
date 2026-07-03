@@ -11,8 +11,32 @@ from datetime import date
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 matplotlib.use('Agg')   # non-interactive backend for script usage
+
+from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN
+from housing_projections.diagnostics import compute_model_comparison, full_diagnostics
+from housing_projections.eda import (
+    compute_agreement_stats,
+    compute_overall_correlation,
+    plot_annual_p_vs_e,
+    plot_cumulative_vs_intercensal,
+    plot_lag_candidates,
+    plot_mean_trends,
+    plot_morans_i_by_year,
+    plot_total_agreement,
+)
+from housing_projections.sensitivity import (
+    compute_model_agreement_matrix,
+    compute_z_ensemble,
+    compute_z_model_sensitivity,
+    plot_model_agreement_matrix,
+    plot_sensitivity_vs_disagreement,
+    plot_z_range_distribution,
+    plot_z_sensitivity_map,
+)
+from housing_projections.spatial import build_weights_libpysal
 
 __all__ = ['generate_report']
 
@@ -184,8 +208,6 @@ def _stat_row(stats):
 # ── Section builders ──────────────────────────────────────────────────────────
 
 def _build_executive_summary(data, traces, comparison_df, sensitivity_summary):
-    from housing_projections.diagnostics import full_diagnostics
-
     html = ''
     html += _callout(
         f'<strong>Data:</strong> {data["n_areas"]:,} London LSOAs &nbsp;·&nbsp; '
@@ -218,26 +240,12 @@ def _build_executive_summary(data, traces, comparison_df, sensitivity_summary):
             'Max R̂': float(diag['rhat']['max_rhat']) if diag.get('rhat') else float('nan'),
         })
 
-    import pandas as pd
     df = pd.DataFrame(rows)
     html += _df_to_html(df)
     return html
 
 
 def _build_eda(data):
-    from housing_projections.config import INFER_COLS_PLAN
-    from housing_projections.eda import (
-        compute_agreement_stats,
-        compute_overall_correlation,
-        plot_annual_p_vs_e,
-        plot_cumulative_vs_intercensal,
-        plot_lag_candidates,
-        plot_mean_trends,
-        plot_morans_i_by_year,
-        plot_total_agreement,
-    )
-    from housing_projections.spatial import build_weights_libpysal
-
     gdf = data['gdf']
     html = ''
 
@@ -342,7 +350,6 @@ def _build_problem_statement():
 
 def _build_model_walk_through(traces, data, model_classes):
     """One subsection per model in the comparison set."""
-    from housing_projections.diagnostics import full_diagnostics
 
     html = ''
     model_names_ordered = [n for n in
@@ -409,13 +416,6 @@ def _build_model_walk_through(traces, data, model_classes):
 
 
 def _build_model_comparison(traces, comparison_df):
-    from housing_projections.sensitivity import (
-        compute_model_agreement_matrix,
-        compute_z_model_sensitivity,
-        plot_model_agreement_matrix,
-        plot_z_range_distribution,
-    )
-
     html = ''
 
     # LOO table
@@ -452,13 +452,6 @@ def _build_model_comparison(traces, comparison_df):
 
 
 def _build_sensitivity_summary(sensitivity_summary, data, traces):
-    from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN
-    from housing_projections.sensitivity import (
-        compute_z_ensemble,
-        plot_sensitivity_vs_disagreement,
-        plot_z_sensitivity_map,
-    )
-
     gdf = data['gdf']
     html = ''
 
@@ -566,9 +559,6 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
     output_path   : str
     title         : str
     """
-    from housing_projections.diagnostics import compute_model_comparison
-    from housing_projections.sensitivity import compute_z_model_sensitivity
-
     print('  Building sections...')
 
     # ── LOO comparison ────────────────────────────────────────────────────────

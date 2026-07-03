@@ -1,7 +1,7 @@
 """Tests for housing_projections.models — .build() only, no sampling."""
 import numpy as np
 import pymc as pm
-import pytest
+import pytest  # noqa: F401
 
 from housing_projections.models.models import M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M0h, M5b
 
@@ -145,7 +145,6 @@ class TestM8Structure:
             m.build()
 
     def test_builds_with_borough_idx(self, data_dict):
-        import numpy as np
         n = data_dict['n_areas']
         data_with_borough = {
             **data_dict,
@@ -156,7 +155,6 @@ class TestM8Structure:
         assert isinstance(m.build(), pm.Model)
 
     def test_has_mu_borough(self, data_dict):
-        import numpy as np
         n = data_dict['n_areas']
         data_with_borough = {
             **data_dict,
