@@ -1,39 +1,39 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 from housing_projections.diagnostics import (
-    full_diagnostics,
-    compute_lag_weights,
-    compute_lag_residuals,
-    compute_spatial_misallocation_stats,
-    _check_census_constraint,
     _check_calibration,
+    _check_census_constraint,
     _check_morans_i,
+    compute_lag_residuals,
+    compute_lag_weights,
+    compute_spatial_misallocation_stats,
+    full_diagnostics,
 )
 from housing_projections.plots.core import (
-    plot_prior_predictive,
     plot_parameter_trace,
     plot_posterior_predictive,
-    plot_sample_areas,
+    plot_prior_predictive,
     plot_residual_analysis,
-    plot_uncertainty_vs_disagreement,
     plot_residuals_by_year,
     plot_residuals_vs_D,
+    plot_sample_areas,
+    plot_uncertainty_vs_disagreement,
 )
 from housing_projections.plots.model import (
-    plot_lag_weights,
+    plot_lag_effect,
     plot_lag_residuals,
     plot_lag_residuals_by_year,
-    plot_lag_effect,
     plot_lag_shift,
-    plot_missingness_posterior,
-    plot_zero_inflation_check,
-    plot_zero_residuals,
+    plot_lag_weights,
     plot_missing_statistics,
     plot_missingness_effect_on_z,
+    plot_missingness_posterior,
     plot_negative_tail_comparison,
-    plot_twocomp_diagnostics,
     plot_spatial_diagnostics,
+    plot_twocomp_diagnostics,
+    plot_zero_inflation_check,
+    plot_zero_residuals,
 )
 
 __all__ = ["full_report", "run_comparison_reports"]
@@ -120,14 +120,28 @@ def full_report(trace, data, post_pred, prior=None,
                 model=None, title='', random_state=None):
     """
     Full diagnostic report for a single model.
-    Model-specific diagnostics are looked up from MODEL_DIAGNOSTICS registry.
+
+    Runs: prior predictive summary (if provided), sampling diagnostics,
+    parameter traces, posterior predictive, residual analysis, census
+    constraint check, Moran's I, and any model-specific plots registered
+    in MODEL_DIAGNOSTICS.
+
+    Parameters
+    ----------
+    trace        : az.InferenceData — posterior samples
+    data         : dict — output of make_data_dict
+    post_pred    : az.InferenceData — posterior predictive samples
+    prior        : az.InferenceData or None — prior predictive samples
+    model        : DwellingModel instance or None
+    title        : str — plot title prefix; defaults to model.name if model given
+    random_state : int or None — passed to plot_sample_areas for reproducibility
     """
     t = title or (model.name if model is not None else '')
 
     # Prior predictive
     if prior is not None:
         z_prior = prior.prior['z'].values
-        print(f"\nPrior predictive summary:")
+        print("\nPrior predictive summary:")
         print(f"  z mean:     {z_prior.mean():.3f}")
         print(f"  z sd:       {z_prior.std():.3f}")
         print(f"  z 99th:     {np.percentile(z_prior, 99):.3f}")
@@ -211,8 +225,17 @@ def full_report(trace, data, post_pred, prior=None,
 
 def run_comparison_reports(models, traces, data, post_preds):
     """
-    Run all applicable model comparison reports based on which
-    models have been sampled. Looks up from MODEL_COMPARISONS registry.
+    Run all applicable pairwise model comparison reports.
+
+    Iterates the MODEL_COMPARISONS registry and runs each comparison
+    function for pairs where both models are present in ``models``.
+
+    Parameters
+    ----------
+    models    : dict mapping model name (str) to DwellingModel instance
+    traces    : dict mapping model name (str) to az.InferenceData
+    data      : dict — output of make_data_dict
+    post_preds: dict mapping model name (str) to posterior predictive InferenceData
     """
     sampled = set(models.keys())
     for (name_before, name_after), report_fn in get_model_comparisons().items():

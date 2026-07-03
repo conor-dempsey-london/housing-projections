@@ -3,10 +3,11 @@ import numpy as np
 import pytest
 
 from housing_projections.config import (
-    INFER_COLS_PLAN, INFER_COLS_BEN,
-    ALL_COLS_PLAN, ALL_COLS_BEN,
+    ALL_COLS_PLAN,
+    INFER_COLS_BEN,
+    INFER_COLS_PLAN,
 )
-from housing_projections.data import make_data_dict, select_spatial_sample
+from housing_projections.data import make_data_dict, select_spatial_sample, validate_data_path
 
 
 class TestMakeDataDict:
@@ -74,6 +75,28 @@ class TestMakeDataDict:
     def test_e_obs_matches_gdf_columns(self, data_dict, synthetic_gdf):
         expected = synthetic_gdf[INFER_COLS_BEN].values.astype(float)
         np.testing.assert_array_equal(data_dict['E_obs'], expected)
+
+
+class TestValidateDataPath:
+    def test_raises_on_missing_path(self, tmp_path):
+        with pytest.raises(FileNotFoundError, match="load_data"):
+            validate_data_path(str(tmp_path))
+
+    def test_message_lists_missing_files(self, tmp_path):
+        with pytest.raises(FileNotFoundError) as exc:
+            validate_data_path(str(tmp_path))
+        msg = str(exc.value)
+        assert 'PLD completions' in msg
+        assert 'BEN estimates' in msg
+
+    def test_passes_when_files_exist(self, tmp_path):
+        pld = tmp_path / 'pld'
+        pld.mkdir()
+        (pld / 'lsoa_completions_time_series_pivot.csv').write_text('x')
+        ben = tmp_path / 'ben'
+        ben.mkdir()
+        (ben / 'final_residential_uprn_net_changes_by_oa_fy (1).csv').write_text('x')
+        validate_data_path(str(tmp_path))  # should not raise
 
 
 class TestSelectSpatialSample:

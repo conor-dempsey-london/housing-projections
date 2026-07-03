@@ -1,11 +1,9 @@
+import libpysal
 import numpy as np
 import pandas as pd
-import libpysal
 from esda.moran import Moran
-
 from libpysal.weights import Queen
 from sklearn.base import BaseEstimator, TransformerMixin
-
 
 # ── Weights matrix ────────────────────────────────────────────────────────────
 

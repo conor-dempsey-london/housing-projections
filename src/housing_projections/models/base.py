@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
 
 __all__ = ["DwellingModel"]
-import pymc as pm
-import arviz as az
-import numpy as np
-import pytensor.tensor as pt
 from pathlib import Path
 
-from housing_projections.config import DEFAULT_SAMPLE_KWARGS, CENSUS_REL_ERROR, CENSUS_ABS_FLOOR
+import arviz as az
+import numpy as np
+import pymc as pm
+import pytensor.tensor as pt
+
+from housing_projections.config import CENSUS_ABS_FLOOR, CENSUS_REL_ERROR, DEFAULT_SAMPLE_KWARGS
 
 
 class DwellingModel(ABC):

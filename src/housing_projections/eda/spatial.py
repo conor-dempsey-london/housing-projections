@@ -1,12 +1,13 @@
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS
-from housing_projections.spatial import build_weights_libpysal, compute_morans_i
-import matplotlib.patches as mpatches
-from esda.moran import Moran, Moran_Local
 import matplotlib.cm as mcm
 import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from esda.moran import Moran, Moran_Local
+
+from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
+from housing_projections.spatial import build_weights_libpysal, compute_morans_i
 
 # ── Moran's I ─────────────────────────────────────────────────────────────────
 
@@ -268,7 +269,7 @@ def plot_intercensal_change_histogram_map(gdf,
     plt.tight_layout()
     plt.show()
 
-    print(f"\n── Intercensal change summary ────────────────────────────────")
+    print("\n── Intercensal change summary ────────────────────────────────")
     print(f"  Total net change:   {D.sum():,.0f}")
     print(f"  Growth areas:       {(D > 0).sum():,} "
           f"({(D > 0).mean()*100:.1f}%)")
@@ -352,15 +353,12 @@ def plot_spatial_autocorrelation_change(gdf,
                                          col_2021='dwellings_2021',
                                          quantile_clip=0.95):
     from housing_projections.spatial import build_weights_libpysal
-    from esda.moran import Moran, Moran_Local
 
-    D    = gdf[col_2021].values - gdf[col_2011].values
-    clip = np.quantile(np.abs(D), quantile_clip)
-
+    D     = gdf[col_2021].values - gdf[col_2011].values
     w     = build_weights_libpysal(gdf)
     moran = Moran(D, w)
 
-    print(f"\n── Moran's I: intercensal change ─────────────────────────────")
+    print("\n── Moran's I: intercensal change ─────────────────────────────")
     print(f"  I={moran.I:.4f}  p={moran.p_sim:.4f}")
 
     lisa  = Moran_Local(D, w)

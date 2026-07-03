@@ -1,28 +1,33 @@
-from housing_projections.data import load_data, make_data_dict, select_spatial_sample
-from housing_projections.diagnostics import full_diagnostics
+from housing_projections.data import (
+    load_data,
+    make_data_dict,
+    select_spatial_sample,
+    validate_data_path,
+)
+from housing_projections.diagnostics import compute_model_comparison, full_diagnostics
 from housing_projections.outliers import (
     apply_outlier_exclusion,
-    plot_outlier_areas,
     plot_hard_outlier_areas,
-    plot_soft_outlier_areas,
+    plot_outlier_areas,
     plot_outlier_map,
+    plot_soft_outlier_areas,
 )
 from housing_projections.plots import (
-    plot_sample_areas,
+    plot_parameter_trace,
     plot_posterior_predictive,
     plot_prior_predictive,
     plot_residual_analysis,
-    plot_parameter_trace,
+    plot_sample_areas,
     plot_spatial_diagnostics,
 )
 from housing_projections.reporting import full_report, run_comparison_reports
 from housing_projections.spatial import (
-    build_weights_libpysal,
+    SpatialLagTransformer,
+    add_spatial_lag_features,
     build_spatial_weights,
+    build_weights_libpysal,
     compute_morans_i,
     compute_morans_i_by_year,
-    add_spatial_lag_features,
-    SpatialLagTransformer,
 )
 
 __all__ = [
@@ -30,8 +35,10 @@ __all__ = [
     "load_data",
     "make_data_dict",
     "select_spatial_sample",
+    "validate_data_path",
     # diagnostics
     "full_diagnostics",
+    "compute_model_comparison",
     # outliers
     "apply_outlier_exclusion",
     "plot_outlier_areas",

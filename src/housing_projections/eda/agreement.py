@@ -1,11 +1,10 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.signal import correlate
 
-from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS
-
+from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
 
 # ── Summary statistics ────────────────────────────────────────────────────────
 
@@ -27,7 +26,6 @@ def compute_agreement_stats(gdf, verbose=True):
     """
     P     = gdf[INFER_COLS_PLAN].values   # (n_areas, n_years)
     E     = gdf[INFER_COLS_BEN].values
-    D     = (gdf['dwellings_2021'] - gdf['dwellings_2011']).values
 
     sum_p = P.sum(axis=1)
     sum_e = E.sum(axis=1)
@@ -57,14 +55,14 @@ def compute_agreement_stats(gdf, verbose=True):
     }
 
     if verbose:
-        print(f"\n── Planning vs BEN agreement ─────────────────────────────────")
-        print(f"\n  Cumulative totals:")
+        print("\n── Planning vs BEN agreement ─────────────────────────────────")
+        print("\n  Cumulative totals:")
         print(f"    Pearson r:          {total_corr:.3f}")
         print(f"    Mean bias (P - E):  {total_bias:.2f}")
         print(f"    MAE:                {total_mae:.2f}")
         print(f"    Same sign:          {pct_same_sign:.1f}%")
         print(f"    |diff| < 20:        {pct_close:.1f}%")
-        print(f"\n  Annual series (per-LSOA correlation):")
+        print("\n  Annual series (per-LSOA correlation):")
         print(f"    Mean:               {annual_corrs.mean():.3f}")
         print(f"    Median:             {annual_corrs.median():.3f}")
         print(f"    Std:                {annual_corrs.std():.3f}")
@@ -287,7 +285,6 @@ def plot_category_examples(gdf, classification_df, n_per_category=3):
 
 
 def plot_lag_candidates(gdf, classification_df, n_examples=6):
-    from scipy.signal import correlate
 
     P      = gdf[INFER_COLS_PLAN].values
     E      = gdf[INFER_COLS_BEN].values
@@ -448,7 +445,7 @@ def full_agreement_analysis(gdf, close_threshold=20, n_examples=3,
     classification  = classify_lsoas(gdf, close_threshold=close_threshold)
 
     if verbose:
-        print(f"\n── LSOA classification ───────────────────────────────────────")
+        print("\n── LSOA classification ───────────────────────────────────────")
         counts = classification['category'].value_counts()
         pcts   = counts / len(classification) * 100
         for cat, count in counts.items():

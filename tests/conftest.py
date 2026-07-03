@@ -3,16 +3,17 @@ Shared fixtures for the housing-projections test suite.
 
 Synthetic data avoids all file I/O and network calls so tests run offline.
 """
-import numpy as np
-import pandas as pd
-import geopandas as gpd
 import arviz as az
+import geopandas as gpd
+import numpy as np
 import pytest
 from shapely.geometry import box
 
 from housing_projections.config import (
-    INFER_COLS_PLAN, INFER_COLS_BEN,
-    ALL_COLS_PLAN, ALL_COLS_BEN,
+    ALL_COLS_BEN,
+    ALL_COLS_PLAN,
+    INFER_COLS_BEN,
+    INFER_COLS_PLAN,
 )
 
 # ── Constants ──────────────────────────────────────────────────────────────────

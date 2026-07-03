@@ -1,11 +1,11 @@
 # housing_projections/eda/comparison.py
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy import stats
-from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS
 
+from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
 
 # ── Census stock overview ─────────────────────────────────────────────────────
 
@@ -182,7 +182,7 @@ def compute_overall_correlation(gdf, verbose=True):
     }
 
     if verbose:
-        print(f"\n── Overall planning vs BEN correlation ──────────────────────")
+        print("\n── Overall planning vs BEN correlation ──────────────────────")
         print(f"  Overall (flattened):    r={overall_r:.3f} (p={overall_p:.1e})")
         print(f"  Mean per-area:          r={per_area_corr.mean():.3f}")
         print(f"  Median per-area:        r={per_area_corr.median():.3f}")

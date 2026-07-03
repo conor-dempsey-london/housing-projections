@@ -1,8 +1,8 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS
 
+from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
 
 # ── Distribution over time ────────────────────────────────────────────────────
 
@@ -128,12 +128,12 @@ def plot_autocorrelations(ac_results, labels=('Series A', 'Series B'),
     """
     lags = list(range(1, max_lag + 1))
 
-    obs_vals_a = [ac_results['obs_a'][l] for l in lags]
-    obs_vals_b = [ac_results['obs_b'][l] for l in lags]
-    upper_a    = [np.percentile(ac_results['null_a'][l],
-                                100 * (1 - alpha / 2)) for l in lags]
-    upper_b    = [np.percentile(ac_results['null_b'][l],
-                                100 * (1 - alpha / 2)) for l in lags]
+    obs_vals_a = [ac_results['obs_a'][lag] for lag in lags]
+    obs_vals_b = [ac_results['obs_b'][lag] for lag in lags]
+    upper_a    = [np.percentile(ac_results['null_a'][lag],
+                                100 * (1 - alpha / 2)) for lag in lags]
+    upper_b    = [np.percentile(ac_results['null_b'][lag],
+                                100 * (1 - alpha / 2)) for lag in lags]
 
     fig, ax = plt.subplots(figsize=(9, 4))
     ax.plot(lags, obs_vals_a, marker='o', color='steelblue', label=labels[0])
@@ -277,11 +277,11 @@ def plot_crosscorrelations(xc_results, labels=('Series A', 'Series B'),
     significance thresholds (upper and lower).
     """
     lags     = list(range(-max_lag, max_lag + 1))
-    obs_vals = [xc_results['observed'][l] for l in lags]
-    upper    = [np.percentile(xc_results['null'][l],
-                              100 * (1 - alpha / 2)) for l in lags]
-    lower    = [np.percentile(xc_results['null'][l],
-                              100 * (alpha / 2))     for l in lags]
+    obs_vals = [xc_results['observed'][lag] for lag in lags]
+    upper    = [np.percentile(xc_results['null'][lag],
+                              100 * (1 - alpha / 2)) for lag in lags]
+    lower    = [np.percentile(xc_results['null'][lag],
+                              100 * (alpha / 2))     for lag in lags]
 
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.plot(lags, obs_vals, marker='o', color='steelblue', label='Observed')

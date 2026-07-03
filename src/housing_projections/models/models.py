@@ -1,21 +1,22 @@
-import pymc as pm
 import numpy as np
+import pymc as pm
 import pytensor.tensor as pt
-from .base import DwellingModel
-
-from housing_projections.spatial import build_spatial_weights
 
 from housing_projections.config import (
-    CENSUS_REL_ERROR,
-    CENSUS_ABS_FLOOR,
     ALL_COLS_PLAN,
+    CENSUS_ABS_FLOOR,
+    CENSUS_REL_ERROR,
     INFER_COLS_PLAN,
 )
+from housing_projections.spatial import build_spatial_weights
 
+from .base import DwellingModel
 
-# ── Builder functions ─────────────────────────────────────────────────────────
+__all__ = ["M0", "M0h", "M1", "M2", "M3", "M4", "M5", "M5b", "M6", "M7", "M8", "M9"]
 
-def build_z_prior(data, n_areas, n_years):
+# ── Builder functions (private) ───────────────────────────────────────────────
+
+def _build_z_prior(data, n_areas, n_years):
     """
     Build latent z prior with global mean and spread.
     Returns (mu_slab, sigma_slab, z).
@@ -32,7 +33,7 @@ def build_z_prior(data, n_areas, n_years):
     return mu_slab, sigma_slab, z
 
 
-def build_census_constraint(z, D, sigma_census):
+def _build_census_constraint(z, D, sigma_census):
     """
     Add census constraint likelihood.
     Must be called inside a pm.Model() context.
@@ -41,7 +42,7 @@ def build_census_constraint(z, D, sigma_census):
               sigma=sigma_census, observed=D)
 
 
-def build_pre_inference(data, max_lag):
+def _build_pre_inference(data, max_lag):
     """
     Build fixed array of pre-inference planning observations
     to use as proxies for source years before the inference window.
@@ -57,7 +58,7 @@ def build_pre_inference(data, max_lag):
     ], axis=1).astype('float64')
 
 
-def build_lag(z, pre_inference, n_areas, n_years, n_lags, alpha, max_lag,
+def _build_lag(z, pre_inference, n_areas, n_years, n_lags, alpha, max_lag,
               lambda_weights=None):
     """
     Build temporal lag structure for planning data.
@@ -83,7 +84,7 @@ def build_lag(z, pre_inference, n_areas, n_years, n_lags, alpha, max_lag,
     return lambda_weights, P_mean
 
 
-def build_planning_likelihood_simple(P_mean, P_obs, nu_obs, sigma_obs):
+def _build_planning_likelihood_simple(P_mean, P_obs, nu_obs, sigma_obs):
     """
     M3 planning likelihood — StudentT, no missingness.
     Must be called inside a pm.Model() context.
@@ -92,7 +93,7 @@ def build_planning_likelihood_simple(P_mean, P_obs, nu_obs, sigma_obs):
                 sigma=sigma_obs, observed=P_obs)
 
 
-def build_symmetric_missingness():
+def _build_symmetric_missingness():
     """
     M4 symmetric missingness — single global pi_miss.
     Prior mean 0.2, informed by observed zero rates.
@@ -102,7 +103,7 @@ def build_symmetric_missingness():
     return pm.Beta('pi_miss', alpha=2, beta=8)
 
 
-def build_asymmetric_missingness(P_mean, sigma_obs):
+def _build_asymmetric_missingness(P_mean, sigma_obs):
     """
     Asymmetric missingness dependent on P_mean rather than z.
     When P_mean < 0 (demolition signal), missingness is high.
@@ -120,7 +121,7 @@ def build_asymmetric_missingness(P_mean, sigma_obs):
     return p_pos_local * pi_miss_pos + p_neg_local * pi_miss_neg
 
 
-def build_planning_likelihood_zeroinflated(P_mean, P_obs,
+def _build_planning_likelihood_zeroinflated(P_mean, P_obs,
                                             pi_miss, nu_obs, sigma_obs):
     """
     Zero-inflated planning likelihood using pm.Mixture.
@@ -143,7 +144,7 @@ def build_planning_likelihood_zeroinflated(P_mean, P_obs,
                observed=P_obs)
 
 
-def build_planning_likelihood_zeroinflated_twocomp(P_mean, P_obs,
+def _build_planning_likelihood_zeroinflated_twocomp(P_mean, P_obs,
                                                     pi_miss, nu_obs,
                                                     sigma_obs_tight,
                                                     sigma_obs_loose,
@@ -179,7 +180,7 @@ def build_planning_likelihood_zeroinflated_twocomp(P_mean, P_obs,
                observed=P_obs)
 
 
-def build_spatial_misallocation(z, W, n_areas, n_years):
+def _build_spatial_misallocation(z, W, n_areas, n_years):
     """
     Apply spatial misallocation to P_mean.
     alpha: global misallocation probability — fraction of completions
@@ -213,8 +214,8 @@ class M0(DwellingModel):
         sigma_census = self.make_sigma_census(data['D'])
 
         with pm.Model() as model:
-            _, _, z = build_z_prior(data, n_areas, n_years)
-            build_census_constraint(z, data['D'], sigma_census)
+            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, data['D'], sigma_census)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'])
 
         self.model = model
@@ -264,7 +265,7 @@ class M0h(DwellingModel):
                           sigma=sigma_slab,
                           shape=(n_areas, n_years))
 
-            build_census_constraint(z, D, sigma_census)
+            _build_census_constraint(z, D, sigma_census)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'])
 
         self.model = model
@@ -314,7 +315,7 @@ class M1(DwellingModel):
                            ],
                            shape=(n_areas, n_years))
 
-            build_census_constraint(z, D, sigma_census)
+            _build_census_constraint(z, D, sigma_census)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_obs,
                                              sigma_ben=sigma_obs)
@@ -337,8 +338,8 @@ class M2(DwellingModel):
         sigma_census = self.make_sigma_census(data['D'])
 
         with pm.Model() as model:
-            _, _, z = build_z_prior(data, data['n_areas'], data['n_years'])
-            build_census_constraint(z, data['D'], sigma_census)
+            _, _, z = _build_z_prior(data, data['n_areas'], data['n_years'])
+            _build_census_constraint(z, data['D'], sigma_census)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=self.sigma_obs_plan,
                                              sigma_ben=self.sigma_obs_ben)
@@ -365,14 +366,14 @@ class M3(DwellingModel):
         n_areas       = data['n_areas']
         n_years       = data['n_years']
         sigma_census  = self.make_sigma_census(data['D'])
-        pre_inference = build_pre_inference(data, self.max_lag)
+        pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model() as model:
-            _, _, z = build_z_prior(data, n_areas, n_years)
-            build_census_constraint(z, data['D'], sigma_census)
-            _, P_mean = build_lag(z, pre_inference, n_areas, n_years,
+            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, data['D'], sigma_census)
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
-            build_planning_likelihood_simple(P_mean, data['P_obs'],
+            _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, self.sigma_obs)
             self.add_ben_likelihood(z, data['E_obs'])
 
@@ -398,15 +399,15 @@ class M4(DwellingModel):
         n_areas       = data['n_areas']
         n_years       = data['n_years']
         sigma_census  = self.make_sigma_census(data['D'])
-        pre_inference = build_pre_inference(data, self.max_lag)
+        pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model() as model:
-            _, _, z = build_z_prior(data, n_areas, n_years)
-            build_census_constraint(z, data['D'], sigma_census)
-            _, P_mean = build_lag(z, pre_inference, n_areas, n_years,
+            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, data['D'], sigma_census)
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
-            pi_miss = build_symmetric_missingness()
-            build_planning_likelihood_zeroinflated(
+            pi_miss = _build_symmetric_missingness()
+            _build_planning_likelihood_zeroinflated(
                 P_mean, data['P_obs'], pi_miss, self.nu_obs, self.sigma_obs)
             self.add_ben_likelihood(z, data['E_obs'])
 
@@ -432,15 +433,15 @@ class M5(DwellingModel):
         n_areas       = data['n_areas']
         n_years       = data['n_years']
         sigma_census  = self.make_sigma_census(data['D'])
-        pre_inference = build_pre_inference(data, self.max_lag)
+        pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model() as model:
-            _, _, z = build_z_prior(data, n_areas, n_years)
-            build_census_constraint(z, data['D'], sigma_census)
-            _, P_mean = build_lag(z, pre_inference, n_areas, n_years,
+            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, data['D'], sigma_census)
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
-            pi_miss = build_asymmetric_missingness(P_mean, self.sigma_obs)
-            build_planning_likelihood_zeroinflated(
+            pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
+            _build_planning_likelihood_zeroinflated(
                 P_mean, data['P_obs'], pi_miss, self.nu_obs, self.sigma_obs)
             self.add_ben_likelihood(z, data['E_obs'])
 
@@ -470,16 +471,16 @@ class M5b(DwellingModel):
         n_areas       = data['n_areas']
         n_years       = data['n_years']
         sigma_census  = self.make_sigma_census(data['D'])
-        pre_inference = build_pre_inference(data, self.max_lag)
+        pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model() as model:
-            _, _, z = build_z_prior(data, n_areas, n_years)
-            build_census_constraint(z, data['D'], sigma_census)
-            _, P_mean = build_lag(z, pre_inference, n_areas, n_years,
+            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, data['D'], sigma_census)
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
-            pi_miss = build_asymmetric_missingness(P_mean, self.sigma_obs)
+            pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
             w_tight = pm.Beta('w_tight', alpha=9, beta=1)  # prior mean 0.9
-            build_planning_likelihood_zeroinflated_twocomp(
+            _build_planning_likelihood_zeroinflated_twocomp(
                 P_mean, data['P_obs'], pi_miss,
                 self.nu_obs,
                 self.sigma_obs_tight,
@@ -522,23 +523,247 @@ class M6(DwellingModel):
         n_areas       = data['n_areas']
         n_years       = data['n_years']
         sigma_census  = self.make_sigma_census(data['D'])
-        pre_inference = build_pre_inference(data, self.max_lag)
+        pre_inference = _build_pre_inference(data, self.max_lag)
         W             = build_spatial_weights(data['gdf'])
 
         with pm.Model() as model:
-            _, _, z = build_z_prior(data, n_areas, n_years)
-            build_census_constraint(z, data['D'], sigma_census)
+            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, data['D'], sigma_census)
 
-            _, P_mean_temporal = build_lag(
+            _, P_mean_temporal = _build_lag(
                 z, pre_inference, n_areas, n_years,
                 self.n_lags, self.lag_alpha, self.max_lag,
                 lambda_weights=self.lambda_weights_fixed)
 
-            P_mean  = build_spatial_misallocation(
+            P_mean  = _build_spatial_misallocation(
                 P_mean_temporal, W, n_areas, n_years)
-            pi_miss = build_asymmetric_missingness(P_mean, self.sigma_obs)
-            build_planning_likelihood_zeroinflated(
+            pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
+            _build_planning_likelihood_zeroinflated(
                 P_mean, data['P_obs'], pi_miss, self.nu_obs, self.sigma_obs)
+            self.add_ben_likelihood(z, data['E_obs'])
+
+        self.model = model
+        return model
+
+
+# ── M7: Temporal AR(1) prior on z ────────────────────────────────────────────
+
+class M7(DwellingModel):
+    """
+    Replaces the i.i.d. year prior on z with an AR(1) process per area.
+
+    z[a, 0]   ~ Normal(mu_slab, sigma_init)
+    z[a, t]   ~ Normal(rho * z[a, t-1] + (1-rho) * mu_slab, sigma_innov)
+
+    where rho ~ Beta(8, 2) (prior mean 0.8).  This captures the empirical
+    observation that dwelling change is autocorrelated year-on-year — an
+    active development site remains active for several years.
+
+    BEN is assumed lag-free.  Planning uses the same zero-inflated asymmetric
+    likelihood as M5 (no spatial misallocation).
+    """
+
+    name        = 'M7'
+    description = 'M5 + AR(1) temporal prior on z (replaces i.i.d. year prior)'
+    var_names   = ['mu_slab', 'sigma_init', 'sigma_innov', 'rho',
+                   'lambda_weights', 'pi_miss_pos', 'pi_miss_neg']
+    max_lag     = 3
+    snap_zeros  = True
+
+    def build(self):
+        data          = self.data
+        n_areas       = data['n_areas']
+        n_years       = data['n_years']
+        D             = data['D']
+        sigma_census  = self.make_sigma_census(D)
+        pre_inference = _build_pre_inference(data, self.max_lag)
+
+        with pm.Model() as model:
+
+            # ── Global prior ──────────────────────────────────────────────
+            mu_slab     = pm.Normal('mu_slab',
+                                    mu=data['D_full_mean'] / n_years / 0.55,
+                                    sigma=5)
+            sigma_init  = pm.HalfNormal('sigma_init',  sigma=30)
+            sigma_innov = pm.HalfNormal('sigma_innov', sigma=15)
+            rho         = pm.Beta('rho', alpha=8, beta=2)  # prior mean 0.8
+
+            # ── AR(1) scan over years ─────────────────────────────────────
+            # Non-centered: z_raw ~ Normal(0, 1), z = mu + sigma * z_raw
+            z_init_raw = pm.Normal('z_init_raw', mu=0, sigma=1,
+                                   shape=(n_areas,))
+            z_init = mu_slab + sigma_init * z_init_raw
+
+            z_list = [z_init]
+            for t in range(1, n_years):
+                z_prev  = z_list[t - 1]
+                z_t_raw = pm.Normal(f'z_raw_{t}', mu=0, sigma=1,
+                                    shape=(n_areas,))
+                z_t = rho * z_prev + (1 - rho) * mu_slab + sigma_innov * z_t_raw
+                z_list.append(z_t)
+
+            z = pm.Deterministic('z', pt.stack(z_list, axis=1))
+
+            # ── Census constraint ─────────────────────────────────────────
+            _build_census_constraint(z, D, sigma_census)
+
+            # ── Planning lag + zero-inflation ─────────────────────────────
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
+                                   self.n_lags, self.lag_alpha, self.max_lag)
+            pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
+            _build_planning_likelihood_zeroinflated(
+                P_mean, data['P_obs'], pi_miss, self.nu_obs, self.sigma_obs)
+            self.add_ben_likelihood(z, data['E_obs'])
+
+        self.model = model
+        return model
+
+
+# ── M8: Borough-level hierarchy ───────────────────────────────────────────────
+
+class M8(DwellingModel):
+    """
+    Adds a borough-level hierarchical prior on the mean annual change.
+
+    mu_global           ~ Normal(D_full_mean / n_years, sigma=5)
+    sigma_borough       ~ HalfNormal(sigma=5)
+    mu_borough[b]       ~ Normal(mu_global, sigma_borough)   # per borough
+    sigma_slab          ~ HalfNormal(sigma=20)
+    z[a, t]             ~ Normal(mu_borough[borough[a]], sigma_slab)
+
+    ``borough_idx`` must be provided in the data dict — a (n_areas,) integer
+    array mapping each LSOA to its borough (0-indexed), and ``n_boroughs`` the
+    total count. Both can be derived from a LSOA-to-LAD crosswalk joined on gdf.
+
+    If ``borough_idx`` is absent from the data dict, raises ValueError.
+    """
+
+    name        = 'M8'
+    description = 'M5 + borough-level hierarchical prior on mean annual change'
+    var_names   = ['mu_global', 'sigma_borough', 'sigma_slab',
+                   'lambda_weights', 'pi_miss_pos', 'pi_miss_neg']
+    max_lag     = 3
+    snap_zeros  = True
+
+    def build(self):
+        data = self.data
+        if 'borough_idx' not in data:
+            raise ValueError(
+                "M8 requires 'borough_idx' (int array, shape n_areas) and "
+                "'n_boroughs' (int) in the data dict.  "
+                "Derive them from a LSOA-to-LAD crosswalk joined on gdf."
+            )
+        n_areas       = data['n_areas']
+        n_years       = data['n_years']
+        n_boroughs    = data['n_boroughs']
+        borough_idx   = data['borough_idx']
+        D             = data['D']
+        sigma_census  = self.make_sigma_census(D)
+        pre_inference = _build_pre_inference(data, self.max_lag)
+
+        with pm.Model() as model:
+
+            # ── Global hyperprior ─────────────────────────────────────────
+            mu_global     = pm.Normal('mu_global',
+                                       mu=data['D_full_mean'] / n_years,
+                                       sigma=5)
+            sigma_borough = pm.HalfNormal('sigma_borough', sigma=5)
+
+            # ── Borough-level means (non-centered) ────────────────────────
+            mu_borough_offset = pm.Normal('mu_borough_offset',
+                                           mu=0, sigma=1, shape=n_boroughs)
+            mu_borough = pm.Deterministic(
+                'mu_borough', mu_global + sigma_borough * mu_borough_offset)
+
+            # ── LSOA-level latent z ───────────────────────────────────────
+            sigma_slab = pm.HalfNormal('sigma_slab', sigma=20)
+            z = pm.Normal('z',
+                          mu=mu_borough[borough_idx, None],
+                          sigma=sigma_slab,
+                          shape=(n_areas, n_years))
+
+            _build_census_constraint(z, D, sigma_census)
+
+            # ── Planning lag + zero-inflation ─────────────────────────────
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
+                                   self.n_lags, self.lag_alpha, self.max_lag)
+
+            pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
+
+            _build_planning_likelihood_zeroinflated(
+                P_mean, data['P_obs'], pi_miss, self.nu_obs, self.sigma_obs)
+
+            self.add_ben_likelihood(z, data['E_obs'])
+
+        self.model = model
+        return model
+
+
+# ── M9: Time-varying observation noise ───────────────────────────────────────
+
+class M9(DwellingModel):
+    """
+    Replaces the fixed planning observation noise (sigma_obs) with a
+    year-specific noise level drawn from a shared hierarchical prior.
+
+    sigma_base_plan    ~ HalfNormal(sigma=5)
+    sigma_year_offset  ~ HalfNormal(sigma=2, shape=n_years)
+    sigma_obs_plan[t]  = sigma_base_plan + sigma_year_offset[t]
+
+    This captures the hypothesis that planning data quality varies over the
+    intercensal window — e.g. system changes in 2013-2016, COVID in 2020-21.
+    Inspecting the posterior of sigma_obs_plan by year is a diagnostic in its
+    own right.  BEN noise remains fixed.
+    """
+
+    name        = 'M9'
+    description = 'M5 + time-varying planning observation noise'
+    var_names   = ['mu_slab', 'sigma_slab', 'lambda_weights',
+                   'pi_miss_pos', 'pi_miss_neg',
+                   'sigma_base_plan', 'sigma_year_offset']
+    max_lag     = 3
+    snap_zeros  = True
+
+    def build(self):
+        data          = self.data
+        n_areas       = data['n_areas']
+        n_years       = data['n_years']
+        D             = data['D']
+        sigma_census  = self.make_sigma_census(D)
+        pre_inference = _build_pre_inference(data, self.max_lag)
+
+        with pm.Model() as model:
+
+            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, D, sigma_census)
+
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
+                                   self.n_lags, self.lag_alpha, self.max_lag)
+
+            # ── Time-varying planning noise ───────────────────────────────
+            sigma_base_plan   = pm.HalfNormal('sigma_base_plan',   sigma=5)
+            sigma_year_offset = pm.HalfNormal('sigma_year_offset',
+                                               sigma=2, shape=n_years)
+            sigma_obs_plan    = pm.Deterministic(
+                'sigma_obs_plan', sigma_base_plan + sigma_year_offset)
+
+            pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
+            shape   = data['P_obs'].shape
+            w = pt.stack([
+                pt.ones(shape) * pi_miss,
+                pt.ones(shape) * (1 - pi_miss),
+            ], axis=-1)
+            pm.Mixture(
+                'P_like',
+                w=w,
+                comp_dists=[
+                    pm.Normal.dist(mu=0, sigma=1e-6, shape=shape),
+                    pm.StudentT.dist(nu=self.nu_obs, mu=P_mean,
+                                     sigma=sigma_obs_plan[None, :],
+                                     shape=shape),
+                ],
+                observed=data['P_obs'],
+            )
             self.add_ben_likelihood(z, data['E_obs'])
 
         self.model = model

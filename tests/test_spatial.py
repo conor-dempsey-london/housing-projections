@@ -3,17 +3,16 @@ Tests for housing_projections.spatial — public API smoke tests.
 All tests use the synthetic 3×3 GDF from conftest and run offline.
 """
 import numpy as np
-import pytest
 
+from housing_projections.config import INFER_COLS_PLAN
 from housing_projections.spatial import (
-    build_weights_libpysal,
+    SpatialLagTransformer,
+    add_spatial_lag_features,
     build_spatial_weights,
+    build_weights_libpysal,
     compute_morans_i,
     compute_morans_i_by_year,
-    add_spatial_lag_features,
-    SpatialLagTransformer,
 )
-from housing_projections.config import INFER_COLS_PLAN
 
 
 class TestBuildWeights:

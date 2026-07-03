@@ -1,9 +1,8 @@
 """Tests for housing_projections.outliers."""
 import geopandas as gpd
 import pandas as pd
-import pytest
 
-from housing_projections.outliers import apply_outlier_exclusion, _get_hard_outlier_lsoa_indices
+from housing_projections.outliers import _get_hard_outlier_lsoa_indices, apply_outlier_exclusion
 
 
 class TestApplyOutlierExclusion:

@@ -15,7 +15,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "openpyxl>=3.1.5",
     "python-dotenv>=1.2.1",
-    "seaborn>=0.13.2",
+    "seaborn>=0.13.2", "ruff>=0.15.20,<0.16", "mypy>=2.1.0,<3",
 ]
 
 [project.scripts]
@@ -34,7 +34,21 @@ testpaths = ["tests"]
 addopts   = "-v --tb=short"
 
 [tool.pixi.tasks]
-test = "pytest"
+test     = "pytest"
+lint     = "ruff check src/housing_projections tests"
+typecheck = "mypy src/housing_projections"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "BLE"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
 
 [tool.pixi.dependencies]
 fiona = ">=1.9" 

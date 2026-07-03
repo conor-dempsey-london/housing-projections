@@ -1,11 +1,11 @@
 # housing_projections/outliers.py
 
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS
 
+from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
 
 # ── Detection ─────────────────────────────────────────────────────────────────
 
@@ -143,8 +143,8 @@ def _analyse_outliers(gdf, outlier_df, verbose=True):
     }
 
     if verbose:
-        print(f"\n── Outlier summary ───────────────────────────────────────────")
-        print(f"\n  HARD outliers (excluded by default — likely data errors):")
+        print("\n── Outlier summary ───────────────────────────────────────────")
+        print("\n  HARD outliers (excluded by default — likely data errors):")
         print(f"    Flagged LSOAs:      {result['hard']['n_lsoas']} / {len(gdf)}")
         print(f"    Flagged LSOA-years: {result['hard']['n_lsoa_years']}")
         if result['hard']['n_lsoas'] > 0:
@@ -152,7 +152,7 @@ def _analyse_outliers(gdf, outlier_df, verbose=True):
             print(f"    By year:\n{hard.groupby('year').size().to_string()}")
             print(f"    Details:\n{hard.to_string()}")
 
-        print(f"\n  SOFT outliers (retained — may reflect lag/missing data):")
+        print("\n  SOFT outliers (retained — may reflect lag/missing data):")
         print(f"    Flagged LSOAs:      {result['soft']['n_lsoas']} / {len(gdf)}")
         print(f"    Flagged LSOA-years: {result['soft']['n_lsoa_years']}")
         if result['soft']['n_lsoas'] > 0:
@@ -264,7 +264,7 @@ def _exclude_hard_outlier_lsoas(gdf, outlier_df, verbose=True):
     gdf_clean = gdf[mask.values].reset_index(drop=True)
 
     if verbose:
-        print(f"\n── Outlier exclusion ─────────────────────────────────────────")
+        print("\n── Outlier exclusion ─────────────────────────────────────────")
         print(f"  Removed {len(hard_indices)} hard outlier LSOAs")
         print(f"  Retained {len(soft_indices)} soft outlier LSOAs "
               f"(may reflect lag or missing data)")
@@ -307,12 +307,12 @@ def apply_outlier_exclusion(gdf, max_plausible=2000, min_plausible=-500,
     gdf_clean = _exclude_hard_outlier_lsoas(gdf, outlier_df, verbose=verbose)
 
     if verbose:
-        print(f"\n   To inspect flagged areas further:")
-        print(f"     from housing_projections.outliers import "
-              f"plot_outlier_areas, plot_outlier_map")
-        print(f"     plot_outlier_areas(gdf, outlier_df, severity='hard')")
-        print(f"     plot_outlier_areas(gdf, outlier_df, severity='soft')")
-        print(f"     plot_outlier_map(gdf, outlier_df)")
+        print("\n   To inspect flagged areas further:")
+        print("     from housing_projections.outliers import "
+              "plot_outlier_areas, plot_outlier_map")
+        print("     plot_outlier_areas(gdf, outlier_df, severity='hard')")
+        print("     plot_outlier_areas(gdf, outlier_df, severity='soft')")
+        print("     plot_outlier_map(gdf, outlier_df)")
 
     return gdf_clean, outlier_df
 

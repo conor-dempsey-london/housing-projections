@@ -1,8 +1,13 @@
-import numpy as np
 import arviz as az
+import numpy as np
 import pandas as pd
 
-from housing_projections.spatial import build_spatial_weights, build_weights_libpysal, compute_morans_i
+from housing_projections.spatial import (
+    build_spatial_weights,
+    build_weights_libpysal,
+    compute_morans_i,
+)
+
 
 def _check_rhat(trace, var_names=None, threshold=1.01, verbose=False):
     """
@@ -39,7 +44,7 @@ def _check_divergences(trace, verbose=False):
     n_divergences = int(trace.sample_stats.diverging.sum())
 
     if verbose:
-        print(f"\n── Divergences ──────────────────────────────────────")
+        print("\n── Divergences ──────────────────────────────────────")
         if n_divergences > 0:
             print(f"*** WARNING: {n_divergences} divergences detected ***")
         else:
@@ -97,7 +102,7 @@ def _check_census_constraint(trace, data, verbose=False):
     }
 
     if verbose:
-        print(f"\n── Census constraint ────────────────────────────────")
+        print("\n── Census constraint ────────────────────────────────")
         print(f"  Mean violation: {result['mean_violation']:.3f}")
         print(f"  Max violation:  {result['max_violation']:.3f}")
 
@@ -127,7 +132,7 @@ def _check_morans_i(trace, data, verbose=False):
     }
 
     if verbose:
-        print(f"\n── Moran's I on residuals ───────────────────────────")
+        print("\n── Moran's I on residuals ───────────────────────────")
         for source, vals in result.items():
             print(f"  {source:10s}: I={vals['I']:.4f}  p={vals['p_value']:.4f}")
 
@@ -156,7 +161,7 @@ def _check_residuals(trace, data, verbose=False):
         }
 
     if verbose:
-        print(f"\n── Residuals ────────────────────────────────────────")
+        print("\n── Residuals ────────────────────────────────────────")
         for source, vals in result.items():
             print(f"  {source:10s}: mean={vals['mean']:6.2f}  "
                   f"std={vals['std']:6.2f}  mae={vals['mae']:6.2f}")
@@ -191,6 +196,34 @@ def full_diagnostics(trace, data, model=None, verbose=True):
     }
 
 
+def compute_model_comparison(traces, verbose=True):
+    """
+    Compare models using Leave-One-Out cross-validation (LOO-CV).
+
+    Requires traces sampled with ``idata_kwargs={'log_likelihood': True}``
+    (the default sampling config already sets this).
+
+    Parameters
+    ----------
+    traces  : dict mapping model name (str) to az.InferenceData
+    verbose : bool — if True, print the comparison table
+
+    Returns
+    -------
+    pd.DataFrame — ArviZ LOO comparison table, models ranked best-to-worst.
+        Key columns: ``loo``, ``se``, ``p_loo``, ``d_loo``, ``weight``.
+    """
+    comparison = az.compare(traces, ic='loo')
+
+    if verbose:
+        print("\n── LOO model comparison ─────────────────────────────────────")
+        print(comparison[['loo', 'se', 'p_loo', 'd_loo', 'weight']].to_string())
+        best = comparison.index[0]
+        print(f"\n  Best model: {best}")
+
+    return comparison
+
+
 # ── M3 specific ───────────────────────────────────────────────────────────────
 
 def compute_lag_weights(trace, verbose=False):
@@ -222,8 +255,8 @@ def compute_lag_weights(trace, verbose=False):
 
     if verbose:
         print("\n── M3 lag weights ───────────────────────────────────────────")
-        for k, (m, l, h) in enumerate(zip(means, lo, hi)):
-            print(f"  lag {k}: mean={m:.3f}  90% CI=[{l:.3f}, {h:.3f}]")
+        for k, (m, lo_k, h) in enumerate(zip(means, lo, hi)):
+            print(f"  lag {k}: mean={m:.3f}  90% CI=[{lo_k:.3f}, {h:.3f}]")
         print(f"\n  Implied mean lag: {implied_mean_lag:.2f} years")
 
     return result

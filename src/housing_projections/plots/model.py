@@ -7,7 +7,6 @@ from scipy import stats
 
 from housing_projections.config import INFER_YEARS
 
-
 # ── M3 — spatial lag ──────────────────────────────────────────────────────────
 
 def plot_lag_weights(lag_results, title=''):
@@ -581,7 +580,7 @@ def plot_missing_statistics(trace, data, title=''):
     plt.tight_layout()
     plt.show()
 
-    print(f"\n── Missing observation summary ──────────────────────────────")
+    print("\n── Missing observation summary ──────────────────────────────")
     print(f"  Total zero planning observations:    {is_zero.sum():,}")
     print(f"  Expected missing (pi_miss={pi_post:.3f}): {total_missing:.0f}")
     print(f"  Of zeros, z>0 (missing completion):  "
@@ -693,7 +692,7 @@ def plot_spatial_diagnostics(stats_dict, title='M6'):
     plt.tight_layout()
     plt.show()
 
-    print(f"\nalpha_spatial posterior:")
+    print("\nalpha_spatial posterior:")
     print(f"  mean={stats_dict['alpha_mean']:.4f}  "
           f"std={stats_dict['alpha_std']:.4f}  "
           f"90% CI=[{stats_dict['alpha_lo']:.4f}, "

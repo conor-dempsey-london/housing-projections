@@ -2,10 +2,11 @@
 Smoke tests for housing_projections.reporting — public API only.
 Uses synthetic trace and data from conftest; no matplotlib display.
 """
-import numpy as np
 import arviz as az
-import pytest
 import matplotlib
+import numpy as np
+import pytest
+
 matplotlib.use('Agg')  # non-interactive backend so plt.show() is a no-op
 
 from housing_projections.reporting import full_report, run_comparison_reports
