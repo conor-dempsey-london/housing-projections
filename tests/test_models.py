@@ -181,3 +181,34 @@ class TestM9Structure:
         m = M9(data_dict)
         m.build()
         assert 'sigma_year_offset' in m.model.named_vars
+
+
+# ── Sampling integration tests (slow — run with pytest -m slow) ──────────────
+
+@pytest.mark.slow
+class TestSamplingPipeline:
+    """
+    Run the full sample() → compute_log_likelihood pipeline on M0 with a
+    tiny draw count. Catches bugs where the trace is missing groups (e.g.
+    log_likelihood) that downstream functions like az.compare require.
+    """
+
+    def test_trace_has_log_likelihood(self, data_dict):
+        m = M0(data_dict)
+        m.sample(use_nutpie=False, draws=50, tune=50, chains=1, cores=1,
+                 target_accept=0.8)
+        assert hasattr(m.trace, 'log_likelihood'), \
+            "trace is missing log_likelihood group — az.compare will fail"
+
+    def test_model_comparison_runs_after_sampling(self, data_dict):
+        from housing_projections.diagnostics import compute_model_comparison
+
+        traces = {}
+        for ModelClass in (M0, M3):
+            m = ModelClass(data_dict)
+            m.sample(use_nutpie=False, draws=100, tune=50, chains=2, cores=1,
+                     target_accept=0.8)
+            traces[ModelClass.name] = m.trace
+
+        result = compute_model_comparison(traces, verbose=False)
+        assert set(result.index) == {'M0', 'M3'}

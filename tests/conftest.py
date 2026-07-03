@@ -62,7 +62,7 @@ def mock_traces_with_ll(data_dict, rng):
         traces[name] = make_idata(
             posterior={'z': z},
             sample_stats={'diverging': np.zeros((N_CHAINS, N_DRAWS), dtype=bool)},
-            log_likelihood={'obs': ll},
+            log_likelihood={'P_like': ll},
         )
     return traces
 

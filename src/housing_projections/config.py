@@ -24,7 +24,6 @@ DEFAULT_SAMPLE_KWARGS = dict(
     cores         = 1,
     target_accept = 0.9,
     random_seed   = 42,
-    idata_kwargs  = {'log_likelihood': True},
 )
 
 # ── Plot colours ──────────────────────────────────────────────────────────────

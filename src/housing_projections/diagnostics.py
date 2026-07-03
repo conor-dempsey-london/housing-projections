@@ -214,7 +214,11 @@ def compute_model_comparison(traces, verbose=True):
     pd.DataFrame — ArviZ LOO comparison table, models ranked best-to-worst.
         Key columns: ``elpd``, ``se``, ``p``, ``elpd_diff``, ``weight``.
     """
-    comparison = az.compare(traces)
+    # Use P_like (planning likelihood) for LOO comparison. All models share this
+    # variable with consistent shape (n_areas × n_years). Using var_name avoids
+    # az.compare failing when multiple log_likelihood variables with different
+    # shapes (P_like, E_like, census_obs) are present in the trace.
+    comparison = az.compare(traces, var_name='P_like')
 
     if verbose:
         print("\n── LOO model comparison ─────────────────────────────────────")

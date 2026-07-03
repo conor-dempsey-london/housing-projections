@@ -135,9 +135,9 @@ class DwellingModel(ABC):
                 except ImportError:
                     print("nutpie not installed, falling back to PyMC sampler")
                     self.trace = pm.sample(**merged)
-                    self.trace = pm.compute_log_likelihood(self.trace)
             else:
                 self.trace = pm.sample(**merged)
+            self.trace = pm.compute_log_likelihood(self.trace)
         return self.trace
 
     def run(self, results_dir='results/traces', **kwargs):
