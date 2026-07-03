@@ -20,8 +20,8 @@ CENSUS_ABS_FLOOR = 2.0
 DEFAULT_SAMPLE_KWARGS = dict(
     draws         = 1500,
     tune          = 500,
-    chains        = 2,
-    cores         = 1,
+    chains        = 4,
+    cores         = 4,
     target_accept = 0.9,
     random_seed   = 42,
 )
