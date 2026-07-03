@@ -325,24 +325,30 @@ class M1(DwellingModel):
 
 
 class M2(DwellingModel):
-    """M0 with separate fixed observation noise per source."""
+    """
+    M0 with learned observation noise per source.
 
-    name           = 'M2'
-    description    = 'M0 + separate fixed observation noise per source'
-    var_names      = ['mu_slab', 'sigma_slab']
-    sigma_obs_plan = 2.0
-    sigma_obs_ben  = 2.0
+    M0 uses a single fixed sigma for both planning and BEN. M2 places
+    HalfNormal priors on separate sigma_plan and sigma_ben, letting the
+    data determine how noisy each source is.
+    """
+
+    name        = 'M2'
+    description = 'M0 + learned observation noise per source'
+    var_names   = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben']
 
     def build(self):
         data         = self.data
         sigma_census = self.make_sigma_census(data['D'])
 
         with pm.Model() as model:
-            _, _, z = _build_z_prior(data, data['n_areas'], data['n_years'])
+            _, _, z    = _build_z_prior(data, data['n_areas'], data['n_years'])
             _build_census_constraint(z, data['D'], sigma_census)
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
-                                             sigma_plan=self.sigma_obs_plan,
-                                             sigma_ben=self.sigma_obs_ben)
+                                             sigma_plan=sigma_plan,
+                                             sigma_ben=sigma_ben)
 
         self.model = model
         return model
