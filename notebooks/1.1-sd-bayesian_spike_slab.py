@@ -1,3 +1,8 @@
+# %% [markdown]
+# > **ARCHIVED** — This notebook uses the old `get_dwellings()` API and will
+# > not run. Kept for historical reference. See `1.2-sd-inference.py` for the
+# > current workflow.
+
 # %%
 import pymc as pm
 import pytensor.tensor as pt
