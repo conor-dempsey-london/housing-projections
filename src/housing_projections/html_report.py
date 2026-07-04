@@ -16,7 +16,13 @@ import pandas as pd
 matplotlib.use('Agg')   # non-interactive backend for script usage
 
 from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN
-from housing_projections.diagnostics import compute_model_comparison, full_diagnostics
+from housing_projections.diagnostics import (
+    compute_lag_residuals,
+    compute_lag_weights,
+    compute_model_comparison,
+    compute_spatial_misallocation_stats,
+    full_diagnostics,
+)
 from housing_projections.eda import (
     compute_agreement_stats,
     compute_overall_correlation,
@@ -26,6 +32,16 @@ from housing_projections.eda import (
     plot_mean_trends,
     plot_morans_i_by_year,
     plot_total_agreement,
+)
+from housing_projections.plots.core import plot_residual_analysis, plot_sample_areas
+from housing_projections.plots.model import (
+    plot_lag_weights,
+    plot_missing_statistics,
+    plot_missingness_effect_on_z,
+    plot_missingness_posterior,
+    plot_spatial_diagnostics,
+    plot_twocomp_diagnostics,
+    plot_zero_inflation_check,
 )
 from housing_projections.sensitivity import (
     compute_decomposed_uncertainty,
@@ -208,6 +224,23 @@ def _stat_row(stats):
     return f'<div class="stat-row">{items}</div>'
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _safe_fig(fn, caption='', *args, **kwargs):
+    """Call fn(*args, **kwargs), capture the figure, close it, return HTML.
+    Returns empty string on any failure so one bad plot never breaks the report."""
+    try:
+        result = fn(*args, **kwargs)
+        fig = result[0] if isinstance(result, tuple) else result
+        if fig is None:
+            return ''
+        html = _html_fig(fig, caption)
+        plt.close(fig)
+        return html
+    except Exception:  # noqa: BLE001
+        return ''
+
+
 # ── Section builders ──────────────────────────────────────────────────────────
 
 def _build_executive_summary(data, traces, comparison_df, sensitivity_summary):
@@ -354,7 +387,7 @@ def _build_problem_statement():
 
 
 def _build_model_walk_through(traces, data, model_classes):
-    """One subsection per model in the comparison set."""
+    """One subsection per model — universal plots plus model-specific diagnostics."""
 
     html = ''
     model_names_ordered = [n for n in
@@ -364,53 +397,198 @@ def _build_model_walk_through(traces, data, model_classes):
     for name in model_names_ordered:
         trace = traces[name]
         desc_short, desc_long = _MODEL_DESCRIPTIONS.get(name, (name, ''))
-        diag = full_diagnostics(trace, data, verbose=False)
+        diag  = full_diagnostics(trace, data, verbose=False)
         n_div = int(trace.sample_stats.diverging.sum())
 
         card_html = f'<p>{desc_long}</p>'
 
-        # Key parameter posterior
-        key_var = _MODEL_KEY_VAR.get(name)
-        if key_var and key_var in trace.posterior:
-            try:
-                vals = trace.posterior[key_var].values.ravel()
-                fig, ax = plt.subplots(figsize=(6, 3))
-                ax.hist(vals, bins=60, color='steelblue', alpha=0.7, density=True)
-                ax.set_xlabel(key_var)
-                ax.set_ylabel('Density')
-                ax.set_title(f'{name}: posterior distribution of {key_var}')
-                ax.spines[['top', 'right']].set_visible(False)
-                plt.tight_layout()
-                card_html += _html_fig(fig, f'Posterior of {key_var}')
-            except Exception:
-                pass
+        # ── Diagnostics mini-summary ──────────────────────────────────────────
+        rhat_summary = diag.get('rhat', {})
+        rhat_df      = rhat_summary.get('summary') if isinstance(rhat_summary, dict) else None
+        max_rhat     = float(rhat_df['r_hat'].max()) if rhat_df is not None and 'r_hat' in rhat_df.columns else float('nan')
 
-        # z posterior mean distribution
-        try:
-            z_post = trace.posterior['z'].values
-            z_mean = z_post.mean(axis=(0, 1)).ravel()
-            fig, ax = plt.subplots(figsize=(6, 3))
-            ax.hist(z_mean, bins=80, color='coral', alpha=0.7, density=True)
-            ax.axvline(0, color='black', linewidth=0.7, linestyle='--')
-            ax.set_xlabel('Posterior mean z (dwellings / year)')
-            ax.set_ylabel('Density')
-            ax.set_title(f'{name}: distribution of z posterior means')
-            ax.spines[['top', 'right']].set_visible(False)
-            plt.tight_layout()
-            card_html += _html_fig(fig, 'Distribution of z posterior means across all LSOAs × years')
-        except Exception:
-            pass
-
-        # Diagnostics mini-summary
-        max_rhat = diag.get('rhat', {}).get('max_rhat', float('nan'))
         card_html += _stat_row([
             ('Divergences', str(n_div)),
             ('Max R̂', f'{max_rhat:.3f}' if not np.isnan(max_rhat) else '—'),
         ])
-
         if n_div > 100:
             card_html += _finding(f'{n_div} divergences — consider increasing target_accept '
-                                  f'or reparameterising.')
+                                  'or reparameterising.')
+
+        # ── Universal: sample areas (z posterior vs observations) ─────────────
+        card_html += _safe_fig(
+            plot_sample_areas, 'Posterior z vs planning and BEN observations for 6 example LSOAs',
+            trace, data, title=name, random_state=42,
+        )
+
+        # ── Universal: residual analysis ──────────────────────────────────────
+        card_html += _safe_fig(
+            plot_residual_analysis, 'Residual analysis — planning and BEN residuals by year and census change',
+            trace, data, title=name,
+        )
+
+        # ── Model-specific plots ──────────────────────────────────────────────
+
+        if name == 'M0h':
+            # Hierarchical hyperpriors — show shrinkage across areas
+            for var in ('mu_global', 'sigma_mu'):
+                if var in trace.posterior:
+                    try:
+                        vals = trace.posterior[var].values.ravel()
+                        fig, ax = plt.subplots(figsize=(6, 3))
+                        ax.hist(vals, bins=60, color='steelblue', alpha=0.7, density=True)
+                        ax.set_xlabel(var)
+                        ax.set_ylabel('Density')
+                        ax.set_title(f'{name}: posterior of {var}')
+                        ax.spines[['top', 'right']].set_visible(False)
+                        plt.tight_layout()
+                        card_html += _html_fig(fig, f'Posterior of {var} — the hierarchical hyperprior governing how much area-level means can deviate from the global mean')
+                        plt.close(fig)
+                    except Exception:  # noqa: BLE001
+                        pass
+
+        elif name == 'M2':
+            # Learned separate observation noise — key thing M2 adds over M0
+            for var, caption in [
+                ('sigma_plan', 'Posterior of planning observation noise — M2 learns this rather than fixing it at 2.0'),
+                ('sigma_ben',  'Posterior of BEN observation noise — M2 learns this separately from planning'),
+            ]:
+                if var in trace.posterior:
+                    try:
+                        vals = trace.posterior[var].values.ravel()
+                        fig, ax = plt.subplots(figsize=(6, 3))
+                        ax.hist(vals, bins=60, color='steelblue', alpha=0.7, density=True)
+                        ax.axvline(2.0, color='red', linestyle='--', linewidth=1,
+                                   label='M0 fixed value (2.0)')
+                        ax.set_xlabel(var)
+                        ax.set_ylabel('Density')
+                        ax.set_title(f'{name}: posterior of {var}')
+                        ax.spines[['top', 'right']].set_visible(False)
+                        ax.legend(fontsize=8)
+                        plt.tight_layout()
+                        card_html += _html_fig(fig, caption)
+                        plt.close(fig)
+                    except Exception:  # noqa: BLE001
+                        pass
+
+        elif name == 'M3':
+            try:
+                lag_results = compute_lag_weights(trace, verbose=False)
+                card_html += _safe_fig(
+                    plot_lag_weights,
+                    'Posterior lag weight distributions — how planning completions are spread across years',
+                    lag_results, title=name,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            # Residuals with and without lag correction vs a baseline model
+            if 'M0' in traces:
+                try:
+                    resids_m0 = compute_lag_residuals(traces['M0'], data)
+                    resids_m3 = compute_lag_residuals(trace, data)
+                    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+                    for ax, resid, label, color in [
+                        (axes[0], resids_m0['no_lag'].ravel(), 'M0 (no lag)', 'steelblue'),
+                        (axes[1], resids_m3['with_lag'].ravel(), 'M3 (with lag)', 'coral'),
+                    ]:
+                        clip = np.quantile(np.abs(resid), 0.99)
+                        ax.hist(resid, bins=80, density=True, color=color, alpha=0.7,
+                                range=(-clip, clip))
+                        ax.axvline(0, color='black', linewidth=0.8)
+                        ax.axvline(resid.mean(), color='red', linestyle='--', linewidth=0.8,
+                                   label=f'mean={resid.mean():.2f}')
+                        ax.set_title(f'Planning residuals: {label}')
+                        ax.set_xlabel('Observed − predicted')
+                        ax.spines[['top', 'right']].set_visible(False)
+                        ax.legend(fontsize=8)
+                    plt.suptitle('M3 lag correction — planning residuals before and after')
+                    plt.tight_layout()
+                    card_html += _html_fig(fig, 'Lag correction shrinks the mean residual — M3 accounts for completions recorded in later years')
+                    plt.close(fig)
+                except Exception:  # noqa: BLE001
+                    pass
+
+        elif name in ('M4', 'M5', 'M5b'):
+            card_html += _safe_fig(
+                plot_missingness_posterior,
+                'Missingness parameter posteriors — probability that a zero planning observation is a missing record rather than genuine zero activity',
+                trace, title=name,
+            )
+            card_html += _safe_fig(
+                plot_zero_inflation_check,
+                'Observed vs model-predicted zero rate — how well the missingness model captures the frequency of zero planning observations',
+                trace, data, title=name,
+            )
+            card_html += _safe_fig(
+                plot_missing_statistics,
+                'What the model infers about LSOAs with zero planning observations — how many zeros are genuine vs missing records',
+                trace, data, title=name,
+            )
+            if name == 'M5b':
+                card_html += _safe_fig(
+                    plot_twocomp_diagnostics,
+                    'Two-component observation noise — weight on the tight vs loose component; the loose component absorbs outlier observations',
+                    trace, data, title=name,
+                )
+            # Show effect of missingness correction vs M0
+            if 'M0' in traces:
+                card_html += _safe_fig(
+                    plot_missingness_effect_on_z,
+                    'Effect on z estimates for LSOAs where planning shows zero but BEN shows non-zero activity',
+                    traces['M0'], trace, data,
+                    title=name, label_before='M0', label_after=name,
+                )
+
+        elif name == 'M6':
+            try:
+                stats_dict = compute_spatial_misallocation_stats(trace, data)
+                card_html += _safe_fig(
+                    plot_spatial_diagnostics,
+                    'Spatial misallocation diagnostics — alpha_spatial posterior and z vs spatial lag of z',
+                    stats_dict, title=name,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+        elif name == 'M7':
+            for var, caption in [
+                ('rho',        'AR(1) autocorrelation posterior — how strongly this year\'s delivery predicts next year\'s'),
+                ('sigma_innov', 'Innovation noise posterior — year-to-year variability in z beyond the AR(1) trend'),
+            ]:
+                if var in trace.posterior:
+                    try:
+                        vals = trace.posterior[var].values.ravel()
+                        fig, ax = plt.subplots(figsize=(6, 3))
+                        ax.hist(vals, bins=60, color='steelblue', alpha=0.7, density=True)
+                        ax.set_xlabel(var)
+                        ax.set_ylabel('Density')
+                        ax.set_title(f'{name}: posterior of {var}')
+                        ax.spines[['top', 'right']].set_visible(False)
+                        plt.tight_layout()
+                        card_html += _html_fig(fig, caption)
+                        plt.close(fig)
+                    except Exception:  # noqa: BLE001
+                        pass
+
+        elif name == 'M9':
+            for var, caption in [
+                ('sigma_base_plan', 'Base planning uncertainty posterior — how much z can deviate from the planning signal on average'),
+                ('sigma_obs_plan',  'Planning observation noise posterior — residual noise beyond the structural uncertainty'),
+            ]:
+                if var in trace.posterior:
+                    try:
+                        vals = trace.posterior[var].values.ravel()
+                        fig, ax = plt.subplots(figsize=(6, 3))
+                        ax.hist(vals, bins=60, color='steelblue', alpha=0.7, density=True)
+                        ax.set_xlabel(var)
+                        ax.set_ylabel('Density')
+                        ax.set_title(f'{name}: posterior of {var}')
+                        ax.spines[['top', 'right']].set_visible(False)
+                        plt.tight_layout()
+                        card_html += _html_fig(fig, caption)
+                        plt.close(fig)
+                    except Exception:  # noqa: BLE001
+                        pass
 
         html += f'<div class="model-card" id="model-{name}">'
         html += f'<h4>{name} — {desc_short}</h4>'
