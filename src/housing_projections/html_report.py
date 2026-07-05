@@ -298,7 +298,7 @@ def _build_eda(data):
     html += _stat_row([
         ('LSOAs', f'{data["n_areas"]:,}'),
         ('Inference years', str(data['n_years'])),
-        ('PLD–BEN Pearson r', f'{r:.3f}'),
+        ('PLD–BEN Pearson r (annual, per-LSOA)', f'{r:.3f}'),
     ])
 
     # Cumulative vs intercensal
@@ -320,10 +320,12 @@ def _build_eda(data):
     # Source agreement
     stats = compute_agreement_stats(gdf, verbose=False)
     html += _callout(
-        f'<strong>Source agreement:</strong> '
-        f'Total Pearson r = {stats["total_corr"]:.3f} &nbsp;·&nbsp; '
+        f'<strong>Source agreement (10-year cumulative totals per LSOA):</strong> '
+        f'Pearson r = {stats["total_corr"]:.3f} &nbsp;·&nbsp; '
         f'Mean absolute bias = {stats["total_bias"]:.2f} dwellings/year &nbsp;·&nbsp; '
-        f'Same sign = {stats["pct_same_sign"]:.1f}%'
+        f'Same sign = {stats["pct_same_sign"]:.1f}% &nbsp;·&nbsp; '
+        f'<em>Note: higher than the annual figure above because aggregating over years '
+        f'smooths out recording delays and year-to-year noise.</em>'
     )
 
     try:
