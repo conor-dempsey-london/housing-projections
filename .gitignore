@@ -14,6 +14,7 @@ figures
 data
 output
 .env
+results/traces
 
 # pixi environments
 .pixi/*
