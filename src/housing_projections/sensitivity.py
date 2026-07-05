@@ -126,9 +126,11 @@ def compute_z_ensemble(traces, comparison_df=None):
     return ensemble
 
 
-def compute_decomposed_uncertainty(traces, comparison_df=None, ci=0.9, lsoa_codes=None):
+def compute_decomposed_uncertainty(traces, comparison_df=None, ci=0.9,
+                                   lsoa_codes=None, infer_years=None):
     """
-    Decompose per-LSOA z uncertainty into within-model and between-model components.
+    Decompose per-LSOA per-year z uncertainty into within-model and between-model
+    components and return a long-format timeseries.
 
     Within-model uncertainty captures sampling variance given one model's assumptions.
     Between-model uncertainty captures how much the estimate itself shifts across models.
@@ -142,18 +144,26 @@ def compute_decomposed_uncertainty(traces, comparison_df=None, ci=0.9, lsoa_code
                     If None, equal weights are used.
     ci            : float — credible interval width, e.g. 0.9 for 90%
     lsoa_codes    : array-like or None — LSOA21CD codes, one per area row
+    infer_years   : array-like or None — calendar years, one per year column;
+                    defaults to INFER_YEARS from config
 
     Returns
     -------
-    pd.DataFrame with one row per LSOA and columns:
-        lsoa_idx, (lsoa_code if provided),
-        z_ensemble_mean      — LOO-stacking weighted posterior mean
-        z_within_uncertainty — mean posterior SD across models (within-model)
-        z_between_uncertainty — std of posterior means across models (between-model)
-        z_total_uncertainty  — sqrt(within² + between²)
-        z_ci_lo, z_ci_hi     — ensemble-mean ± z_total_uncertainty * z_factor
-        confidence_tier      — 'High' / 'Medium' / 'Low'
+    pd.DataFrame with one row per (LSOA, year) — shape (n_areas × n_years, columns):
+        lsoa_idx, (lsoa_code if provided), year,
+        z_ensemble_mean       — LOO-stacking weighted posterior mean
+        z_within_uncertainty  — weighted mean of per-model posterior SDs
+        z_between_uncertainty — std of posterior means across models
+        z_total_uncertainty   — sqrt(within² + between²)
+        z_ci{pct}_lo, z_ci{pct}_hi — ensemble-mean ± z_factor * z_total_uncertainty
+        confidence_tier       — 'High' / 'Medium' / 'Low'
     """
+    from housing_projections.config import INFER_YEARS
+    from scipy.stats import norm
+
+    if infer_years is None:
+        infer_years = INFER_YEARS
+
     model_names = list(traces)
 
     if comparison_df is not None and 'weight' in comparison_df.columns:
@@ -165,61 +175,64 @@ def compute_decomposed_uncertainty(traces, comparison_df=None, ci=0.9, lsoa_code
     total_w = sum(raw_weights.values()) or 1.0
     weights = {n: raw_weights[n] / total_w for n in model_names}
 
-    # Per-model posterior means and SDs, averaged over years → (n_areas,)
-    z_post_means = {}   # posterior mean per area per model
-    z_post_sds   = {}   # posterior SD per area per model
+    # Per-model posterior mean and SD per (area, year) → (n_areas, n_years)
+    z_post_means = {}
+    z_post_sds   = {}
 
     for name, trace in traces.items():
-        z = trace.posterior['z'].values           # (chains, draws, n_areas, n_years)
-        flat = z.reshape(-1, z.shape[2], z.shape[3])  # (S, n_areas, n_years)
-        z_post_means[name] = flat.mean(axis=0).mean(axis=1)   # (n_areas,)
-        z_post_sds[name]   = flat.std(axis=0).mean(axis=1)    # (n_areas,)
+        z    = trace.posterior['z'].values                     # (chains, draws, n_areas, n_years)
+        flat = z.reshape(-1, z.shape[2], z.shape[3])          # (S, n_areas, n_years)
+        z_post_means[name] = flat.mean(axis=0)                 # (n_areas, n_years)
+        z_post_sds[name]   = flat.std(axis=0)                  # (n_areas, n_years)
 
-    n_areas = next(iter(z_post_means.values())).shape[0]
+    first = next(iter(z_post_means.values()))
+    n_areas, n_years = first.shape
 
     # Ensemble mean: LOO-stacking weighted average of posterior means
-    ensemble_mean = np.zeros(n_areas)
+    ensemble_mean = np.zeros((n_areas, n_years))
     for name in model_names:
         ensemble_mean += weights[name] * z_post_means[name]
 
     # Within-model uncertainty: weighted mean of per-model posterior SDs
-    within = np.zeros(n_areas)
+    within = np.zeros((n_areas, n_years))
     for name in model_names:
         within += weights[name] * z_post_sds[name]
 
     # Between-model uncertainty: std of posterior means across models
-    means_mat = np.stack([z_post_means[n] for n in model_names], axis=1)  # (n_areas, n_models)
-    between = means_mat.std(axis=1)
+    means_stack = np.stack([z_post_means[n] for n in model_names], axis=0)  # (n_models, n_areas, n_years)
+    between = means_stack.std(axis=0)                                         # (n_areas, n_years)
 
-    total = np.sqrt(within**2 + between**2)
-
-    # Approximate CI using normal quantile (posterior is roughly normal for large n)
-    from scipy.stats import norm
+    total    = np.sqrt(within**2 + between**2)
     z_factor = norm.ppf((1 + ci) / 2)
-    ci_lo = ensemble_mean - z_factor * total
-    ci_hi = ensemble_mean + z_factor * total
+    ci_lo    = ensemble_mean - z_factor * total
+    ci_hi    = ensemble_mean + z_factor * total
 
-    # Confidence tier: coefficient of variation of total uncertainty relative to |ensemble mean|
-    # Low CV → High confidence. Thresholds chosen so roughly 1/3 of LSOAs fall in each tier.
-    cv = total / (np.abs(ensemble_mean) + 1e-6)
+    # Confidence tier per (area, year): CV of total uncertainty vs |ensemble mean|
+    cv   = total / (np.abs(ensemble_mean) + 1e-6)
     tier = np.where(cv < np.percentile(cv, 33), 'High',
            np.where(cv < np.percentile(cv, 67), 'Medium', 'Low'))
 
-    df = pd.DataFrame({
-        'lsoa_idx':             np.arange(n_areas),
-        'z_ensemble_mean':      ensemble_mean,
-        'z_within_uncertainty': within,
-        'z_between_uncertainty': between,
-        'z_total_uncertainty':  total,
-        f'z_ci{int(ci*100)}_lo': ci_lo,
-        f'z_ci{int(ci*100)}_hi': ci_hi,
-        'confidence_tier':      tier,
-    })
+    # Build long-format DataFrame: one row per (area, year)
+    lsoa_idx_col  = np.repeat(np.arange(n_areas), n_years)
+    year_col      = np.tile(infer_years[:n_years], n_areas)
+
+    rows = {
+        'lsoa_idx':              lsoa_idx_col,
+        'year':                  year_col,
+        'z_ensemble_mean':       ensemble_mean.ravel(),
+        'z_within_uncertainty':  within.ravel(),
+        'z_between_uncertainty': between.ravel(),
+        'z_total_uncertainty':   total.ravel(),
+        f'z_ci{int(ci*100)}_lo': ci_lo.ravel(),
+        f'z_ci{int(ci*100)}_hi': ci_hi.ravel(),
+        'confidence_tier':       tier.ravel(),
+    }
 
     if lsoa_codes is not None:
-        df.insert(0, 'lsoa_code', np.asarray(lsoa_codes)[:n_areas])
+        codes = np.asarray(lsoa_codes)[:n_areas]
+        rows = {'lsoa_code': np.repeat(codes, n_years), **rows}
 
-    return df
+    return pd.DataFrame(rows)
 
 
 # ── Plot functions ────────────────────────────────────────────────────────────
@@ -350,19 +363,31 @@ def plot_sensitivity_vs_disagreement(sensitivity_df, gdf,
     return fig
 
 
+def _area_means(uncertainty_df):
+    """Collapse long-format uncertainty_df to one row per LSOA by averaging over years."""
+    idx_col = 'lsoa_code' if 'lsoa_code' in uncertainty_df.columns else 'lsoa_idx'
+    return uncertainty_df.groupby(idx_col)[
+        ['z_ensemble_mean', 'z_within_uncertainty',
+         'z_between_uncertainty', 'z_total_uncertainty']
+    ].mean().reset_index()
+
+
 def plot_ensemble_mean_map(gdf, uncertainty_df, figsize=(14, 6)):
     """
-    Side-by-side choropleth maps of ensemble mean z and total uncertainty.
+    Side-by-side choropleth maps of ensemble mean z and total uncertainty,
+    averaged over all inference years.
 
     Parameters
     ----------
-    gdf            : GeoDataFrame — same length/order as uncertainty_df
+    gdf            : GeoDataFrame — same length/order as uncertainty_df lsoa_idx
     uncertainty_df : pd.DataFrame — output of compute_decomposed_uncertainty
     figsize        : tuple
     """
-    plot_gdf = gdf.copy().iloc[:len(uncertainty_df)]
-    plot_gdf['z_ensemble_mean']     = uncertainty_df['z_ensemble_mean'].values
-    plot_gdf['z_total_uncertainty'] = uncertainty_df['z_total_uncertainty'].values
+    per_area       = _area_means(uncertainty_df)
+    n_areas        = len(per_area)
+    plot_gdf       = gdf.copy().iloc[:n_areas]
+    plot_gdf['z_ensemble_mean']     = per_area['z_ensemble_mean'].values
+    plot_gdf['z_total_uncertainty'] = per_area['z_total_uncertainty'].values
 
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
@@ -396,13 +421,13 @@ def plot_estimate_vs_uncertainty(uncertainty_df, title=''):
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
 
-    # Left: point estimate vs total uncertainty, coloured by tier
+    # Left: point estimate vs total uncertainty, coloured by tier (one point per LSOA-year)
     for tier, colour in tier_colours.items():
         mask = uncertainty_df['confidence_tier'] == tier
         axes[0].scatter(
             uncertainty_df.loc[mask, 'z_ensemble_mean'],
             uncertainty_df.loc[mask, 'z_total_uncertainty'],
-            alpha=0.4, s=8, color=colour, label=tier,
+            alpha=0.3, s=5, color=colour, label=tier,
         )
     axes[0].set_xlabel('Ensemble mean z (dwellings / year)')
     axes[0].set_ylabel('Total uncertainty (dwellings / year)')
@@ -410,11 +435,11 @@ def plot_estimate_vs_uncertainty(uncertainty_df, title=''):
     axes[0].legend(title='Confidence', fontsize=9)
     axes[0].spines[['top', 'right']].set_visible(False)
 
-    # Right: within vs between decomposition scatter
+    # Right: within vs between decomposition scatter (one point per LSOA-year)
     axes[1].scatter(
         uncertainty_df['z_within_uncertainty'],
         uncertainty_df['z_between_uncertainty'],
-        alpha=0.3, s=8, color='steelblue',
+        alpha=0.2, s=5, color='steelblue',
     )
     lim = max(uncertainty_df['z_within_uncertainty'].max(),
               uncertainty_df['z_between_uncertainty'].max()) * 1.05
