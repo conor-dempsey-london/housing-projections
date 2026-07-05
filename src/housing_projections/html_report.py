@@ -15,7 +15,7 @@ import pandas as pd
 
 matplotlib.use('Agg')   # non-interactive backend for script usage
 
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN
+from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
 from housing_projections.diagnostics import (
     compute_lag_residuals,
     compute_lag_weights,
@@ -33,7 +33,12 @@ from housing_projections.eda import (
     plot_morans_i_by_year,
     plot_total_agreement,
 )
-from housing_projections.plots.core import plot_residual_analysis, plot_sample_areas
+from housing_projections.plots.core import (
+    plot_residual_analysis,
+    plot_sample_areas,
+    plot_z_area,
+    select_sample_areas,
+)
 from housing_projections.plots.model import (
     plot_lag_weights,
     plot_missing_statistics,
@@ -790,6 +795,130 @@ def _build_conclusions(comparison_df, sensitivity_summary):
     return html
 
 
+# ── Sample traces section ─────────────────────────────────────────────────────
+
+def _build_sample_traces(traces, data, comparison_df=None, n_sample=9,
+                         random_state=42):
+    """
+    Section 7: per-LSOA timeseries for a selection of areas using the best model.
+
+    Selects areas spanning the full range of census differences (low, mid, high
+    growth) and plots, for each one, the posterior z mean + credible interval
+    from the best model alongside PLD and BEN observations.  A coloured header
+    records the LSOA's confidence tier from the ensemble uncertainty analysis.
+    """
+    if not traces:
+        return '<p>No traces available.</p>'
+
+    # ── Identify best model ───────────────────────────────────────────────────
+    if comparison_df is not None and len(comparison_df) > 0:
+        best_name = comparison_df.index[0]
+    else:
+        best_name = next(iter(traces))
+    best_trace = traces.get(best_name)
+    if best_trace is None:
+        return f'<p>Trace for best model ({best_name}) not found.</p>'
+
+    # ── Compute per-area confidence tiers from ensemble ───────────────────────
+    tier_by_idx = {}
+    try:
+        lsoa_codes = data['gdf']['LSOA21CD'].values \
+            if 'LSOA21CD' in data['gdf'].columns else None
+        unc_df = compute_decomposed_uncertainty(
+            traces, comparison_df=comparison_df, lsoa_codes=lsoa_codes,
+        )
+        # Aggregate tier per area: take mode across years
+        tier_by_idx = (
+            unc_df.groupby('lsoa_idx')['confidence_tier']
+            .agg(lambda s: s.value_counts().index[0])
+            .to_dict()
+        )
+    except Exception:
+        pass
+
+    # ── Select sample areas spanning the D range ──────────────────────────────
+    D           = data['D']
+    sample_idx  = select_sample_areas(D, n_sample=n_sample, random_state=random_state)
+    z_post      = best_trace.posterior['z'].values   # (chains, draws, n_areas, n_years)
+    P_obs       = data['P_obs']
+    E_obs       = data['E_obs']
+
+    # Resolve LSOA codes
+    gdf      = data['gdf']
+    code_col = next((c for c in ['LSOA21CD', 'LSOA11CD', 'geo_code', 'lsoa_code']
+                     if c in gdf.columns), None)
+
+    # ── Tier colour map ───────────────────────────────────────────────────────
+    tier_colours = {'High': '#2ecc71', 'Medium': '#f39c12', 'Low': '#e74c3c'}
+
+    # ── Build one figure per area ─────────────────────────────────────────────
+    n_cols = 3
+    n_rows = int(np.ceil(n_sample / n_cols))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows))
+
+    for ax, idx in zip(np.array(axes).ravel(), sample_idx):
+        plot_z_area(ax, z_post, idx,
+                    infer_years=INFER_YEARS,
+                    P_obs=P_obs, E_obs=E_obs, D=D,
+                    n_years=data['n_years'],
+                    show_legend=False, alpha_ci=0.9)
+
+        # Annotate with LSOA code and confidence tier
+        lsoa_label = gdf.iloc[idx][code_col] if code_col else f'LSOA {idx}'
+        tier        = tier_by_idx.get(idx, '')
+        colour      = tier_colours.get(tier, '#aaaaaa')
+        ax.set_title(f'{lsoa_label}  D={D[idx]:.0f}', fontsize=8)
+        if tier:
+            ax.text(0.97, 0.97, tier, transform=ax.transAxes,
+                    ha='right', va='top', fontsize=7, fontweight='bold',
+                    color='white',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor=colour, alpha=0.85,
+                              edgecolor='none'))
+
+    # Hide unused panels
+    for ax in np.array(axes).ravel()[n_sample:]:
+        ax.set_visible(False)
+
+    # Shared legend in the first panel
+    axes_flat = np.array(axes).ravel()
+    handles, labels = axes_flat[0].get_legend_handles_labels()
+    if handles:
+        axes_flat[0].legend(handles, labels, fontsize=6, loc='upper left')
+
+    plt.suptitle(
+        f'Posterior z timeseries — {best_name} (best model by LOO-CV)',
+        fontsize=12,
+    )
+    plt.tight_layout()
+
+    # ── Prose ─────────────────────────────────────────────────────────────────
+    tier_legend = ' '.join(
+        f'<span style="display:inline-block;padding:2px 8px;border-radius:3px;'
+        f'background:{c};color:white;font-size:.8em;font-weight:bold">{t}</span>'
+        for t, c in tier_colours.items()
+    )
+    html = f'''
+    <p>
+    Each panel shows the posterior z timeseries for one example LSOA from the
+    <strong>{best_name}</strong> model (the best-performing model by LOO-CV).
+    The shaded band is the 90% credible interval; markers show PLD (planning)
+    and BEN observations.  Areas are selected to span the full range of
+    intercensal change — from net loss through to high growth.
+    </p>
+    <p>
+    The badge in the top-right corner of each panel indicates the LSOA's
+    confidence tier from the ensemble uncertainty analysis: {tier_legend}
+    </p>
+    '''
+    html += _html_fig(fig, (
+        f'Posterior z timeseries for {n_sample} example LSOAs — {best_name}. '
+        'Shaded band = 90% CI. Confidence tier badge reflects between-model '
+        'disagreement in addition to within-model sampling uncertainty.'
+    ))
+    plt.close(fig)
+    return html
+
+
 # ── Main entry point ──────────────────────────────────────────────────────────
 
 def generate_report(data, traces, model_classes=None, output_path='results/report.html',
@@ -875,6 +1004,13 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
     conc_html = _build_conclusions(comparison_df, sensitivity_summary)
     sections_html += _section('6. Summary and Conclusions', conc_html, 'conclusions')
 
+    print('  Sample traces...')
+    try:
+        sample_html = _build_sample_traces(traces, data, comparison_df=comparison_df)
+    except Exception as e:
+        sample_html = f'<p>[Error: {e}]</p>'
+    sections_html += _section('7. Sample Traces with Uncertainty', sample_html, 'sample-traces')
+
     # ── TOC ───────────────────────────────────────────────────────────────────
     toc = """<nav class="toc"><ul>
       <li><a href="#summary">Executive Summary</a></li>
@@ -884,6 +1020,7 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
       <li><a href="#comparison">4. Full Model Comparison</a></li>
       <li><a href="#sensitivity">5. Z Model Sensitivity</a></li>
       <li><a href="#conclusions">6. Summary and Conclusions</a></li>
+      <li><a href="#sample-traces">7. Sample Traces with Uncertainty</a></li>
     </ul></nav>"""
 
     # ── Executive summary (needs comparison_df and sensitivity) ───────────────
