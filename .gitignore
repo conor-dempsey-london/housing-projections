@@ -14,7 +14,7 @@ figures
 data
 output
 .env
-.gitignore
+
 # pixi environments
 .pixi/*
 !.pixi/config.toml
