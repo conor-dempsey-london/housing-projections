@@ -23,7 +23,7 @@ def plot_distributions_by_year(gdf):
     axes[1].spines[['top', 'right']].set_visible(False)
 
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_mean_trends(gdf):
@@ -55,7 +55,7 @@ def plot_mean_trends(gdf):
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend()
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 def plot_year_correlation(gdf):
@@ -77,7 +77,7 @@ def plot_year_correlation(gdf):
     ax.set_ylim(-1, 1)
     ax.spines[['top', 'right']].set_visible(False)
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 # ── Autocorrelation ───────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ def plot_autocorrelations(ac_results, labels=('Series A', 'Series B'),
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend()
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 # ── Cross-correlation ─────────────────────────────────────────────────────────
@@ -297,4 +297,4 @@ def plot_crosscorrelations(xc_results, labels=('Series A', 'Series B'),
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend()
     plt.tight_layout()
-    plt.show()
+    return fig, ax

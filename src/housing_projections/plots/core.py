@@ -267,7 +267,6 @@ def plot_sample_areas(trace, data, n_sample=6, title='',
 
     plt.suptitle(f'{title} — posterior z vs planning and BEN')
     plt.tight_layout()
-    plt.show()
 
     return fig, axes
 
@@ -285,7 +284,6 @@ def plot_posterior_predictive(post_pred, data, title=''):
 
     plt.suptitle(f'{title} — posterior predictive vs observed')
     plt.tight_layout()
-    plt.show()
 
     return fig, axes
 
@@ -305,7 +303,6 @@ def plot_prior_predictive(prior, data, title=''):
 
     plt.suptitle(f'{title} — prior predictive vs observed')
     plt.tight_layout()
-    plt.show()
 
     return fig, axes
 
@@ -399,7 +396,6 @@ def plot_residual_analysis(trace, data, title='', quantile_clip=0.99):
 
     plt.suptitle(f'{title} — residual analysis')
     plt.tight_layout()
-    plt.show()
 
     return fig, axes
 
@@ -408,7 +404,8 @@ def plot_parameter_trace(trace, var_names, title=''):
     """
     Plot trace and posterior for scalar parameters.
     """
-    az.plot_trace(trace, var_names=var_names)
+    axes = az.plot_trace(trace, var_names=var_names)
+    fig  = plt.gcf()
     plt.suptitle(f'{title} — parameter traces')
     plt.tight_layout()
-    plt.show()
+    return fig, axes

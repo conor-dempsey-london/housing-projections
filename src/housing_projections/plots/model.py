@@ -50,7 +50,6 @@ def plot_lag_weights(lag_results, title=''):
 
     plt.suptitle(f'{title} — lag weights')
     plt.tight_layout()
-    plt.show()
 
     return fig, axes
 
@@ -86,7 +85,6 @@ def plot_lag_residuals(resids, title=''):
 
     plt.suptitle(f'{title} — lag residuals')
     plt.tight_layout()
-    plt.show()
 
     return fig, axes
 
@@ -111,7 +109,7 @@ def plot_lag_residuals_by_year(resids, title=''):
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend()
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 def plot_lag_effect(trace, data, n_sample=6, title='M3'):
@@ -177,7 +175,7 @@ def plot_lag_effect(trace, data, n_sample=6, title='M3'):
                  f'implied mean lag = '
                  f'{sum(k * lambda_mean[k] for k in range(n_lags)):.2f} years')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_lag_shift(trace, data, title='M3'):
@@ -228,7 +226,7 @@ def plot_lag_shift(trace, data, title='M3'):
 
     plt.suptitle(f'{title} — temporal redistribution from lag model')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 # ── M4 — missingness / zero-inflation ─────────────────────────────────────────
@@ -250,11 +248,10 @@ def plot_missingness_posterior(trace, title=''):
         fig, axes = plt.subplots(1, 2, figsize=(12, 4))
     elif has_symmetric:
         params = [('pi_miss', 2, 8, 'all observations')]
-        fig, axes = plt.subplots(1, 1, figsize=(7, 4))
-        axes = [axes]
+        fig, ax  = plt.subplots(1, 1, figsize=(7, 4))
+        axes     = [ax]
     else:
-        print(f"No missingness parameters found in trace for {title}")
-        return
+        return None, None
 
     for ax, (param, prior_alpha, prior_beta, label) in zip(axes, params):
         post = trace.posterior[param].values.ravel()
@@ -273,7 +270,7 @@ def plot_missingness_posterior(trace, title=''):
 
     plt.suptitle(f'{title} — missingness parameter posteriors')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_zero_inflation_check(trace, data, title=''):
@@ -296,8 +293,7 @@ def plot_zero_inflation_check(trace, data, title=''):
         pred_zero_rate_neg = float(
             trace.posterior['pi_miss_neg'].values.ravel().mean())
     else:
-        print(f"No missingness parameters found in trace for {title}")
-        return
+        return None, None
 
     pos_mask          = z_mean_post > 0
     neg_mask          = z_mean_post < 0
@@ -324,7 +320,7 @@ def plot_zero_inflation_check(trace, data, title=''):
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend(fontsize=8)
 
-    for i, val in enumerate([obs_zero_rate_pos, obs_zero_rate_neg]):
+    for i, val in enumerate([obs_zero_rate_pos, obs_zero_rate_neg]):  # noqa: B007
         ax.text(i - width / 2, val + 0.005,
                 f'{val:.3f}', ha='center', fontsize=9)
     for i, val in enumerate([pred_zero_rate_pos, pred_zero_rate_neg]):
@@ -332,12 +328,7 @@ def plot_zero_inflation_check(trace, data, title=''):
                 f'{val:.3f}', ha='center', fontsize=9)
 
     plt.tight_layout()
-    plt.show()
-
-    print(f"Observed zero rate where z>0:  {obs_zero_rate_pos:.3f}")
-    print(f"Observed zero rate where z<0:  {obs_zero_rate_neg:.3f}")
-    print(f"Predicted zero rate where z>0: {pred_zero_rate_pos:.3f}")
-    print(f"Predicted zero rate where z<0: {pred_zero_rate_neg:.3f}")
+    return fig, ax
 
 
 def plot_missingness_effect_on_z(
@@ -363,7 +354,7 @@ def plot_missingness_effect_on_z(
     z_after  = trace_after.posterior['z'].values.mean(axis=(0, 1))
     diff     = z_after[area_mask] - z_before[area_mask]
 
-    _, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     ax = axes[0]
     ax.scatter(z_before[area_mask].ravel(), z_after[area_mask].ravel(),
@@ -390,7 +381,7 @@ def plot_missingness_effect_on_z(
 
     plt.suptitle(f'{title} — missingness effect on z inference')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_zero_residuals(resids, P_obs, title=''):
@@ -405,7 +396,7 @@ def plot_zero_residuals(resids, P_obs, title=''):
     resid_plan = resids['with_lag']
     is_zero    = np.abs(P_obs) < 1e-6
 
-    _, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     for ax, mask, label in zip(
         axes,
@@ -429,7 +420,7 @@ def plot_zero_residuals(resids, P_obs, title=''):
 
     plt.suptitle(f'{title} — residuals for zero vs non-zero planning observations')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_negative_tail_comparison(
@@ -449,7 +440,7 @@ def plot_negative_tail_comparison(
 
     clip = 20
 
-    _, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     ax = axes[0]
     ax.hist(P_obs,         bins=50, density=True, alpha=0.5,
@@ -478,13 +469,7 @@ def plot_negative_tail_comparison(
 
     plt.suptitle(f'{title} — negative tail of planning distribution')
     plt.tight_layout()
-    plt.show()
-
-    print(f"Fraction negative — observed:      {(P_obs < 0).mean():.4f}")
-    print(f"Fraction negative — {label_before} predictive: "
-          f"{(P_pred_before < 0).mean():.4f}")
-    print(f"Fraction negative — {label_after} predictive: "
-          f"{(P_pred_after < 0).mean():.4f}")
+    return fig, axes
 
 
 def plot_missing_statistics(trace, data, title=''):
@@ -501,8 +486,7 @@ def plot_missing_statistics(trace, data, title=''):
         pi_neg  = float(trace.posterior['pi_miss_neg'].values.ravel().mean())
         pi_post = (pi_pos + pi_neg) / 2
     else:
-        print(f"No missingness parameters found in trace for {title}")
-        return
+        return None, None
 
     P_obs   = data['P_obs']
     is_zero = np.abs(P_obs) < 1e-6
@@ -578,24 +562,7 @@ def plot_missing_statistics(trace, data, title=''):
 
     plt.suptitle(f'{title} — missing planning observation statistics')
     plt.tight_layout()
-    plt.show()
-
-    print("\n── Missing observation summary ──────────────────────────────")
-    print(f"  Total zero planning observations:    {is_zero.sum():,}")
-    print(f"  Expected missing (pi_miss={pi_post:.3f}): {total_missing:.0f}")
-    print(f"  Of zeros, z>0 (missing completion):  "
-          f"{n_pos:,} ({n_pos/total*100:.1f}%)")
-    print(f"  Of zeros, z≈0 (genuine zero):        "
-          f"{n_zero:,} ({n_zero/total*100:.1f}%)")
-    print(f"  Of zeros, z<0 (missing demolition):  "
-          f"{n_neg:,} ({n_neg/total*100:.1f}%)")
-    print(f"\n  Mean z where planning=0:             {z_at_zeros.mean():.2f}")
-    print(f"  Mean z where planning=0 and z>0:     "
-          f"{z_pos_missing.mean():.2f}" if len(z_pos_missing) > 0
-          else "  No positive z at zeros")
-    print(f"  Mean z where planning=0 and z<0:     "
-          f"{z_neg_missing.mean():.2f}" if len(z_neg_missing) > 0
-          else "  No negative z at zeros")
+    return fig, axes
 
 
 # ── M5b — two-component observation noise ─────────────────────────────────────
@@ -641,11 +608,7 @@ def plot_twocomp_diagnostics(trace, data, title='M5b'):
 
     plt.suptitle(f'{title} — two-component observation noise')
     plt.tight_layout()
-    plt.show()
-
-    print(f"\nw_tight posterior: mean={w_tight_post.mean():.3f}  "
-          f"std={w_tight_post.std():.3f}")
-    print(f"Implied fraction misallocated: {1-w_tight_post.mean():.3f}")
+    return fig, axes
 
 
 # ── M6 — spatial misallocation ────────────────────────────────────────────────
@@ -659,7 +622,7 @@ def plot_spatial_diagnostics(stats_dict, title='M6'):
     z_flat     = stats_dict['z_flat']
     z_lag      = stats_dict['z_lag']
 
-    _, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     ax    = axes[0]
     ax.hist(alpha_post, bins=50, density=True,
@@ -690,10 +653,4 @@ def plot_spatial_diagnostics(stats_dict, title='M6'):
 
     plt.suptitle(f'{title} — spatial misallocation diagnostics')
     plt.tight_layout()
-    plt.show()
-
-    print("\nalpha_spatial posterior:")
-    print(f"  mean={stats_dict['alpha_mean']:.4f}  "
-          f"std={stats_dict['alpha_std']:.4f}  "
-          f"90% CI=[{stats_dict['alpha_lo']:.4f}, "
-          f"{stats_dict['alpha_hi']:.4f}]")
+    return fig, axes

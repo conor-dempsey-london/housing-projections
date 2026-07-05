@@ -53,7 +53,6 @@ def plot_morans_i_by_year(gdf):
 
     plt.suptitle("Moran's I — spatial autocorrelation by year")
     plt.tight_layout()
-    plt.show()
 
     return df_plan, df_ben
 
@@ -91,7 +90,7 @@ def plot_spatial_distribution(gdf, col, title='', cmap='RdBu',
     ax.set_axis_off()
     ax.set_title(title or col)
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 def plot_mean_change_maps(gdf):
@@ -128,7 +127,7 @@ def plot_mean_change_maps(gdf):
 
     plt.suptitle('Spatial distribution of mean annual dwelling change')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_source_disagreement_map(gdf, quantile_clip=0.95):
@@ -165,7 +164,7 @@ def plot_source_disagreement_map(gdf, quantile_clip=0.95):
     ax.set_axis_off()
     ax.set_title('Mean absolute disagreement between planning and BEN')
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 def plot_census_stock_maps(gdf,
                             col_2011='dwellings_2011',
@@ -194,7 +193,7 @@ def plot_census_stock_maps(gdf,
 
     plt.suptitle('Census dwelling stocks')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_intercensal_change_histogram_map(gdf,
@@ -267,7 +266,6 @@ def plot_intercensal_change_histogram_map(gdf,
 
     plt.suptitle('Spatial distribution of intercensal dwelling change')
     plt.tight_layout()
-    plt.show()
 
     print("\n── Intercensal change summary ────────────────────────────────")
     print(f"  Total net change:   {D.sum():,.0f}")
@@ -281,6 +279,7 @@ def plot_intercensal_change_histogram_map(gdf,
     print(f"  Median change:      {np.median(D):.2f}")
     print(f"  Max gain:           {D.max():.0f}")
     print(f"  Max loss:           {D.min():.0f}")
+    return fig, (ax_map, ax_pos, ax_neg)
 
 
 def plot_change_hotspots(gdf, col_2011='dwellings_2011',
@@ -345,7 +344,7 @@ def plot_change_hotspots(gdf, col_2011='dwellings_2011',
     ax.set_axis_off()
     ax.set_title('Intercensal change hotspots (2011-2021)')
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 def plot_spatial_autocorrelation_change(gdf,
@@ -400,7 +399,7 @@ def plot_spatial_autocorrelation_change(gdf,
     ax.set_title(f"LISA clusters: intercensal change "
                  f"(Moran's I={moran.I:.3f}, p={moran.p_sim:.4f})")
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 def plot_intercensal_change_map(gdf,

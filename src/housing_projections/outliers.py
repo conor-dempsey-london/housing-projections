@@ -192,7 +192,7 @@ def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
 
     if len(indices) == 0:
         print(f"No {sev_label} outlier areas to plot.")
-        return
+        return None, None
 
     P      = gdf[INFER_COLS_PLAN].values
     E      = gdf[INFER_COLS_BEN].values
@@ -237,7 +237,7 @@ def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
 
     plt.suptitle(f'Flagged outlier areas ({sev_label})')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 # ── Exclusion ─────────────────────────────────────────────────────────────────
@@ -369,4 +369,3 @@ def plot_outlier_map(gdf, outlier_df):
     ax.set_axis_off()
     ax.set_title('Flagged outlier LSOAs')
     plt.tight_layout()
-    plt.show()

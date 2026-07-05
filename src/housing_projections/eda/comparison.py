@@ -48,7 +48,7 @@ def plot_census_stocks(gdf,
 
     plt.suptitle('Census dwelling stocks overview')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_stock_scatter(gdf, col_2011='dwellings_2011',
@@ -81,7 +81,7 @@ def plot_stock_scatter(gdf, col_2011='dwellings_2011',
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend(fontsize=8)
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 # ── Cumulative flow vs intercensal change ─────────────────────────────────────
@@ -151,7 +151,7 @@ def plot_cumulative_vs_intercensal(gdf, cols, labels,
 
     plt.suptitle('Cumulative flow estimates vs exact intercensal change')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 # ── Direct P vs E comparison ──────────────────────────────────────────────────
@@ -220,7 +220,7 @@ def plot_per_area_correlation(gdf):
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend(fontsize=8)
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 def plot_annual_p_vs_e(gdf, n_cols=5):
@@ -263,4 +263,4 @@ def plot_annual_p_vs_e(gdf, n_cols=5):
 
     plt.suptitle('Annual planning vs BEN by year')
     plt.tight_layout()
-    plt.show()
+    return fig, axes

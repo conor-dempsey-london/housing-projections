@@ -194,7 +194,7 @@ def plot_total_agreement(gdf, stats_dict=None):
 
     plt.suptitle('Planning vs BEN agreement overview')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_category_breakdown(gdf, classification_df):
@@ -230,7 +230,7 @@ def plot_category_breakdown(gdf, classification_df):
                 f'{pct:.1f}%', ha='center', fontsize=8)
 
     plt.tight_layout()
-    plt.show()
+    return fig, ax
 
 
 def plot_category_examples(gdf, classification_df, n_per_category=3):
@@ -281,7 +281,7 @@ def plot_category_examples(gdf, classification_df, n_per_category=3):
 
     plt.suptitle('Example LSOAs by agreement category')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_lag_candidates(gdf, classification_df, n_examples=6):
@@ -296,7 +296,7 @@ def plot_lag_candidates(gdf, classification_df, n_examples=6):
 
     if len(lag_df) == 0:
         print("No lag candidates found.")
-        return
+        return None, None
 
     lag_df  = lag_df.reindex(
         lag_df['diff'].abs().sort_values().index
@@ -359,7 +359,7 @@ def plot_lag_candidates(gdf, classification_df, n_examples=6):
 
     plt.suptitle('Lag candidates — totals agree but annual series do not')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 def plot_sign_disagreements(gdf, classification_df, n_examples=6):
@@ -377,7 +377,7 @@ def plot_sign_disagreements(gdf, classification_df, n_examples=6):
 
     if len(sign_df) == 0:
         print("No sign disagreement cases found.")
-        return
+        return None, None
 
     # Sort by absolute diff — worst disagreements first
     sign_df = sign_df.reindex(
@@ -420,7 +420,7 @@ def plot_sign_disagreements(gdf, classification_df, n_examples=6):
 
     plt.suptitle('Sign disagreements — planning and BEN disagree on net direction')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
 
 
 # ── Full agreement analysis ───────────────────────────────────────────────────

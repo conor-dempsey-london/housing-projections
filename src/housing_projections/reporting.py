@@ -172,7 +172,6 @@ def full_report(trace, data, post_pred, prior=None,
         ax, z_post, data['P_obs'], data['E_obs'])
     plt.suptitle(f'{t} — uncertainty vs source disagreement')
     plt.tight_layout()
-    plt.show()
 
     # Census constraint check
     census    = _check_census_constraint(trace, data, verbose=True)
@@ -189,7 +188,6 @@ def full_report(trace, data, post_pred, prior=None,
             transform=ax.transAxes, verticalalignment='top', fontsize=9)
     ax.spines[['top', 'right']].set_visible(False)
     plt.tight_layout()
-    plt.show()
 
     # Residuals by year
     z_mean_post = z_post.mean(axis=(0, 1))
@@ -202,7 +200,6 @@ def full_report(trace, data, post_pred, prior=None,
         plot_residuals_by_year(ax, resid, label)
     plt.suptitle(f'{t} — mean residuals by year')
     plt.tight_layout()
-    plt.show()
 
     # Residuals vs census diff
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -211,7 +208,6 @@ def full_report(trace, data, post_pred, prior=None,
         plot_residuals_vs_D(ax, resid, data['D'], label)
     plt.suptitle(f'{t} — residuals vs census diff')
     plt.tight_layout()
-    plt.show()
 
     # Calibration and Moran's I
     _check_calibration(trace, data, verbose=True)
@@ -335,4 +331,4 @@ def spatial_misallocation_comparison(trace_m5, trace_m6, data,
 
     plt.suptitle(f'{title} — spatial effect on z inference')
     plt.tight_layout()
-    plt.show()
+    return fig, axes
