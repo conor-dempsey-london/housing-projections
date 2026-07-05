@@ -1,4 +1,22 @@
 
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ── Project paths ─────────────────────────────────────────────────────────────
+# Set DATA_PATH in a .env file at the repo root (see .env.example).
+# The remaining paths default to subdirectories of the repo working directory
+# and can be overridden in .env if needed.
+
+_data_path  = os.getenv('DATA_PATH')
+DATA_PATH   = Path(_data_path) if _data_path else None   # None until set in .env
+RESULTS_DIR = Path(os.getenv('RESULTS_DIR',  'results'))
+TRACES_DIR  = Path(os.getenv('TRACES_DIR',   'results/traces'))
+REPORT_PATH = Path(os.getenv('REPORT_PATH',  'results/report.html'))
+
 # ── Inference years ───────────────────────────────────────────────────────────
 INFER_YEARS      = list(range(2012, 2022))
 N_YEARS          = len(INFER_YEARS)

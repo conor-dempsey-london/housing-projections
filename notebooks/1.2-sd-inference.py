@@ -5,7 +5,7 @@ get_ipython().run_line_magic('autoreload', '2')
 
 import numpy as np
 
-from housing_projections.config import DEFAULT_SAMPLE_KWARGS
+from housing_projections.config import DATA_PATH, DEFAULT_SAMPLE_KWARGS, TRACES_DIR
 from housing_projections.data import load_data, make_data_dict
 from housing_projections.outliers import apply_outlier_exclusion, plot_outlier_areas, plot_outlier_map
 from housing_projections.models import M0
@@ -19,9 +19,7 @@ from housing_projections.plots import (
 )
 
 # %% Configuration
-DATA_PATH   = '../data'
-N_AREAS     = 100
-RESULTS_DIR = '../results/traces'
+N_AREAS = 100
 
 SAMPLE_KWARGS = {
     **DEFAULT_SAMPLE_KWARGS,
@@ -67,7 +65,7 @@ print(f"Prior z 1st:   {np.percentile(z_prior,  1):.3f}")
 plot_prior_predictive(prior, data, title='M0')
 
 # %% Sample
-m0.run(results_dir=RESULTS_DIR, **SAMPLE_KWARGS)
+m0.run(results_dir=TRACES_DIR, **SAMPLE_KWARGS)
 
 # %% Traces
 plot_parameter_trace(m0.trace, m0.var_names, title='M0')

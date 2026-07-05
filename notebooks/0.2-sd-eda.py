@@ -9,10 +9,7 @@ import housing_projections.eda.comparison as comparison
 import housing_projections.eda.timeseries as timeseries
 import housing_projections.eda.agreement as agreement
 import housing_projections.eda.spatial as spatial
-from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_BEN
-
-# %% Configuration
-DATA_PATH = '../data'
+from housing_projections.config import DATA_PATH, INFER_COLS_BEN, INFER_COLS_PLAN
 
 # %% Load data
 gdf = data_utils.load_data(DATA_PATH)

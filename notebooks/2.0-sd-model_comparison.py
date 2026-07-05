@@ -14,13 +14,11 @@ import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 import housing_projections.reporting as reporting
 from housing_projections.models import M0, M0h, M1, M2, M3, M4, M5, M5b, M6
-from housing_projections.config import DEFAULT_SAMPLE_KWARGS
-
+from housing_projections.config import DATA_PATH, DEFAULT_SAMPLE_KWARGS, TRACES_DIR
 
 # %% Configuration
-DATA_PATH      = '../data'
-RESULTS_DIR    = '../results/traces'
-N_AREAS        = 200
+N_AREAS = 200
+RESULTS_DIR = TRACES_DIR
 
 # Set True to resample, False to load from disk
 RESAMPLE = {
