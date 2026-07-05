@@ -7,6 +7,14 @@ from scipy import stats
 
 from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
 
+
+def _safe_pearsonr(x, y):
+    """Return Pearson r, or NaN if either input is constant."""
+    if np.std(x) == 0 or np.std(y) == 0:
+        return float('nan')
+    return stats.pearsonr(x, y)[0]
+
+
 # ── Census stock overview ─────────────────────────────────────────────────────
 
 def plot_census_stocks(gdf,
@@ -171,7 +179,7 @@ def compute_overall_correlation(gdf, verbose=True):
     overall_r, overall_p = stats.pearsonr(P.ravel(), E.ravel())
 
     per_area_corr = pd.Series([
-        stats.pearsonr(P[i], E[i])[0]
+        _safe_pearsonr(P[i], E[i])
         for i in range(len(gdf))
     ])
 
@@ -201,7 +209,7 @@ def plot_per_area_correlation(gdf):
     E = gdf[INFER_COLS_BEN].values
 
     per_area_corr = pd.Series([
-        stats.pearsonr(P[i], E[i])[0]
+        _safe_pearsonr(P[i], E[i])
         for i in range(len(gdf))
     ])
 
@@ -244,7 +252,7 @@ def plot_annual_p_vs_e(gdf, n_cols=5):
         p_clean = p[mask]
         e_clean = e[mask]
 
-        r, _  = stats.pearsonr(p_clean, e_clean)
+        r     = _safe_pearsonr(p_clean, e_clean)
         clip  = np.quantile(
             np.abs(np.concatenate([p_clean, e_clean])), 0.99)
 

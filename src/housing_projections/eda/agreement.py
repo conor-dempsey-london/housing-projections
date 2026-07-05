@@ -6,6 +6,14 @@ from scipy.signal import correlate
 
 from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
 
+
+def _safe_pearsonr(x, y):
+    """Return Pearson r, or NaN if either input is constant."""
+    if np.std(x) == 0 or np.std(y) == 0:
+        return float('nan')
+    return stats.pearsonr(x, y)[0]
+
+
 # ── Summary statistics ────────────────────────────────────────────────────────
 
 def compute_agreement_stats(gdf, verbose=True):
@@ -40,7 +48,7 @@ def compute_agreement_stats(gdf, verbose=True):
 
     # Per-area annual correlation
     annual_corrs = pd.Series([
-        stats.pearsonr(P[i], E[i])[0]
+        _safe_pearsonr(P[i], E[i])
         for i in range(len(gdf))
     ])
 
@@ -85,7 +93,7 @@ def classify_lsoas(gdf, close_threshold=20):
     diff  = sum_p - sum_e
 
     annual_corrs = np.array([
-        stats.pearsonr(P[i], E[i])[0]
+        _safe_pearsonr(P[i], E[i])
         if not (np.all(P[i] == 0) or np.all(E[i] == 0))
         else 0.0
         for i in range(len(gdf))
@@ -177,7 +185,7 @@ def plot_total_agreement(gdf, stats_dict=None):
     # ── 4. Distribution of annual correlations ─────────────────────────────
     ax = axes[1, 1]
     annual_corrs = pd.Series([
-        stats.pearsonr(P[i], E[i])[0]
+        _safe_pearsonr(P[i], E[i])
         for i in range(len(gdf))
     ])
     ax.hist(annual_corrs, bins=50, density=True,
