@@ -280,7 +280,9 @@ def _build_executive_summary(data, traces, comparison_df, sensitivity_summary):
             'ELPD': loo_val,
             'ΔELPD vs best': d_loo,
             'Divergences': n_div,
-            'Max R̂': float(diag['rhat']['max_rhat']) if diag.get('rhat') else float('nan'),
+            'Max R̂': float(
+                pd.to_numeric(diag['rhat']['summary']['r_hat'], errors='coerce').max()
+            ) if diag.get('rhat') is not None else float('nan'),
         })
 
     df = pd.DataFrame(rows)
