@@ -16,14 +16,13 @@ import pandas as pd
 matplotlib.use('Agg')   # non-interactive backend for script usage
 
 from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
-from housing_projections.diagnostics import (
+from housing_projections.analysis import (
     compute_lag_residuals,
     compute_lag_weights,
     compute_model_comparison,
     compute_spatial_misallocation_stats,
-    diagnostics_summary,
-    full_diagnostics,
 )
+from housing_projections.diagnostics import diagnostics_summary, full_diagnostics
 from housing_projections.eda import (
     compute_agreement_stats,
     compute_overall_correlation,

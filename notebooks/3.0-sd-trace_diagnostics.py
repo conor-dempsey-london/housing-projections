@@ -4,12 +4,11 @@ get_ipython().run_line_magic('load_ext', 'autoreload')
 get_ipython().run_line_magic('autoreload', '2')
 
 import arviz as az
-import gla_data
-import gla_data._ons
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from housing_projections.analysis import uncertainty_by_geography, variance_components
 from housing_projections.config import DATA_PATH, INFER_YEARS, TRACES_DIR
 from housing_projections.diagnostics import diagnostics_summary, observation_summary, prior_predictive_summary
 from housing_projections.models import M0, M0h, M1
@@ -217,112 +216,38 @@ print(f'  pct_burst    : fraction of prior z draws > {BURST_THRESHOLD} (burst ye
 print('  z_p99        : 99th percentile — how fat are the tails?')
 
 # %% Uncertainty decomposition across geographic levels (M0h)
-# Demonstrates how posterior uncertainty is consistent and naturally shrinks
-# when aggregating from LSOA → MSOA → Borough.
-#
-# Requires M0h to be loaded in `traces`. Fetches the ONS LSOA→MSOA→Borough
-# lookup from the API (cached after first call).
+# Requires M0h to be loaded in `traces`.
 
 if 'M0h' in traces:
-    _trace = traces['M0h']
+    geo = uncertainty_by_geography(traces['M0h'])
 
-    # z posterior: (chains, draws, areas, years) — flatten chains/draws
-    z_post = _trace.posterior['z'].values                    # (C, S, A, T)
-    C, S, A, T = z_post.shape
-    z_flat = z_post.reshape(C * S, A, T)                     # (draws, areas, years)
+    print(f'\n── Uncertainty by geographic level (M0h, {INFER_YEARS[0]}–{INFER_YEARS[-1]}) ──')
+    fmt = {'median_cv': '{:.3f}'.format, 'cv_p90': '{:.3f}'.format, 'median_sd': '{:.1f}'.format}
+    print(geo['summary'].to_string(formatters=fmt))
 
-    # Area codes embedded in the trace coordinates
-    lsoa_codes = _trace.posterior['z'].coords['area'].values.tolist()
-
-    # Fetch LSOA → MSOA → Borough lookup
-    lookup = gla_data._ons.fetch_geography_lookup(2021, 'lsoa')
-    lookup = lookup[lookup['LSOA21CD'].isin(lsoa_codes)].copy()
-    lookup = lookup.set_index('LSOA21CD').loc[lsoa_codes].reset_index()
-
-    lsoa_to_msoa    = lookup.set_index('LSOA21CD')['MSOA21CD']
-    lsoa_to_borough = lookup.set_index('LSOA21CD')['LAD22NM']
-
-    def _uncertainty_table(group_series, level_name):
-        """
-        For each unique group in group_series, sum z_flat over member LSOAs
-        per draw, then compute posterior mean, SD, and CV.
-        Returns a summary DataFrame.
-        """
-        groups  = group_series.unique()
-        rows    = []
-        for grp in groups:
-            idx       = np.where(group_series.values == grp)[0]
-            z_grp     = z_flat[:, idx, :].sum(axis=(1, 2))  # total over window
-            rows.append({
-                level_name:   grp,
-                'n_lsoas':    len(idx),
-                'post_mean':  z_grp.mean(),
-                'post_sd':    z_grp.std(),
-                'cv':         z_grp.std() / np.abs(z_grp.mean()) if z_grp.mean() != 0 else np.nan,
-                'ci90_lo':    np.percentile(z_grp,  5),
-                'ci90_hi':    np.percentile(z_grp, 95),
-            })
-        return pd.DataFrame(rows).sort_values('post_mean', ascending=False)
-
-    # LSOA-level (total completions over window per area)
-    z_lsoa_total = z_flat.sum(axis=2)  # (draws, areas)
-    df_lsoa = pd.DataFrame({
-        'lsoa':      lsoa_codes,
-        'n_lsoas':   1,
-        'post_mean': z_lsoa_total.mean(axis=0),
-        'post_sd':   z_lsoa_total.std(axis=0),
-        'cv':        z_lsoa_total.std(axis=0) / np.abs(z_lsoa_total.mean(axis=0)),
-        'ci90_lo':   np.percentile(z_lsoa_total, 5,  axis=0),
-        'ci90_hi':   np.percentile(z_lsoa_total, 95, axis=0),
-    })
-
-    df_msoa    = _uncertainty_table(lsoa_to_msoa,    'msoa')
-    df_borough = _uncertainty_table(lsoa_to_borough, 'borough')
-
-    # Summary: median CV at each level — shows how uncertainty shrinks with aggregation
-    print('\n── Uncertainty decomposition by geographic level (M0h) ───────────')
-    print(f'  Window: {INFER_YEARS[0]}–{INFER_YEARS[-1]}, total completions per area\n')
-
-    for label, df, col in [
-        ('LSOA',    df_lsoa,    'lsoa'),
-        ('MSOA',    df_msoa,    'msoa'),
-        ('Borough', df_borough, 'borough'),
-    ]:
-        n      = len(df)
-        cv_med = df['cv'].median()
-        cv_p90 = df['cv'].quantile(0.9)
-        sd_med = df['post_sd'].median()
-        print(f'  {label:8s}  n={n:4d}  median CV={cv_med:.3f}  '
-              f'90th pct CV={cv_p90:.3f}  median posterior SD={sd_med:.1f}')
-
-    # Borough table — most actionable for end users
     print('\n── Borough-level posterior (sorted by posterior mean) ────────────')
-    fmt = {
-        'n_lsoas':  '{:d}'.format,
+    fmt_b = {
+        'n_lsoas':   '{:d}'.format,
         'post_mean': '{:.0f}'.format,
         'post_sd':   '{:.0f}'.format,
         'cv':        '{:.3f}'.format,
         'ci90_lo':   '{:.0f}'.format,
         'ci90_hi':   '{:.0f}'.format,
     }
-    print(df_borough.to_string(index=False, formatters=fmt))
+    print(geo['borough'].to_string(index=False, formatters=fmt_b))
 
-    # Variance decomposition for M0h specifically:
-    # sigma_mu  = between-area structural variation (spread of mu_area posteriors)
-    # sigma_slab = within-area temporal variation
-    if 'mu_area' in _trace.posterior and 'sigma_slab' in _trace.posterior:
-        sigma_mu_post   = _trace.posterior['sigma_mu'].values.ravel()
-        sigma_slab_post = _trace.posterior['sigma_slab'].values.ravel()
+    vc = variance_components(traces['M0h'])
+    if vc:
         print('\n── M0h variance components ───────────────────────────────────────')
-        print(f'  sigma_mu   (between-area):  mean={sigma_mu_post.mean():.2f}  '
-              f'SD={sigma_mu_post.std():.2f}')
-        print(f'  sigma_slab (within-area):   mean={sigma_slab_post.mean():.2f}  '
-              f'SD={sigma_slab_post.std():.2f}')
-        print(f'  Ratio sigma_mu/sigma_slab:  {sigma_mu_post.mean()/sigma_slab_post.mean():.2f}')
+        print(f'  sigma_mu   (between-area):  mean={vc["sigma_mu"]["mean"]:.2f}  '
+              f'SD={vc["sigma_mu"]["sd"]:.2f}')
+        print(f'  sigma_slab (within-area):   mean={vc["sigma_slab"]["mean"]:.2f}  '
+              f'SD={vc["sigma_slab"]["sd"]:.2f}')
+        print(f'  Ratio sigma_mu/sigma_slab:  {vc["ratio"]:.2f}')
         print('  (>1 means between-area variation dominates; '
               'aggregation to borough does not cancel much uncertainty)')
 else:
-    print('M0h not found in traces — load it first (set MODELS_TO_DIAGNOSE to include M0h)')
+    print('M0h not found in traces — set MODELS_TO_DIAGNOSE to include M0h')
 
 
 # %% Census constraint check — how well does z sum match D?
