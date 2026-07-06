@@ -202,14 +202,14 @@ def _build_spatial_misallocation(z, W, n_areas, n_years):
 
 class M0(DwellingModel):
     """
-    Baseline: Normal prior on z, learned observation noise per source.
+    Baseline: StudentT(4) prior on z, learned observation noise per source.
 
     sigma_plan and sigma_ben are inferred from the data rather than fixed,
     allowing the model to adapt to the actual noise level of each source.
     """
 
     name             = 'M0'
-    description      = 'Baseline: Normal prior on z, learned observation noise'
+    description      = 'Baseline: StudentT(4) prior on z, learned observation noise'
     var_names        = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
@@ -232,10 +232,10 @@ class M0(DwellingModel):
 
 class M0h(DwellingModel):
     """
-    Hierarchical extension of M0. Each LSOA has its own mean annual
-    change drawn from a global distribution, using non-centered
-    parameterisation for better mixing. Observation noise is learned
-    per source as in M0.
+    Hierarchical extension of M0. Each LSOA has its own mean annual change
+    drawn from a global distribution (centred parameterisation — strongly
+    identified by the census). z uses a non-centered StudentT(4) prior on
+    sigma_slab to handle burst years. Observation noise learned per source.
     """
 
     name             = 'M0h'
