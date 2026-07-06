@@ -39,7 +39,7 @@ class DwellingModel(ABC):
     sample_kwargs    = DEFAULT_SAMPLE_KWARGS
 
     # ── Lag structure — override max_lag in subclasses that have a lag ────────
-    max_lag          = None
+    max_lag: int | None = None
 
     # ── Posterior predictive zero-snapping ────────────────────────────────────
     # Set True in models with zero-inflated planning likelihood (M4+)

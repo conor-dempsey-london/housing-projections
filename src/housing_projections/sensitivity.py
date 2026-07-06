@@ -158,8 +158,9 @@ def compute_decomposed_uncertainty(traces, comparison_df=None, ci=0.9,
         z_ci{pct}_lo, z_ci{pct}_hi — ensemble-mean ± z_factor * z_total_uncertainty
         confidence_tier       — 'High' / 'Medium' / 'Low'
     """
-    from housing_projections.config import INFER_YEARS
     from scipy.stats import norm
+
+    from housing_projections.config import INFER_YEARS
 
     if infer_years is None:
         infer_years = INFER_YEARS

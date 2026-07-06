@@ -496,8 +496,6 @@ def plot_missing_statistics(trace, data, title=''):
     total_missing    = expected_missing.sum()
 
     z_at_zeros    = z_mean_post[is_zero]
-    z_pos_missing = z_at_zeros[z_at_zeros > 0]
-    z_neg_missing = z_at_zeros[z_at_zeros < 0]
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 
