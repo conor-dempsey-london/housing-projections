@@ -27,7 +27,7 @@ def _build_z_prior(data, n_areas, n_years):
     mu_slab    = pm.Normal('mu_slab',
                            mu=data['D_full_mean'] / n_years,
                            sigma=5)
-    sigma_slab = pm.HalfNormal('sigma_slab', sigma=15)
+    sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
     z          = pm.StudentT('z', nu=NU_Z,
                              mu=mu_slab,
                              sigma=sigma_slab,
@@ -260,7 +260,7 @@ class M0h(DwellingModel):
                                 shape=n_areas)
 
             # ── Latent true changes (non-centered on sigma_slab) ─────────
-            sigma_slab = pm.HalfNormal('sigma_slab', sigma=15)
+            sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
             z_offset   = pm.StudentT('z_offset', nu=NU_Z, mu=0, sigma=1,
                                      dims=('area', 'year'))
             z          = pm.Deterministic('z',
@@ -505,7 +505,7 @@ class M6(DwellingModel):
             mu_slab     = pm.Normal('mu_slab',
                                     mu=data['D_full_mean'] / n_years,
                                     sigma=5)
-            sigma_innov = pm.HalfNormal('sigma_innov', sigma=15)
+            sigma_innov = pm.HalfNormal('sigma_innov', sigma=10)
             rho         = pm.Beta('rho', alpha=8, beta=2)  # prior mean 0.8
 
             # ── AR(1) scan over years ─────────────────────────────────────
@@ -594,7 +594,7 @@ class M7(DwellingModel):
                 'mu_borough', mu_global + sigma_borough * mu_borough_offset)
 
             # ── LSOA-level latent z ───────────────────────────────────────
-            sigma_slab = pm.HalfNormal('sigma_slab', sigma=15)
+            sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
             z = pm.StudentT('z', nu=NU_Z,
                           mu=mu_borough[borough_idx, None],
                           sigma=sigma_slab,
