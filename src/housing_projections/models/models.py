@@ -238,7 +238,7 @@ class M0h(DwellingModel):
 
     name             = 'M0h'
     description      = 'M0 + hierarchical area-level mean annual change'
-    var_names        = ['mu_global', 'sigma_mu', 'sigma_slab', 'sigma_plan', 'sigma_ben']
+    var_names        = ['mu_global', 'sigma_mu', 'sigma_slab', 'sigma_plan', 'sigma_ben', 'mu_area']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
 
@@ -253,13 +253,9 @@ class M0h(DwellingModel):
                                    sigma=5)
             sigma_mu  = pm.HalfNormal('sigma_mu', sigma=10)
 
-            # ── Area-level means (non-centered) ───────────────────────────
-            mu_area_offset = pm.Normal('mu_area_offset',
-                                       mu=0, sigma=1,
-                                       shape=n_areas)
-            pm.Deterministic('mu_area',
-                             mu_global + sigma_mu * mu_area_offset)
-            mu_area = mu_global + sigma_mu * mu_area_offset
+            # ── Area-level means (centred — census pins mu_area strongly) ─
+            mu_area = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
+                                shape=n_areas)
 
             # ── Latent true changes (non-centered on sigma_slab) ─────────
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=30)
