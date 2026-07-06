@@ -108,21 +108,33 @@ for name, trace in traces.items():
 
 # %% Trace plots — sample a few z variables
 for name, trace in traces.items():
-    n_areas = trace.posterior['z'].shape[2]
+    z_post  = trace.posterior['z']           # (chains, draws, areas, years)
+    n_areas = z_post.shape[2]
     idx     = np.linspace(0, n_areas - 1, N_SAMPLE_AREAS, dtype=int)
 
-    if 'area' in trace.posterior['z'].coords:
-        area_coords = trace.posterior['z'].coords['area'].values[idx].tolist()
+    if 'area' in z_post.coords:
+        labels = [str(z_post.coords['area'].values[i]) for i in idx]
     else:
-        area_coords = list(idx)
+        labels = [f'area_{i}' for i in idx]
 
-    az.plot_trace(
-        trace,
-        var_names=['z'],
-        coords={'area': area_coords},
-        backend_kwargs={'figsize': (12, 2 * N_SAMPLE_AREAS)},
-    )
-    plt.suptitle(f'{name} — z trace (sample of {N_SAMPLE_AREAS} areas)', fontsize=11)
+    n_chains = z_post.shape[0]
+    fig, axes = plt.subplots(N_SAMPLE_AREAS, 2, figsize=(12, 2 * N_SAMPLE_AREAS))
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    for row, (area_i, label) in enumerate(zip(idx, labels)):
+        # average z over years for a single scalar trace per draw
+        z_area = z_post.values[:, :, area_i, :].mean(axis=-1)  # (chains, draws)
+        ax_trace = axes[row, 0]
+        ax_hist  = axes[row, 1]
+        for chain in range(n_chains):
+            c = colors[chain % len(colors)]
+            ax_trace.plot(z_area[chain], alpha=0.7, linewidth=0.6, color=c)
+            ax_hist.hist(z_area[chain], bins=40, alpha=0.5, color=c, density=True)
+        ax_trace.set_ylabel(label, fontsize=7, rotation=0, labelpad=60, va='center')
+        ax_trace.set_xlabel('draw')
+        ax_hist.set_xlabel('z (mean over years)')
+
+    fig.suptitle(f'{name} — z trace, mean over years, {N_SAMPLE_AREAS} areas', fontsize=11)
     plt.tight_layout()
     plt.show()
 
