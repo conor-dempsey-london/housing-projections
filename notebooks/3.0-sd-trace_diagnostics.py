@@ -110,18 +110,16 @@ for name, trace in traces.items():
 for name, trace in traces.items():
     n_areas = trace.posterior['z'].shape[2]
     idx     = np.linspace(0, n_areas - 1, N_SAMPLE_AREAS, dtype=int)
-    z_sub   = trace.posterior['z'].isel(area=idx)
 
-    # Give them readable labels
     if 'area' in trace.posterior['z'].coords:
-        labels = [trace.posterior['z'].coords['area'].values[i] for i in idx]
+        area_coords = trace.posterior['z'].coords['area'].values[idx].tolist()
     else:
-        labels = [f'area_{i}' for i in idx]
+        area_coords = list(idx)
 
-    z_renamed = z_sub.assign_coords(area=labels)
     az.plot_trace(
-        az.convert_to_inference_data(z_renamed.to_dataset(name='z')),
+        trace,
         var_names=['z'],
+        coords={'area': area_coords},
         compact=True,
         figsize=(12, 2 * N_SAMPLE_AREAS),
     )
