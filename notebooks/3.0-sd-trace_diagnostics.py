@@ -18,6 +18,8 @@ MODELS_TO_DIAGNOSE = ['M0', 'M0h', 'M1']   # or None to load all found
 RHAT_THRESHOLD     = 1.01
 N_SAMPLE_AREAS     = 6   # areas to show in trace plots (all years shown per area)
 
+az.rcParams['plot.max_subplots'] = 400
+
 # %% Load traces
 traces_dir = TRACES_DIR
 
