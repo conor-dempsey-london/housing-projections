@@ -2,23 +2,17 @@
 
 Bayesian dwelling projection models for London LSOAs.
 
-## Setup
-
-Requires [pixi](https://pixi.sh). Clone and install:
+Requires access to [pld-database-live](https://github.com/JamesB686/pld_database_live).
 
 ```bash
 git clone https://github.com/conor-dempsey-london/housing-projections
 cd housing-projections
 pixi install
+cp .env.example .env  # fill in paths
 ```
 
-Copy `.env.example` to `.env` and fill in your paths.
-
-## Usage
-
 ```bash
-pixi run run-models    # sample all models
-pixi run compare       # LOO comparison and diagnostics
-pixi run report        # generate HTML report
-pixi run test          # run test suite
+pixi run run-models
+pixi run compare
+pixi run report
 ```
