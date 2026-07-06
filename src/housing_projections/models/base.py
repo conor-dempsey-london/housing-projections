@@ -194,15 +194,19 @@ class DwellingModel(ABC):
         tmp_path = Path(results_dir) / f'{self.name}_tmp.nc'
         path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Release any existing file handle before writing — required on Windows
+        # where the old .nc may still be locked from a previous load().
+        self._close_trace()
+
         self.trace.to_netcdf(str(tmp_path))
 
         try:
             tmp_path.replace(path)
         except PermissionError:
-            # File is locked by lazy-loaded xarray — close handles and retry once
-            print(f"  {self.name}.nc is locked, releasing handles and retrying...")
-            self._close_trace()
-            tmp_path.replace(path)
+            # Windows: atomic replace can still fail if the file is held by
+            # another process. Delete the target first, then rename.
+            path.unlink(missing_ok=True)
+            tmp_path.rename(path)
 
         print(f"Saved {self.name} trace to {path}")
 
