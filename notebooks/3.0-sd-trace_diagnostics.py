@@ -16,9 +16,8 @@ import housing_projections.outliers as outliers
 # %% Configuration — edit these
 MODELS_TO_DIAGNOSE = ['M0', 'M0h', 'M1']   # or None to load all found
 RHAT_THRESHOLD     = 1.01
-N_SAMPLE_AREAS     = 6   # areas to show in trace plots (all years shown per area)
-
-az.rcParams['plot.max_subplots'] = 400
+N_SAMPLE_AREAS     = 6   # areas to show in trace plots
+N_SAMPLE_YEARS     = 3   # years to show per area (evenly spaced)
 
 # %% Load traces
 traces_dir = TRACES_DIR
@@ -119,13 +118,20 @@ for name, trace in traces.items():
     else:
         area_coords = list(idx)
 
+    year_dim  = [d for d in z_post.dims if d not in ('chain', 'draw', 'area')][0]
+    n_years   = z_post.sizes[year_dim]
+    year_idx  = np.linspace(0, n_years - 1, min(N_SAMPLE_YEARS, n_years), dtype=int)
+    year_coords = (z_post.coords[year_dim].values[year_idx].tolist()
+                   if year_dim in z_post.coords else list(year_idx))
+
+    n_plots = N_SAMPLE_AREAS * N_SAMPLE_YEARS
     az.plot_trace(
         trace,
         var_names=['z'],
-        coords={'area': area_coords},
-        figure_kwargs={'figsize': (12, 2 * N_SAMPLE_AREAS)},
+        coords={'area': area_coords, year_dim: year_coords},
+        figure_kwargs={'figsize': (12, 2 * n_plots)},
     )
-    plt.suptitle(f'{name} — z trace (sample of {N_SAMPLE_AREAS} areas, all years)', fontsize=11)
+    plt.suptitle(f'{name} — z trace ({N_SAMPLE_AREAS} areas × {N_SAMPLE_YEARS} years)', fontsize=11)
     plt.tight_layout()
     plt.show()
 
