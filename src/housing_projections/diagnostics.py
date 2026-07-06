@@ -196,28 +196,42 @@ def full_diagnostics(trace, data, model=None, verbose=True):
     }
 
 
-def diagnostics_summary(traces, data=None):
+def diagnostics_summary(traces, data=None, rhat_threshold=1.01):
     """
     Build a per-model diagnostic summary table.
 
     Parameters
     ----------
-    traces : dict mapping model name (str) to az.InferenceData
-    data   : data dict (optional) — if provided, adds 90% planning and BEN coverage columns
+    traces         : dict mapping model name (str) to az.InferenceData
+    data           : data dict (optional) — if provided, adds 90% coverage columns
+    rhat_threshold : variables above this are counted in n_bad_rhat (default 1.01)
 
     Returns
     -------
     pd.DataFrame with index = model name and columns:
-        max_rhat, divergences[, plan_cov_90, ben_cov_90]
+        max_rhat, mean_rhat, n_bad_rhat, divergences, min_ess_bulk
+        [, plan_cov_90, ben_cov_90]
     """
     rows = {}
     for name, trace in traces.items():
         summary   = az.summary(trace)
         rhat_vals = pd.to_numeric(summary['r_hat'], errors='coerce').dropna()
-        max_rhat  = float(rhat_vals.max()) if len(rhat_vals) else float('nan')
-        divs      = int(trace.sample_stats.diverging.sum())
+        ess_vals  = pd.to_numeric(summary.get('ess_bulk', pd.Series(dtype=float)),
+                                  errors='coerce').dropna()
 
-        row = {'max_rhat': max_rhat, 'divergences': divs}
+        max_rhat    = float(rhat_vals.max())   if len(rhat_vals) else float('nan')
+        mean_rhat   = float(rhat_vals.mean())  if len(rhat_vals) else float('nan')
+        n_bad_rhat  = int((rhat_vals > rhat_threshold).sum())
+        divs        = int(trace.sample_stats.diverging.sum())
+        min_ess     = int(ess_vals.min())      if len(ess_vals) else -1
+
+        row = {
+            'max_rhat':    max_rhat,
+            'mean_rhat':   mean_rhat,
+            'n_bad_rhat':  n_bad_rhat,
+            'divergences': divs,
+            'min_ess':     min_ess,
+        }
 
         if data is not None:
             cov = _check_calibration(trace, data, alpha=0.10, verbose=False)
@@ -227,7 +241,9 @@ def diagnostics_summary(traces, data=None):
         rows[name] = row
 
     df = pd.DataFrame(rows).T
+    df['n_bad_rhat']  = df['n_bad_rhat'].astype(int)
     df['divergences'] = df['divergences'].astype(int)
+    df['min_ess']     = df['min_ess'].astype(int)
     return df
 
 
