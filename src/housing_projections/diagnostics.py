@@ -196,6 +196,41 @@ def full_diagnostics(trace, data, model=None, verbose=True):
     }
 
 
+def diagnostics_summary(traces, data=None):
+    """
+    Build a per-model diagnostic summary table.
+
+    Parameters
+    ----------
+    traces : dict mapping model name (str) to az.InferenceData
+    data   : data dict (optional) — if provided, adds 90% planning and BEN coverage columns
+
+    Returns
+    -------
+    pd.DataFrame with index = model name and columns:
+        max_rhat, divergences[, plan_cov_90, ben_cov_90]
+    """
+    rows = {}
+    for name, trace in traces.items():
+        summary   = az.summary(trace)
+        rhat_vals = pd.to_numeric(summary['r_hat'], errors='coerce').dropna()
+        max_rhat  = float(rhat_vals.max()) if len(rhat_vals) else float('nan')
+        divs      = int(trace.sample_stats.diverging.sum())
+
+        row = {'max_rhat': max_rhat, 'divergences': divs}
+
+        if data is not None:
+            cov = _check_calibration(trace, data, alpha=0.10, verbose=False)
+            row['plan_cov_90'] = cov['planning']
+            row['ben_cov_90']  = cov['ben']
+
+        rows[name] = row
+
+    df = pd.DataFrame(rows).T
+    df['divergences'] = df['divergences'].astype(int)
+    return df
+
+
 def compute_model_comparison(traces, verbose=True):
     """
     Compare models using Leave-One-Out cross-validation (LOO-CV).
