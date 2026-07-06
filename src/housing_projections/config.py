@@ -4,21 +4,21 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Repo root = three levels up from src/housing_projections/config.py
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-
-load_dotenv(_REPO_ROOT / '.env')
+load_dotenv()
 
 # ── Project paths ─────────────────────────────────────────────────────────────
-# Set DATA_PATH in a .env file at the repo root (see .env.example).
-# The remaining paths default to subdirectories of the repo root so they work
+# Set PROJECT_ROOT and DATA_PATH in a .env file at the repo root (see .env.example).
+# The remaining paths default to subdirectories of PROJECT_ROOT so they work
 # regardless of which directory the process (or notebook kernel) is started from.
+
+_project_root = os.getenv('PROJECT_ROOT')
+_PROJECT_ROOT = Path(_project_root) if _project_root else Path.cwd()
 
 _data_path  = os.getenv('DATA_PATH')
 DATA_PATH   = Path(_data_path) if _data_path else None   # None until set in .env
-RESULTS_DIR = Path(os.getenv('RESULTS_DIR',  str(_REPO_ROOT / 'results')))
-TRACES_DIR  = Path(os.getenv('TRACES_DIR',   str(_REPO_ROOT / 'results' / 'traces')))
-REPORT_PATH = Path(os.getenv('REPORT_PATH',  str(_REPO_ROOT / 'results' / 'report.html')))
+RESULTS_DIR = Path(os.getenv('RESULTS_DIR',  str(_PROJECT_ROOT / 'results')))
+TRACES_DIR  = Path(os.getenv('TRACES_DIR',   str(_PROJECT_ROOT / 'results' / 'traces')))
+REPORT_PATH = Path(os.getenv('REPORT_PATH',  str(_PROJECT_ROOT / 'results' / 'report.html')))
 
 # ── Inference years ───────────────────────────────────────────────────────────
 INFER_YEARS      = list(range(2012, 2022))
