@@ -289,7 +289,7 @@ class M1(DwellingModel):
 
     name        = 'M1'
     description = 'M0 + temporal lag in planning completions'
-    var_names   = ['mu_slab', 'sigma_slab', 'lambda_weights']
+    var_names   = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben', 'lambda_weights']
     max_lag     = 3
 
     def build(self):
@@ -301,9 +301,11 @@ class M1(DwellingModel):
             _build_census_constraint(z, D, sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
-                                             self.nu_obs, self.sigma_obs)
-            self.add_ben_likelihood(z, data['E_obs'])
+                                             self.nu_obs, sigma_plan)
+            self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
 
         self.model = model
         return model
