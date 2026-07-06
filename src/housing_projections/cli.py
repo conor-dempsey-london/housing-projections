@@ -239,6 +239,61 @@ def cmd_compare(args):
     return comparison
 
 
+# ── diagnose ──────────────────────────────────────────────────────────────────
+
+def cmd_diagnose(args):
+    model_names = (_parse_model_list(args.models) if args.models
+                   else _discover_traces(args.traces_dir))
+    if not model_names:
+        print(f'No traces found in {args.traces_dir}', file=sys.stderr)
+        sys.exit(1)
+
+    print(f'\n── Loading traces from {args.traces_dir} ───────────────────────')
+    traces = _load_traces(args.traces_dir, model_names)
+    if not traces:
+        print('No traces loaded. Run `housing-projections run-models` first.', file=sys.stderr)
+        sys.exit(1)
+
+    data = None
+    try:
+        validate_data_path(args.data_path)
+        gdf  = load_data(args.data_path)
+        gdf, _ = apply_outlier_exclusion(gdf)
+        data = _data_matching_traces(gdf, traces)
+    except Exception as exc:  # noqa: BLE001
+        print(f'  Warning: could not load data ({exc}), skipping coverage.')
+
+    print(f'\n── Diagnostics ({len(traces)} model(s)) ──────────────────────────')
+    diag = diagnostics_summary(traces, data=data, rhat_threshold=args.rhat_threshold)
+
+    col_fmts = {
+        'max_rhat':   '{:.4f}'.format,
+        'mean_rhat':  '{:.4f}'.format,
+        'n_bad_rhat': '{:d}'.format,
+        'divergences':'{:d}'.format,
+        'min_ess':    '{:d}'.format,
+    }
+    if 'plan_cov_90' in diag.columns:
+        col_fmts['plan_cov_90'] = '{:.3f}'.format
+        col_fmts['ben_cov_90']  = '{:.3f}'.format
+
+    print(diag.to_string(formatters={k: col_fmts[k] for k in col_fmts if k in diag.columns}))
+
+    n_bad   = int((diag['max_rhat'] > args.rhat_threshold).sum())
+    n_divs  = int(diag['divergences'].sum())
+    print()
+    if n_bad:
+        bad_models = diag.index[diag['max_rhat'] > args.rhat_threshold].tolist()
+        print(f'  *** {n_bad} model(s) with max r-hat > {args.rhat_threshold}: '
+              f'{", ".join(bad_models)} ***')
+    else:
+        print(f'  All models have max r-hat ≤ {args.rhat_threshold}')
+    if n_divs:
+        print(f'  *** {n_divs} total divergences ***')
+    else:
+        print('  No divergences.')
+
+
 # ── report ────────────────────────────────────────────────────────────────────
 
 def cmd_report(args):
@@ -329,6 +384,17 @@ def _build_parser():
     p_cmp.add_argument('--models', default=None,
                        help='Comma-separated model names (default: all found in traces-dir).')
 
+    # ── diagnose ────────────────────────────────────────────────────────────
+    p_diag = sub.add_parser('diagnose', help='Quick per-model sampling diagnostics.')
+    p_diag.add_argument('--data-path', default='data',
+                        help='Root directory of raw data files — used for coverage (default: data).')
+    p_diag.add_argument('--traces-dir', default='results/traces',
+                        help='Directory containing saved .nc trace files (default: results/traces).')
+    p_diag.add_argument('--models', default=None,
+                        help='Comma-separated model names (default: all found in traces-dir).')
+    p_diag.add_argument('--rhat-threshold', type=float, default=1.01,
+                        help='R-hat threshold for flagging bad convergence (default: 1.01).')
+
     # ── report ──────────────────────────────────────────────────────────────
     p_rep = sub.add_parser('report', help='Generate self-contained HTML analysis report.')
     p_rep.add_argument('--data-path', default='data',
@@ -355,6 +421,8 @@ def main():
         cmd_run_models(args)
     elif args.command == 'compare':
         cmd_compare(args)
+    elif args.command == 'diagnose':
+        cmd_diagnose(args)
     elif args.command == 'report':
         cmd_report(args)
     else:
