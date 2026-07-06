@@ -261,12 +261,13 @@ class M0h(DwellingModel):
                              mu_global + sigma_mu * mu_area_offset)
             mu_area = mu_global + sigma_mu * mu_area_offset
 
-            # ── Latent true changes ───────────────────────────────────────
+            # ── Latent true changes (non-centered on sigma_slab) ─────────
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=30)
-            z = pm.Normal('z',
-                          mu=mu_area[:, None],
-                          sigma=sigma_slab,
-                          dims=('area', 'year'))
+            z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
+                                   dims=('area', 'year'))
+            z          = pm.Deterministic('z',
+                                          mu_area[:, None] + sigma_slab * z_offset,
+                                          dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
