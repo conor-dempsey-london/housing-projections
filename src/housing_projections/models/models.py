@@ -14,8 +14,6 @@ from .base import DwellingModel
 
 __all__ = ["M0", "M0h", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]
 
-NU_Z = 4  # degrees of freedom for StudentT prior on latent z
-
 # ── Builder functions (private) ───────────────────────────────────────────────
 
 def _build_z_prior(data, n_areas, n_years):
@@ -28,10 +26,10 @@ def _build_z_prior(data, n_areas, n_years):
                            mu=data['D_full_mean'] / n_years,
                            sigma=5)
     sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
-    z          = pm.StudentT('z', nu=NU_Z,
-                             mu=mu_slab,
-                             sigma=sigma_slab,
-                             dims=('area', 'year'))
+    z          = pm.Normal('z',
+                           mu=mu_slab,
+                           sigma=sigma_slab,
+                           dims=('area', 'year'))
     return mu_slab, sigma_slab, z
 
 
@@ -202,14 +200,14 @@ def _build_spatial_misallocation(z, W, n_areas, n_years):
 
 class M0(DwellingModel):
     """
-    Baseline: StudentT(4) prior on z, learned observation noise per source.
+    Baseline: Normal prior on z, learned observation noise per source.
 
     sigma_plan and sigma_ben are inferred from the data rather than fixed,
     allowing the model to adapt to the actual noise level of each source.
     """
 
     name             = 'M0'
-    description      = 'Baseline: StudentT(4) prior on z, learned observation noise'
+    description      = 'Baseline: Normal prior on z, learned observation noise'
     var_names        = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
@@ -234,8 +232,8 @@ class M0h(DwellingModel):
     """
     Hierarchical extension of M0. Each LSOA has its own mean annual change
     drawn from a global distribution (centred parameterisation — strongly
-    identified by the census). z uses a non-centered StudentT(4) prior on
-    sigma_slab to handle burst years. Observation noise learned per source.
+    identified by the census). z uses a non-centered Normal prior on
+    sigma_slab. Observation noise learned per source.
     """
 
     name             = 'M0h'
@@ -261,8 +259,8 @@ class M0h(DwellingModel):
 
             # ── Latent true changes (non-centered on sigma_slab) ─────────
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
-            z_offset   = pm.StudentT('z_offset', nu=NU_Z, mu=0, sigma=1,
-                                     dims=('area', 'year'))
+            z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
+                                   dims=('area', 'year'))
             z          = pm.Deterministic('z',
                                           mu_area[:, None] + sigma_slab * z_offset,
                                           dims=('area', 'year'))
@@ -550,7 +548,7 @@ class M7(DwellingModel):
     mu_global           ~ Normal(D_full_mean / n_years, sigma=5)
     sigma_borough       ~ HalfNormal(sigma=5)
     mu_borough[b]       ~ Normal(mu_global, sigma_borough)   # per borough
-    sigma_slab          ~ HalfNormal(sigma=20)
+    sigma_slab          ~ HalfNormal(sigma=10)
     z[a, t]             ~ Normal(mu_borough[borough[a]], sigma_slab)
 
     ``borough_idx`` must be provided in the data dict — a (n_areas,) integer
@@ -595,7 +593,7 @@ class M7(DwellingModel):
 
             # ── LSOA-level latent z ───────────────────────────────────────
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
-            z = pm.StudentT('z', nu=NU_Z,
+            z = pm.Normal('z',
                           mu=mu_borough[borough_idx, None],
                           sigma=sigma_slab,
                           dims=('area', 'year'))
