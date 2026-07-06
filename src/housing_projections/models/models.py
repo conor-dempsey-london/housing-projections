@@ -213,12 +213,11 @@ class M0(DwellingModel):
     census_abs_floor = CENSUS_ABS_FLOOR
 
     def build(self):
-        data         = self.data
-        sigma_census = self.make_sigma_census(data['D'])
+        data, n_areas, n_years, D, sigma_census = self._build_context()
 
         with pm.Model(coords=self._default_coords()) as model:
-            _, _, z    = _build_z_prior(data, data['n_areas'], data['n_years'])
-            _build_census_constraint(z, data['D'], sigma_census)
+            _, _, z    = _build_z_prior(data, n_areas, n_years)
+            _build_census_constraint(z, D, sigma_census)
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
             sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
@@ -244,11 +243,7 @@ class M0h(DwellingModel):
     census_abs_floor = CENSUS_ABS_FLOOR
 
     def build(self):
-        data         = self.data
-        D            = data['D']
-        n_areas      = data['n_areas']
-        n_years      = data['n_years']
-        sigma_census = self.make_sigma_census(D)
+        data, n_areas, n_years, D, sigma_census = self._build_context()
 
         with pm.Model(coords=self._default_coords()) as model:
 
@@ -296,11 +291,7 @@ class M1(DwellingModel):
     var_names = ['pi', 'sigma_slab', 'nu', 'sigma_obs']
 
     def build(self):
-        data             = self.data
-        D                = data['D']
-        n_areas          = data['n_areas']
-        n_years          = data['n_years']
-        sigma_census     = self.make_sigma_census(D)
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         empirical_obs_sd = float(np.abs(data['P_obs'] - data['E_obs']).mean())
 
         with pm.Model(coords=self._default_coords()) as model:
@@ -350,15 +341,12 @@ class M3(DwellingModel):
     max_lag     = 3
 
     def build(self):
-        data          = self.data
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
-        sigma_census  = self.make_sigma_census(data['D'])
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
-            _build_census_constraint(z, data['D'], sigma_census)
+            _build_census_constraint(z, D, sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
@@ -383,15 +371,12 @@ class M4(DwellingModel):
     snap_zeros  = True
 
     def build(self):
-        data          = self.data
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
-        sigma_census  = self.make_sigma_census(data['D'])
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
-            _build_census_constraint(z, data['D'], sigma_census)
+            _build_census_constraint(z, D, sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
             pi_miss = _build_symmetric_missingness()
@@ -417,15 +402,12 @@ class M5(DwellingModel):
     snap_zeros  = True
 
     def build(self):
-        data          = self.data
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
-        sigma_census  = self.make_sigma_census(data['D'])
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
-            _build_census_constraint(z, data['D'], sigma_census)
+            _build_census_constraint(z, D, sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
             pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
@@ -455,15 +437,12 @@ class M5b(DwellingModel):
     sigma_obs_loose  = 20.0
 
     def build(self):
-        data          = self.data
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
-        sigma_census  = self.make_sigma_census(data['D'])
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
-            _build_census_constraint(z, data['D'], sigma_census)
+            _build_census_constraint(z, D, sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
             pi_miss = _build_asymmetric_missingness(P_mean, self.sigma_obs)
@@ -507,16 +486,13 @@ class M6(DwellingModel):
         return names
 
     def build(self):
-        data          = self.data
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
-        sigma_census  = self.make_sigma_census(data['D'])
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
-        W             = build_spatial_weights(data['gdf'])
+        W             = build_spatial_weights(data['gdf'])  # M6-specific
 
         with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
-            _build_census_constraint(z, data['D'], sigma_census)
+            _build_census_constraint(z, D, sigma_census)
 
             _, P_mean_temporal = _build_lag(
                 z, pre_inference, n_areas, n_years,
@@ -562,11 +538,7 @@ class M7(DwellingModel):
     snap_zeros  = True
 
     def build(self):
-        data          = self.data
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
-        D             = data['D']
-        sigma_census  = self.make_sigma_census(D)
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
 
         # Fixed planning observation immediately before the inference window —
@@ -643,19 +615,15 @@ class M8(DwellingModel):
     snap_zeros  = True
 
     def build(self):
-        data = self.data
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         if 'borough_idx' not in data:
             raise ValueError(
                 "M8 requires 'borough_idx' (int array, shape n_areas) and "
                 "'n_boroughs' (int) in the data dict.  "
                 "Derive them from a LSOA-to-LAD crosswalk joined on gdf."
             )
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
         n_boroughs    = data['n_boroughs']
         borough_idx   = data['borough_idx']
-        D             = data['D']
-        sigma_census  = self.make_sigma_census(D)
         pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model(coords=self._default_coords()) as model:
@@ -722,11 +690,7 @@ class M9(DwellingModel):
     snap_zeros  = True
 
     def build(self):
-        data          = self.data
-        n_areas       = data['n_areas']
-        n_years       = data['n_years']
-        D             = data['D']
-        sigma_census  = self.make_sigma_census(D)
+        data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
 
         with pm.Model(coords=self._default_coords()) as model:
