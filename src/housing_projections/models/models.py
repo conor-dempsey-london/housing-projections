@@ -23,7 +23,7 @@ def _build_z_prior(data, n_areas, n_years):
     Must be called inside a pm.Model() context.
     """
     mu_slab    = pm.Normal('mu_slab',
-                           mu=data['D_full_mean'] / n_years / 0.55,
+                           mu=data['D_full_mean'] / n_years,
                            sigma=5)
     sigma_slab = pm.HalfNormal('sigma_slab', sigma=30)
     z          = pm.Normal('z',
@@ -295,7 +295,7 @@ class M1(DwellingModel):
 
             pi         = pm.Beta('pi',        alpha=4.5, beta=5.5)
             mu_slab    = pm.TruncatedNormal('mu_slab',
-                             mu=data['D_full_mean'] / n_years / 0.55,
+                             mu=data['D_full_mean'] / n_years,
                              sigma=5, lower=0)
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=30)
             nu         = pm.Gamma('nu',       alpha=2,   beta=0.1)
@@ -596,7 +596,7 @@ class M7(DwellingModel):
 
             # ── Global prior ──────────────────────────────────────────────
             mu_slab     = pm.Normal('mu_slab',
-                                    mu=data['D_full_mean'] / n_years / 0.55,
+                                    mu=data['D_full_mean'] / n_years,
                                     sigma=5)
             sigma_innov = pm.HalfNormal('sigma_innov', sigma=15)
             rho         = pm.Beta('rho', alpha=8, beta=2)  # prior mean 0.8
