@@ -8,7 +8,12 @@ import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
 
-from housing_projections.config import CENSUS_ABS_FLOOR, CENSUS_REL_ERROR, DEFAULT_SAMPLE_KWARGS, INFER_YEARS
+from housing_projections.config import (
+    CENSUS_ABS_FLOOR,
+    CENSUS_REL_ERROR,
+    DEFAULT_SAMPLE_KWARGS,
+    INFER_YEARS,
+)
 
 
 class DwellingModel(ABC):

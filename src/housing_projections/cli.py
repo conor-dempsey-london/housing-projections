@@ -16,7 +16,12 @@ from pathlib import Path
 import arviz as az
 import pandas as pd
 
-from housing_projections.data import load_data, make_data_dict, select_spatial_sample, validate_data_path
+from housing_projections.data import (
+    load_data,
+    make_data_dict,
+    select_spatial_sample,
+    validate_data_path,
+)
 from housing_projections.diagnostics import compute_model_comparison
 from housing_projections.html_report import generate_report
 from housing_projections.models import M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M0h, M5b
