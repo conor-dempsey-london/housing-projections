@@ -20,6 +20,7 @@ MODELS_TO_DIAGNOSE = ['M0', 'M0h', 'M1']   # or None to load all found
 RHAT_THRESHOLD     = 1.01
 N_SAMPLE_AREAS     = 6   # areas to show in trace plots
 N_SAMPLE_YEARS     = 3   # years to show per area (evenly spaced)
+BURST_THRESHOLD    = 30  # dwellings/year above which a z value counts as a burst year
 
 # %% Load traces
 traces_dir = TRACES_DIR
@@ -199,8 +200,6 @@ print('  p99 gives the scale of genuine large observations')
 # %% Prior predictive summary — run before/after model changes to compare z prior
 # Edit this dict to include the models you want to check.
 # A 'burst year' is z > BURST_THRESHOLD dwellings in a single year for one area.
-BURST_THRESHOLD = 30
-
 prior_models = {
     'M0':  M0(data),
     'M0h': M0h(data),
