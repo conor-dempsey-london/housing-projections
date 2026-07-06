@@ -25,7 +25,7 @@ from housing_projections.data import (
 from housing_projections.analysis import compute_model_comparison
 from housing_projections.diagnostics import diagnostics_summary
 from housing_projections.html_report import generate_report
-from housing_projections.models import M0, M0h, M1, M2, M3, M4, M5, M6, M7, M8
+from housing_projections.models import M0, M0h, M1, M1h, M2, M3, M4, M5, M6, M7, M8
 from housing_projections.outliers import apply_outlier_exclusion
 from housing_projections.sensitivity import (
     compute_decomposed_uncertainty,
@@ -33,7 +33,7 @@ from housing_projections.sensitivity import (
     compute_z_model_sensitivity,
 )
 
-_ALL_MODELS = {m.name: m for m in [M0, M0h, M1, M2, M3, M4, M5, M6, M7, M8]}
+_ALL_MODELS = {m.name: m for m in [M0, M0h, M1, M1h, M2, M3, M4, M5, M6, M7, M8]}
 
 _COMPARISON_CSV  = 'comparison.csv'
 _COMPARISON_META = 'comparison_meta.json'
