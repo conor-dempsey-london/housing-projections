@@ -3,6 +3,8 @@ from IPython import get_ipython
 get_ipython().run_line_magic('load_ext', 'autoreload')
 get_ipython().run_line_magic('autoreload', '2')
 
+import os
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,7 +28,6 @@ BURST_THRESHOLD    = 30  # dwellings/year above which a z value counts as a burs
 traces_dir = TRACES_DIR
 
 def load_traces(names=None):
-    import os
     if names is None:
         names = [p.stem for p in sorted(traces_dir.glob('*.nc'))]
     out = {}
