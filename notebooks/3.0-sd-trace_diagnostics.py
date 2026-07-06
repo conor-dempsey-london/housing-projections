@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 
 from housing_projections.config import DATA_PATH, TRACES_DIR
-from housing_projections.diagnostics import diagnostics_summary
+from housing_projections.diagnostics import diagnostics_summary, prior_predictive_summary
+from housing_projections.models import M0, M0h, M1
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 
@@ -184,6 +185,25 @@ if sig_models:
         ax.legend()
     plt.tight_layout()
     plt.show()
+
+# %% Prior predictive summary — run before/after model changes to compare z prior
+# Edit this dict to include the models you want to check.
+# A 'burst year' is z > BURST_THRESHOLD dwellings in a single year for one area.
+BURST_THRESHOLD = 30
+
+prior_models = {
+    'M0':  M0(data),
+    'M0h': M0h(data),
+}
+pp_summary = prior_predictive_summary(
+    prior_models, draws=500, burst_threshold=BURST_THRESHOLD
+)
+print(f'\n── Prior predictive z summary (burst threshold = {BURST_THRESHOLD}) ──')
+print(pp_summary.to_string(float_format='{:.2f}'.format))
+print('\nInterpretation:')
+print('  pct_negative : fraction of prior z draws < 0 (implausible)')
+print(f'  pct_burst    : fraction of prior z draws > {BURST_THRESHOLD} (burst years)')
+print('  z_p99        : 99th percentile — how fat are the tails?')
 
 # %% Census constraint check — how well does z sum match D?
 for name, trace in traces.items():

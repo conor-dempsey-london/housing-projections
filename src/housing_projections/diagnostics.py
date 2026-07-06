@@ -271,6 +271,48 @@ def diagnostics_summary(traces, data=None, rhat_threshold=1.01):
     return df
 
 
+def prior_predictive_summary(models, draws=500, burst_threshold=30, neg_threshold=0):
+    """
+    Run prior predictive simulation for one or more models and return a
+    numerical summary of the implied z distribution.
+
+    Parameters
+    ----------
+    models          : dict mapping name (str) to DwellingModel instance
+                      (already built, or will be built here)
+    draws           : number of prior predictive draws
+    burst_threshold : z above this counts as a 'burst year' (default 30)
+    neg_threshold   : z below this counts as implausible negative (default 0)
+
+    Returns
+    -------
+    pd.DataFrame with index = model name and columns:
+        z_p05, z_p25, z_p50, z_p75, z_p95, z_p99,
+        z_mean, z_std, pct_negative, pct_burst
+    """
+    rows = {}
+    for name, model in models.items():
+        if model.model is None:
+            model.build()
+        prior = model.prior_predictive(draws=draws)
+        z     = prior.prior['z'].values.ravel()
+
+        rows[name] = {
+            'z_p05':      float(np.percentile(z, 5)),
+            'z_p25':      float(np.percentile(z, 25)),
+            'z_p50':      float(np.percentile(z, 50)),
+            'z_p75':      float(np.percentile(z, 75)),
+            'z_p95':      float(np.percentile(z, 95)),
+            'z_p99':      float(np.percentile(z, 99)),
+            'z_mean':     float(z.mean()),
+            'z_std':      float(z.std()),
+            'pct_negative': float(100 * np.mean(z < neg_threshold)),
+            'pct_burst':    float(100 * np.mean(z > burst_threshold)),
+        }
+
+    return pd.DataFrame(rows).T
+
+
 def compute_model_comparison(traces, verbose=True):
     """
     Compare models using Leave-One-Out cross-validation (LOO-CV).
