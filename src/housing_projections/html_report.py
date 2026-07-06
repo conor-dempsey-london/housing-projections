@@ -21,6 +21,7 @@ from housing_projections.diagnostics import (
     compute_lag_weights,
     compute_model_comparison,
     compute_spatial_misallocation_stats,
+    diagnostics_summary,
     full_diagnostics,
 )
 from housing_projections.eda import (
@@ -256,18 +257,10 @@ def _build_executive_summary(data, traces, comparison_df, sensitivity_summary):
         f'{len(traces)} model(s) compared'
     )
 
-    # Summary table
+    # Summary table — use lightweight diagnostics_summary (no Moran's I / residuals)
+    diag_df = diagnostics_summary(traces)
     rows = []
     for name in traces:
-        diag = full_diagnostics(traces[name], data, verbose=False)
-        n_div = int(traces[name].sample_stats.diverging.sum())
-
-        z_std_col = f'z_mean_{name}'
-        if sensitivity_summary is not None and z_std_col in sensitivity_summary.columns:
-            sens = sensitivity_summary['z_std_across_models'].mean()
-        else:
-            sens = float('nan')
-
         loo_val = comparison_df.loc[name, 'elpd'] if (
             comparison_df is not None and name in comparison_df.index
             and 'elpd' in comparison_df.columns) else float('nan')
@@ -276,13 +269,11 @@ def _build_executive_summary(data, traces, comparison_df, sensitivity_summary):
             and 'elpd_diff' in comparison_df.columns) else float('nan')
 
         rows.append({
-            'Model': name,
-            'ELPD': loo_val,
-            'ΔELPD vs best': d_loo,
-            'Divergences': n_div,
-            'Max R̂': float(
-                pd.to_numeric(diag['rhat']['summary']['r_hat'], errors='coerce').max()
-            ) if diag.get('rhat') is not None else float('nan'),
+            'Model':          name,
+            'ELPD':           loo_val,
+            'ΔELPD vs best':  d_loo,
+            'Divergences':    int(diag_df.loc[name, 'divergences']) if name in diag_df.index else 0,
+            'Max R̂':         float(diag_df.loc[name, 'max_rhat'])  if name in diag_df.index else float('nan'),
         })
 
     df = pd.DataFrame(rows)
