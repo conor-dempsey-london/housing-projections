@@ -22,13 +22,9 @@ class TestParser:
     def _parse(self, args):
         return _build_parser().parse_args(args)
 
-    def test_run_models_requires_data_path(self):
-        with pytest.raises(SystemExit):
-            self._parse(['run-models'])
-
     def test_run_models_defaults(self):
-        args = self._parse(['run-models', '--data-path', '/data'])
-        assert args.data_path == '/data'
+        args = self._parse(['run-models'])
+        assert args.data_path == 'data'
         assert args.models is None
         assert args.n_areas is None
         assert args.traces_dir == 'results/traces'
@@ -52,12 +48,9 @@ class TestParser:
         assert args.traces_dir == '/t'
         assert args.models == 'M0,M5'
 
-    def test_report_requires_data_path(self):
-        with pytest.raises(SystemExit):
-            self._parse(['report'])
-
     def test_report_defaults(self):
-        args = self._parse(['report', '--data-path', '/data'])
+        args = self._parse(['report'])
+        assert args.data_path == 'data'
         assert args.output == 'results/report.html'
         assert args.title == 'Housing Projections: Model Analysis Report'
         assert args.traces_dir == 'results/traces'

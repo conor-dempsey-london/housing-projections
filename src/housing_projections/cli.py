@@ -285,8 +285,8 @@ def _build_parser():
 
     # ── run-models ──────────────────────────────────────────────────────────
     p_run = sub.add_parser('run-models', help='Sample models and save traces.')
-    p_run.add_argument('--data-path', required=True,
-                       help='Root directory of raw data files.')
+    p_run.add_argument('--data-path', default='data',
+                       help='Root directory of raw data files (default: data).')
     p_run.add_argument('--models', default=None,
                        help='Comma-separated model names, e.g. M0,M3,M5 (default: all).')
     p_run.add_argument('--n-areas', type=int, default=None,
@@ -305,8 +305,8 @@ def _build_parser():
 
     # ── report ──────────────────────────────────────────────────────────────
     p_rep = sub.add_parser('report', help='Generate self-contained HTML analysis report.')
-    p_rep.add_argument('--data-path', required=True,
-                       help='Root directory of raw data files (required for EDA).')
+    p_rep.add_argument('--data-path', default='data',
+                       help='Root directory of raw data files (default: data).')
     p_rep.add_argument('--traces-dir', default='results/traces',
                        help='Directory containing saved .nc trace files.')
     p_rep.add_argument('--models', default=None,
