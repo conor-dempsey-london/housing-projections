@@ -16,7 +16,7 @@ from pathlib import Path
 import arviz as az
 import pandas as pd
 
-from housing_projections.data import load_data, make_data_dict, validate_data_path
+from housing_projections.data import load_data, make_data_dict, select_spatial_sample, validate_data_path
 from housing_projections.diagnostics import compute_model_comparison
 from housing_projections.html_report import generate_report
 from housing_projections.models import M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M0h, M5b
@@ -101,16 +101,28 @@ def _save_comparison_cache(traces_dir, comparison_df, model_names):
 
 def _data_matching_traces(gdf, traces, n_areas_hint=None):
     """
-    Build a data dict whose n_areas matches the loaded traces.
+    Build a data dict whose rows exactly match the areas the traces were sampled on.
 
-    If traces were sampled on the full dataset but --n-areas was passed to the
-    CLI, the shapes would mismatch. We infer the correct n_areas from the trace.
+    Reads LSOA codes from the 'area' coordinate embedded in the trace by
+    DwellingModel._default_coords() at sampling time, then filters and reorders
+    gdf to match.  Falls back to iloc[:n_areas] for traces that pre-date the
+    coordinate embedding (no 'area' coord present).
     """
-    first_trace  = next(iter(traces.values()))
-    trace_n_areas = first_trace.posterior['z'].shape[2]
+    first_trace = next(iter(traces.values()))
+    z_posterior = first_trace.posterior['z']
+
+    if 'area' in z_posterior.coords:
+        lsoa_codes = z_posterior.coords['area'].values.tolist()
+        subset = gdf[gdf['LSOA21CD'].isin(lsoa_codes)].copy()
+        subset = subset.set_index('LSOA21CD').loc[lsoa_codes].reset_index()
+        return make_data_dict(subset)
+
+    # Legacy fallback: traces sampled before coordinate embedding
+    trace_n_areas = z_posterior.shape[2]
     if n_areas_hint is not None and n_areas_hint != trace_n_areas:
         print(f'  Note: --n-areas={n_areas_hint} ignored; '
               f'traces have {trace_n_areas} areas.')
+    print('  Warning: trace has no area coordinates — data may not match trace LSOAs.')
     return make_data_dict(gdf, n_areas=trace_n_areas)
 
 
@@ -127,7 +139,8 @@ def cmd_run_models(args):
     validate_data_path(args.data_path)
     gdf = load_data(args.data_path)
     gdf, _ = apply_outlier_exclusion(gdf)
-    data = make_data_dict(gdf, n_areas=args.n_areas)
+    gdf_sample = select_spatial_sample(gdf, n_areas=args.n_areas or 200)
+    data = make_data_dict(gdf_sample)
 
     print(f'   {data["n_areas"]} LSOAs, {data["n_years"]} inference years')
 

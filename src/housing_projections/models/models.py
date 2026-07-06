@@ -29,7 +29,7 @@ def _build_z_prior(data, n_areas, n_years):
     z          = pm.Normal('z',
                            mu=mu_slab,
                            sigma=sigma_slab,
-                           shape=(n_areas, n_years))
+                           dims=('area', 'year'))
     return mu_slab, sigma_slab, z
 
 
@@ -213,7 +213,7 @@ class M0(DwellingModel):
         n_years      = data['n_years']
         sigma_census = self.make_sigma_census(data['D'])
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, data['D'], sigma_census)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'])
@@ -242,7 +242,7 @@ class M0h(DwellingModel):
         n_years      = data['n_years']
         sigma_census = self.make_sigma_census(D)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
 
             # ── Global hyperprior ─────────────────────────────────────────
             mu_global = pm.Normal('mu_global',
@@ -263,7 +263,7 @@ class M0h(DwellingModel):
             z = pm.Normal('z',
                           mu=mu_area[:, None],
                           sigma=sigma_slab,
-                          shape=(n_areas, n_years))
+                          dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'])
@@ -291,7 +291,7 @@ class M1(DwellingModel):
         sigma_census     = self.make_sigma_census(D)
         empirical_obs_sd = float(np.abs(data['P_obs'] - data['E_obs']).mean())
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
 
             pi         = pm.Beta('pi',        alpha=4.5, beta=5.5)
             mu_slab    = pm.TruncatedNormal('mu_slab',
@@ -313,7 +313,7 @@ class M1(DwellingModel):
                                pm.StudentT.dist(nu=nu, mu=mu_slab,
                                                 sigma=sigma_slab),
                            ],
-                           shape=(n_areas, n_years))
+                           dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
@@ -341,7 +341,7 @@ class M2(DwellingModel):
         data         = self.data
         sigma_census = self.make_sigma_census(data['D'])
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
             _, _, z    = _build_z_prior(data, data['n_areas'], data['n_years'])
             _build_census_constraint(z, data['D'], sigma_census)
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
@@ -374,7 +374,7 @@ class M3(DwellingModel):
         sigma_census  = self.make_sigma_census(data['D'])
         pre_inference = _build_pre_inference(data, self.max_lag)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, data['D'], sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
@@ -407,7 +407,7 @@ class M4(DwellingModel):
         sigma_census  = self.make_sigma_census(data['D'])
         pre_inference = _build_pre_inference(data, self.max_lag)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, data['D'], sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
@@ -441,7 +441,7 @@ class M5(DwellingModel):
         sigma_census  = self.make_sigma_census(data['D'])
         pre_inference = _build_pre_inference(data, self.max_lag)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, data['D'], sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
@@ -479,7 +479,7 @@ class M5b(DwellingModel):
         sigma_census  = self.make_sigma_census(data['D'])
         pre_inference = _build_pre_inference(data, self.max_lag)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, data['D'], sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
@@ -532,7 +532,7 @@ class M6(DwellingModel):
         pre_inference = _build_pre_inference(data, self.max_lag)
         W             = build_spatial_weights(data['gdf'])
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, data['D'], sigma_census)
 
@@ -584,7 +584,7 @@ class M7(DwellingModel):
         sigma_census  = self.make_sigma_census(D)
         pre_inference = _build_pre_inference(data, self.max_lag)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
 
             # ── Global prior ──────────────────────────────────────────────
             mu_slab     = pm.Normal('mu_slab',
@@ -608,7 +608,7 @@ class M7(DwellingModel):
                 z_t = rho * z_prev + (1 - rho) * mu_slab + sigma_innov * z_t_raw
                 z_list.append(z_t)
 
-            z = pm.Deterministic('z', pt.stack(z_list, axis=1))
+            z = pm.Deterministic('z', pt.stack(z_list, axis=1), dims=('area', 'year'))
 
             # ── Census constraint ─────────────────────────────────────────
             _build_census_constraint(z, D, sigma_census)
@@ -667,7 +667,7 @@ class M8(DwellingModel):
         sigma_census  = self.make_sigma_census(D)
         pre_inference = _build_pre_inference(data, self.max_lag)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
 
             # ── Global hyperprior ─────────────────────────────────────────
             mu_global     = pm.Normal('mu_global',
@@ -686,7 +686,7 @@ class M8(DwellingModel):
             z = pm.Normal('z',
                           mu=mu_borough[borough_idx, None],
                           sigma=sigma_slab,
-                          shape=(n_areas, n_years))
+                          dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
 
@@ -738,7 +738,7 @@ class M9(DwellingModel):
         sigma_census  = self.make_sigma_census(D)
         pre_inference = _build_pre_inference(data, self.max_lag)
 
-        with pm.Model() as model:
+        with pm.Model(coords=self._default_coords()) as model:
 
             _, _, z = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, D, sigma_census)

@@ -8,7 +8,7 @@ import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
 
-from housing_projections.config import CENSUS_ABS_FLOOR, CENSUS_REL_ERROR, DEFAULT_SAMPLE_KWARGS
+from housing_projections.config import CENSUS_ABS_FLOOR, CENSUS_REL_ERROR, DEFAULT_SAMPLE_KWARGS, INFER_YEARS
 
 
 class DwellingModel(ABC):
@@ -232,6 +232,13 @@ class DwellingModel(ABC):
     @staticmethod
     def make_sigma_census(D, rel_error=CENSUS_REL_ERROR, abs_floor=CENSUS_ABS_FLOOR):
         return np.maximum(np.abs(D) * rel_error, abs_floor)
+
+    def _default_coords(self) -> dict:
+        """Standard PyMC model coordinates — embeds LSOA codes and years in the trace."""
+        return {
+            'area': self.data['gdf']['LSOA21CD'].tolist(),
+            'year': INFER_YEARS,
+        }
 
     @staticmethod
     def make_mixture_weights(pi, n_areas, n_years):
