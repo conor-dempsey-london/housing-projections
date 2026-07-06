@@ -158,7 +158,7 @@ for name, trace in traces.items():
     az.plot_pair(
         trace,
         var_names=vars_to_plot,
-        divergences=True,
+        visuals={'divergence': True},
         figure_kwargs={'figsize': (3 * n, 3 * n)},
     )
     plt.suptitle(f'{name} — scalar parameter pairs (red = divergences)', fontsize=11)
