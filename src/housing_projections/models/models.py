@@ -218,8 +218,8 @@ class M0(DwellingModel):
         with pm.Model(coords=self._default_coords()) as model:
             _, _, z    = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, D, sigma_census)
-            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_plan,
                                              sigma_ben=sigma_ben)
@@ -266,8 +266,8 @@ class M0h(DwellingModel):
                                           dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
-            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_plan,
                                              sigma_ben=sigma_ben)
@@ -298,8 +298,8 @@ class M1(DwellingModel):
             _build_census_constraint(z, D, sigma_census)
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
-            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan)
             self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
