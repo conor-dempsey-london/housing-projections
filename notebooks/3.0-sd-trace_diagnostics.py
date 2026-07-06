@@ -110,6 +110,68 @@ for name, trace in traces.items():
           f'(worst: {df_bad.iloc[0]["var"]} = {df_bad.iloc[0]["rhat"]:.4f})')
     print(df_bad.groupby('var')['rhat'].agg(['count', 'max', 'mean']).sort_values('max', ascending=False).to_string())
 
+# %% Z posterior vs observations — sample areas per model
+# For each model and a sample of LSOAs, plots:
+#   - z posterior mean (solid line) with 90% CI (shaded band)
+#   - planning observations P_obs (crosses)
+#   - BEN observations E_obs (circles)
+# Useful for checking whether the model is learning plausible temporal profiles.
+
+for name, trace in traces.items():
+    z_post  = trace.posterior['z'].values          # (chains, draws, areas, years)
+    C, S, A, T = z_post.shape
+    z_flat  = z_post.reshape(C * S, A, T)
+
+    z_mean  = z_flat.mean(axis=0)                  # (areas, years)
+    z_lo    = np.percentile(z_flat,  5, axis=0)
+    z_hi    = np.percentile(z_flat, 95, axis=0)
+
+    lsoa_codes = (trace.posterior['z'].coords['area'].values.tolist()
+                  if 'area' in trace.posterior['z'].coords else list(range(A)))
+
+    # Evenly spaced sample of areas
+    idx = np.linspace(0, A - 1, N_SAMPLE_AREAS, dtype=int)
+
+    ncols = 3
+    nrows = int(np.ceil(N_SAMPLE_AREAS / ncols))
+    fig, axes = plt.subplots(nrows, ncols,
+                             figsize=(5 * ncols, 3 * nrows),
+                             sharey=False)
+    axes = np.array(axes).ravel()
+
+    years = np.array(INFER_YEARS)
+
+    for plot_i, area_i in enumerate(idx):
+        ax      = axes[plot_i]
+        code    = lsoa_codes[area_i]
+        data_i  = np.where(np.array(lsoa_codes) == code)[0][0] if code in lsoa_codes else area_i
+
+        ax.fill_between(years, z_lo[area_i], z_hi[area_i],
+                        alpha=0.25, color='steelblue', label='z 90% CI')
+        ax.plot(years, z_mean[area_i], color='steelblue', linewidth=1.5, label='z mean')
+
+        if data is not None and data_i < data['n_areas']:
+            ax.plot(years, data['P_obs'][data_i], 'x', color='darkorange',
+                    markersize=5, label='P_obs')
+            ax.plot(years, data['E_obs'][data_i], 'o', color='forestgreen',
+                    markersize=4, fillstyle='none', label='E_obs')
+
+        ax.axhline(0, color='black', linewidth=0.5, linestyle='--')
+        ax.set_title(str(code)[:12], fontsize=8)
+        ax.set_xticks(years[::2])
+        ax.tick_params(labelsize=7)
+
+    for ax in axes[N_SAMPLE_AREAS:]:
+        ax.set_visible(False)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower right', fontsize=8, ncol=2)
+    fig.suptitle(f'{name} — z posterior vs observations ({N_SAMPLE_AREAS} areas)',
+                 fontsize=11)
+    plt.tight_layout()
+    plt.show()
+
+
 # %% Trace plots — sample a few z variables
 for name, trace in traces.items():
     z_post  = trace.posterior['z']
