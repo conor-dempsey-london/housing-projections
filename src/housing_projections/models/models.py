@@ -12,7 +12,7 @@ from housing_projections.spatial import build_spatial_weights
 
 from .base import DwellingModel
 
-__all__ = ["M0", "M0h", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]
+__all__ = ["M0", "M0h", "M1", "M1h", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]
 
 # ── Builder functions (private) ───────────────────────────────────────────────
 
@@ -302,6 +302,62 @@ class M1(DwellingModel):
             sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan)
+            self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
+
+        self.model = model
+        return model
+
+
+class M1h(DwellingModel):
+    """
+    Combines the M0h area-level hierarchy with the M1 temporal lag.
+
+    Each LSOA has an area-specific mean annual change (mu_area) drawn from a
+    global distribution, and z deviates from that mean via sigma_slab.  The
+    planning likelihood uses a lagged z mean (lambda_weights), giving sigma_plan
+    a structural explanation for why P_obs != z and allowing sigma_slab to
+    identify genuine within-area temporal variation.
+
+    BEN is assumed lag-free.
+    """
+
+    name        = 'M1h'
+    description = 'M0h hierarchy + M1 temporal lag in planning'
+    var_names   = ['mu_global', 'sigma_mu', 'sigma_slab',
+                   'sigma_plan', 'sigma_ben', 'lambda_weights']
+    max_lag     = 3
+
+    def build(self):
+        data, n_areas, n_years, D, sigma_census = self._build_context()
+        pre_inference = _build_pre_inference(data, self.max_lag)
+
+        with pm.Model(coords=self._default_coords()) as model:
+
+            # ── Area-level hierarchy (from M0h) ───────────────────────────
+            mu_global = pm.Normal('mu_global',
+                                   mu=data['D_full_mean'] / n_years,
+                                   sigma=5)
+            sigma_mu  = pm.HalfNormal('sigma_mu', sigma=10)
+            mu_area   = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
+                                  shape=n_areas)
+
+            sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
+            z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
+                                   dims=('area', 'year'))
+            z          = pm.Deterministic('z',
+                                          mu_area[:, None] + sigma_slab * z_offset,
+                                          dims=('area', 'year'))
+
+            _build_census_constraint(z, D, sigma_census)
+
+            # ── Planning lag (from M1) ────────────────────────────────────
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
+                                   self.n_lags, self.lag_alpha, self.max_lag)
+
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            _build_planning_likelihood_simple(P_mean, data['P_obs'],
+                                              self.nu_obs, sigma_plan)
             self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
 
         self.model = model

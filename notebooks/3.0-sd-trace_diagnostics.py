@@ -13,7 +13,7 @@ import pandas as pd
 from housing_projections.analysis import uncertainty_by_geography, variance_components
 from housing_projections.config import DATA_PATH, INFER_YEARS, TRACES_DIR
 from housing_projections.diagnostics import diagnostics_summary, observation_summary, prior_predictive_summary
-from housing_projections.models import M0, M0h, M1
+from housing_projections.models import M0, M0h, M1, M1h
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 
