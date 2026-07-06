@@ -61,6 +61,15 @@ class DwellingModel(ABC):
         self.model = None
         self.trace = None
 
+    def _build_context(self):
+        """Unpack the commonly needed data fields and sigma_census in one call."""
+        data         = self.data
+        n_areas      = data['n_areas']
+        n_years      = data['n_years']
+        D            = data['D']
+        sigma_census = self.make_sigma_census(D)
+        return data, n_areas, n_years, D, sigma_census
+
     # ── Abstract interface ────────────────────────────────────────────────────
 
     @abstractmethod
