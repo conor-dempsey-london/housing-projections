@@ -212,30 +212,6 @@ def cmd_compare(args):
     print(f'  90th pct z std:           {std_col.quantile(0.90):.3f}')
     print(f'  Max z std (most sensitive LSOA): {std_col.max():.3f}')
 
-    data = None
-    if hasattr(args, 'data_path') and args.data_path:
-        try:
-            validate_data_path(args.data_path)
-            gdf  = load_data(args.data_path)
-            gdf, _ = apply_outlier_exclusion(gdf)
-            data = _data_matching_traces(gdf, traces)
-        except Exception as exc:  # noqa: BLE001
-            print(f'\n  Warning: could not load data for coverage ({exc}), skipping.')
-
-    print('\n── Sampling diagnostics ─────────────────────────────────────────')
-    diag = diagnostics_summary(traces, data=data)
-    fmt  = {'max_rhat': '{:.4f}'.format, 'divergences': '{:d}'.format}
-    if 'plan_cov_90' in diag.columns:
-        fmt['plan_cov_90'] = '{:.3f}'.format
-        fmt['ben_cov_90']  = '{:.3f}'.format
-    print(diag.to_string(formatters={k: fmt[k] for k in fmt if k in diag.columns}))
-    n_bad_rhat = int((diag['max_rhat'] > 1.01).sum())
-    n_divs     = int(diag['divergences'].sum())
-    if n_bad_rhat:
-        print(f'\n  *** {n_bad_rhat} model(s) with max r-hat > 1.01 ***')
-    if n_divs:
-        print(f'  *** {n_divs} total divergences across all models ***')
-
     return comparison
 
 
@@ -377,8 +353,6 @@ def _build_parser():
 
     # ── compare ─────────────────────────────────────────────────────────────
     p_cmp = sub.add_parser('compare', help='LOO comparison and z sensitivity report.')
-    p_cmp.add_argument('--data-path', default='data',
-                       help='Root directory of raw data files — used for coverage diagnostics (default: data).')
     p_cmp.add_argument('--traces-dir', default='results/traces',
                        help='Directory containing saved .nc trace files.')
     p_cmp.add_argument('--models', default=None,
