@@ -111,12 +111,28 @@ for name, trace in traces.items():
           f'(worst: {df_bad.iloc[0]["var"]} = {df_bad.iloc[0]["rhat"]:.4f})')
     print(df_bad.groupby('var')['rhat'].agg(['count', 'max', 'mean']).sort_values('max', ascending=False).to_string())
 
-# %% Z posterior vs observations — sample areas per model
-# For each model and a sample of LSOAs, plots:
+# %% Z posterior vs observations — diverse area sample per model
+# For each model, selects N_SAMPLE_AREAS areas spanning a range of temporal
+# profiles (quiet, steady, bursty) by stratifying on the coefficient of
+# variation of P_obs. For each area plots:
 #   - z posterior mean (solid line) with 90% CI (shaded band)
 #   - planning observations P_obs (crosses)
 #   - BEN observations E_obs (circles)
-# Useful for checking whether the model is learning plausible temporal profiles.
+
+def _select_diverse_areas(P_obs, n):
+    """
+    Return n area indices spanning the range of P_obs temporal variability.
+    Stratifies by CV(P_obs), replacing zeros with a small value to avoid
+    division by zero for inactive areas. Picks one area per quantile band.
+    """
+    means = np.abs(P_obs).mean(axis=1)
+    stds  = P_obs.std(axis=1)
+    # CV relative to non-zero mean; inactive areas (mean~0) get CV=0
+    cv = np.where(means > 0.5, stds / means, 0.0)
+    quantiles = np.linspace(0, 100, n + 2)[1:-1]   # n interior quantile points
+    thresholds = np.percentile(cv, quantiles)
+    idx = [int(np.argmin(np.abs(cv - t))) for t in thresholds]
+    return idx
 
 for name, trace in traces.items():
     z_post  = trace.posterior['z'].values          # (chains, draws, areas, years)
@@ -130,9 +146,12 @@ for name, trace in traces.items():
     lsoa_codes = (trace.posterior['z'].coords['area'].values.tolist()
                   if 'area' in trace.posterior['z'].coords else list(range(A)))
 
-    # Evenly spaced sample of areas
-    idx = np.linspace(0, A - 1, N_SAMPLE_AREAS, dtype=int)
+    if data is not None:
+        idx = _select_diverse_areas(data['P_obs'], N_SAMPLE_AREAS)
+    else:
+        idx = list(np.linspace(0, A - 1, N_SAMPLE_AREAS, dtype=int))
 
+    years = np.array(INFER_YEARS)
     ncols = 3
     nrows = int(np.ceil(N_SAMPLE_AREAS / ncols))
     fig, axes = plt.subplots(nrows, ncols,
@@ -140,25 +159,26 @@ for name, trace in traces.items():
                              sharey=False)
     axes = np.array(axes).ravel()
 
-    years = np.array(INFER_YEARS)
-
     for plot_i, area_i in enumerate(idx):
-        ax      = axes[plot_i]
-        code    = lsoa_codes[area_i]
-        data_i  = np.where(np.array(lsoa_codes) == code)[0][0] if code in lsoa_codes else area_i
+        ax   = axes[plot_i]
+        code = lsoa_codes[area_i]
 
         ax.fill_between(years, z_lo[area_i], z_hi[area_i],
                         alpha=0.25, color='steelblue', label='z 90% CI')
         ax.plot(years, z_mean[area_i], color='steelblue', linewidth=1.5, label='z mean')
 
-        if data is not None and data_i < data['n_areas']:
-            ax.plot(years, data['P_obs'][data_i], 'x', color='darkorange',
+        if data is not None and area_i < data['n_areas']:
+            p_cv = (data['P_obs'][area_i].std() /
+                    max(abs(data['P_obs'][area_i].mean()), 0.5))
+            ax.plot(years, data['P_obs'][area_i], 'x', color='darkorange',
                     markersize=5, label='P_obs')
-            ax.plot(years, data['E_obs'][data_i], 'o', color='forestgreen',
+            ax.plot(years, data['E_obs'][area_i], 'o', color='forestgreen',
                     markersize=4, fillstyle='none', label='E_obs')
+            ax.set_title(f'{str(code)[:12]}  CV={p_cv:.2f}', fontsize=8)
+        else:
+            ax.set_title(str(code)[:12], fontsize=8)
 
         ax.axhline(0, color='black', linewidth=0.5, linestyle='--')
-        ax.set_title(str(code)[:12], fontsize=8)
         ax.set_xticks(years[::2])
         ax.tick_params(labelsize=7)
 
@@ -167,8 +187,11 @@ for name, trace in traces.items():
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower right', fontsize=8, ncol=2)
-    fig.suptitle(f'{name} — z posterior vs observations ({N_SAMPLE_AREAS} areas)',
-                 fontsize=11)
+    fig.suptitle(
+        f'{name} — z posterior vs observations  '
+        f'(areas ordered low→high temporal variability)',
+        fontsize=11,
+    )
     plt.tight_layout()
     plt.show()
 
