@@ -40,6 +40,7 @@ lint       = "ruff check src/housing_projections tests"
 typecheck  = "mypy src/housing_projections"
 run-models = "housing-projections run-models"
 compare    = "housing-projections compare"
+diagnose   = "housing-projections diagnose"
 report     = "housing-projections report"
 
 [tool.ruff]
