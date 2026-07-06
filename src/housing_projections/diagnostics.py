@@ -214,10 +214,13 @@ def diagnostics_summary(traces, data=None, rhat_threshold=1.01):
     """
     rows = {}
     for name, trace in traces.items():
-        summary   = az.summary(trace)
-        rhat_vals = pd.to_numeric(summary['r_hat'], errors='coerce').dropna()
-        ess_vals  = pd.to_numeric(summary.get('ess_bulk', pd.Series(dtype=float)),
-                                  errors='coerce').dropna()
+        rhat_ds = az.rhat(trace)
+        ess_ds  = az.ess(trace, method='bulk')
+
+        rhat_vals = np.concatenate([v.values.ravel() for v in rhat_ds.data_vars.values()])
+        ess_vals  = np.concatenate([v.values.ravel() for v in ess_ds.data_vars.values()])
+        rhat_vals = rhat_vals[np.isfinite(rhat_vals)]
+        ess_vals  = ess_vals[np.isfinite(ess_vals)]
 
         max_rhat    = float(rhat_vals.max())   if len(rhat_vals) else float('nan')
         mean_rhat   = float(rhat_vals.mean())  if len(rhat_vals) else float('nan')
