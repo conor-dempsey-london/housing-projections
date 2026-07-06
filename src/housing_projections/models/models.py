@@ -14,6 +14,8 @@ from .base import DwellingModel
 
 __all__ = ["M0", "M0h", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]
 
+NU_Z = 4  # degrees of freedom for StudentT prior on latent z
+
 # ── Builder functions (private) ───────────────────────────────────────────────
 
 def _build_z_prior(data, n_areas, n_years):
@@ -25,11 +27,11 @@ def _build_z_prior(data, n_areas, n_years):
     mu_slab    = pm.Normal('mu_slab',
                            mu=data['D_full_mean'] / n_years,
                            sigma=5)
-    sigma_slab = pm.HalfNormal('sigma_slab', sigma=30)
-    z          = pm.Normal('z',
-                           mu=mu_slab,
-                           sigma=sigma_slab,
-                           dims=('area', 'year'))
+    sigma_slab = pm.HalfNormal('sigma_slab', sigma=15)
+    z          = pm.StudentT('z', nu=NU_Z,
+                             mu=mu_slab,
+                             sigma=sigma_slab,
+                             dims=('area', 'year'))
     return mu_slab, sigma_slab, z
 
 
@@ -258,9 +260,9 @@ class M0h(DwellingModel):
                                 shape=n_areas)
 
             # ── Latent true changes (non-centered on sigma_slab) ─────────
-            sigma_slab = pm.HalfNormal('sigma_slab', sigma=30)
-            z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
-                                   dims=('area', 'year'))
+            sigma_slab = pm.HalfNormal('sigma_slab', sigma=15)
+            z_offset   = pm.StudentT('z_offset', nu=NU_Z, mu=0, sigma=1,
+                                     dims=('area', 'year'))
             z          = pm.Deterministic('z',
                                           mu_area[:, None] + sigma_slab * z_offset,
                                           dims=('area', 'year'))
@@ -592,8 +594,8 @@ class M7(DwellingModel):
                 'mu_borough', mu_global + sigma_borough * mu_borough_offset)
 
             # ── LSOA-level latent z ───────────────────────────────────────
-            sigma_slab = pm.HalfNormal('sigma_slab', sigma=20)
-            z = pm.Normal('z',
+            sigma_slab = pm.HalfNormal('sigma_slab', sigma=15)
+            z = pm.StudentT('z', nu=NU_Z,
                           mu=mu_borough[borough_idx, None],
                           sigma=sigma_slab,
                           dims=('area', 'year'))
