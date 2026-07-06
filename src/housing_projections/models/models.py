@@ -558,20 +558,23 @@ class M7(DwellingModel):
     """
     Replaces the i.i.d. year prior on z with an AR(1) process per area.
 
-    z[a, 0]   ~ Normal(mu_slab, sigma_init)
+    z[a, 0]   ~ Normal(rho * z_prev[a] + (1-rho) * mu_slab, sigma_innov)
     z[a, t]   ~ Normal(rho * z[a, t-1] + (1-rho) * mu_slab, sigma_innov)
 
-    where rho ~ Beta(8, 2) (prior mean 0.8).  This captures the empirical
-    observation that dwelling change is autocorrelated year-on-year — an
-    active development site remains active for several years.
+    where rho ~ Beta(8, 2) (prior mean 0.8) and z_prev[a] is the observed
+    planning completion in the year immediately before the inference window
+    (a fixed constant, not a latent variable).  Using real pre-window data
+    as the warm-start eliminates the boundary effect that would arise from
+    initialising cold from the global prior, and removes the need for a
+    separate sigma_init parameter.
 
     BEN is assumed lag-free.  Planning uses the same zero-inflated asymmetric
     likelihood as M5 (no spatial misallocation).
     """
 
     name        = 'M7'
-    description = 'M5 + AR(1) temporal prior on z (replaces i.i.d. year prior)'
-    var_names   = ['mu_slab', 'sigma_init', 'sigma_innov', 'rho',
+    description = 'M5 + AR(1) temporal prior on z with pre-window warm-start'
+    var_names   = ['mu_slab', 'sigma_innov', 'rho',
                    'lambda_weights', 'pi_miss_pos', 'pi_miss_neg']
     max_lag     = 3
     snap_zeros  = True
@@ -584,21 +587,27 @@ class M7(DwellingModel):
         sigma_census  = self.make_sigma_census(D)
         pre_inference = _build_pre_inference(data, self.max_lag)
 
+        # Fixed planning observation immediately before the inference window —
+        # used as a known z_prev to warm-start the AR(1) and avoid boundary effects.
+        z_prev_obs = pt.as_tensor_variable(
+            pre_inference[:, -1].astype('float64'))
+
         with pm.Model(coords=self._default_coords()) as model:
 
             # ── Global prior ──────────────────────────────────────────────
             mu_slab     = pm.Normal('mu_slab',
                                     mu=data['D_full_mean'] / n_years / 0.55,
                                     sigma=5)
-            sigma_init  = pm.HalfNormal('sigma_init',  sigma=30)
             sigma_innov = pm.HalfNormal('sigma_innov', sigma=15)
             rho         = pm.Beta('rho', alpha=8, beta=2)  # prior mean 0.8
 
             # ── AR(1) scan over years ─────────────────────────────────────
-            # Non-centered: z_raw ~ Normal(0, 1), z = mu + sigma * z_raw
+            # Non-centered parameterisation: z_raw ~ Normal(0,1),
+            # z_t = rho * z_{t-1} + (1-rho) * mu_slab + sigma_innov * z_raw_t
+            # t=0 is warm-started from z_prev_obs (fixed pre-window data).
             z_init_raw = pm.Normal('z_init_raw', mu=0, sigma=1,
                                    shape=(n_areas,))
-            z_init = mu_slab + sigma_init * z_init_raw
+            z_init = rho * z_prev_obs + (1 - rho) * mu_slab + sigma_innov * z_init_raw
 
             z_list = [z_init]
             for t in range(1, n_years):
