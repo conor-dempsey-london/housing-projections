@@ -13,7 +13,7 @@ from pathlib import Path
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 import housing_projections.reporting as reporting
-from housing_projections.models import M0, M0h, M1, M2, M3, M4, M5, M5b, M6
+from housing_projections.models import M0, M0h, M1, M3, M4, M5, M5b, M6
 from housing_projections.config import DATA_PATH, DEFAULT_SAMPLE_KWARGS, TRACES_DIR
 
 # %% Configuration
@@ -61,7 +61,6 @@ model_registry = {
     'M0': M0,
     'M0h': M0h,
     'M1': M1,
-    'M2': M2,
     'M3': M3,
     'M4': M4,
     'M5': M5,

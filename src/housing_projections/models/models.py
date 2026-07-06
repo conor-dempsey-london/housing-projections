@@ -12,7 +12,7 @@ from housing_projections.spatial import build_spatial_weights
 
 from .base import DwellingModel
 
-__all__ = ["M0", "M0h", "M1", "M2", "M3", "M4", "M5", "M5b", "M6", "M7", "M8", "M9"]
+__all__ = ["M0", "M0h", "M1", "M3", "M4", "M5", "M5b", "M6", "M7", "M8", "M9"]
 
 # ── Builder functions (private) ───────────────────────────────────────────────
 
@@ -199,24 +199,31 @@ def _build_spatial_misallocation(z, W, n_areas, n_years):
 # ── Models ────────────────────────────────────────────────────────────────────
 
 class M0(DwellingModel):
-    """Baseline: Normal prior on z, fixed observation noise."""
+    """
+    Baseline: Normal prior on z, learned observation noise per source.
+
+    sigma_plan and sigma_ben are inferred from the data rather than fixed,
+    allowing the model to adapt to the actual noise level of each source.
+    """
 
     name             = 'M0'
-    description      = 'Baseline: Normal prior on z'
-    var_names        = ['mu_slab', 'sigma_slab']
+    description      = 'Baseline: Normal prior on z, learned observation noise'
+    var_names        = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
 
     def build(self):
         data         = self.data
-        n_areas      = data['n_areas']
-        n_years      = data['n_years']
         sigma_census = self.make_sigma_census(data['D'])
 
         with pm.Model(coords=self._default_coords()) as model:
-            _, _, z = _build_z_prior(data, n_areas, n_years)
+            _, _, z    = _build_z_prior(data, data['n_areas'], data['n_years'])
             _build_census_constraint(z, data['D'], sigma_census)
-            self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'])
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
+            self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
+                                             sigma_plan=sigma_plan,
+                                             sigma_ben=sigma_ben)
 
         self.model = model
         return model
@@ -226,12 +233,13 @@ class M0h(DwellingModel):
     """
     Hierarchical extension of M0. Each LSOA has its own mean annual
     change drawn from a global distribution, using non-centered
-    parameterisation for better mixing.
+    parameterisation for better mixing. Observation noise is learned
+    per source as in M0.
     """
 
     name             = 'M0h'
     description      = 'M0 + hierarchical area-level mean annual change'
-    var_names        = ['mu_global', 'sigma_mu', 'sigma_slab']
+    var_names        = ['mu_global', 'sigma_mu', 'sigma_slab', 'sigma_plan', 'sigma_ben']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
 
@@ -266,7 +274,11 @@ class M0h(DwellingModel):
                           dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
-            self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'])
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
+            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
+            self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
+                                             sigma_plan=sigma_plan,
+                                             sigma_ben=sigma_ben)
 
         self.model = model
         return model
@@ -319,36 +331,6 @@ class M1(DwellingModel):
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_obs,
                                              sigma_ben=sigma_obs)
-
-        self.model = model
-        return model
-
-
-class M2(DwellingModel):
-    """
-    M0 with learned observation noise per source.
-
-    M0 uses a single fixed sigma for both planning and BEN. M2 places
-    HalfNormal priors on separate sigma_plan and sigma_ben, letting the
-    data determine how noisy each source is.
-    """
-
-    name        = 'M2'
-    description = 'M0 + learned observation noise per source'
-    var_names   = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben']
-
-    def build(self):
-        data         = self.data
-        sigma_census = self.make_sigma_census(data['D'])
-
-        with pm.Model(coords=self._default_coords()) as model:
-            _, _, z    = _build_z_prior(data, data['n_areas'], data['n_years'])
-            _build_census_constraint(z, data['D'], sigma_census)
-            sigma_plan = pm.HalfNormal('sigma_plan', sigma=10)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=10)
-            self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
-                                             sigma_plan=sigma_plan,
-                                             sigma_ben=sigma_ben)
 
         self.model = model
         return model

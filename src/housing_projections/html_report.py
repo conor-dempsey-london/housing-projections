@@ -115,9 +115,6 @@ _MODEL_DESCRIPTIONS = {
             'Adds a per-year random effect on the latent z mean, allowing '
             'the overall level of dwelling delivery to vary across the '
             'intercensal period.'),
-    'M2':  ('Area random effects',
-            'Adds a per-LSOA random intercept so that structurally high- or '
-            'low-growth areas are partially pooled toward the London mean.'),
     'M3':  ('Temporal lag on planning',
             'Planning completions data (PLD) are recorded when a building '
             'permit closes, which can be 1–3 years after dwellings are '
@@ -157,7 +154,6 @@ _MODEL_DESCRIPTIONS = {
 _MODEL_KEY_VAR = {
     'M0': None, 'M0h': None,
     'M1': None,
-    'M2': None,
     'M3': 'lambda_weights',
     'M4': 'pi_miss',
     'M5': 'pi_miss_pos',
@@ -391,7 +387,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
 
     html = ''
     model_names_ordered = [n for n in
-                            ['M0', 'M0h', 'M1', 'M2', 'M3', 'M4', 'M5', 'M5b', 'M6', 'M7', 'M8', 'M9']
+                            ['M0', 'M0h', 'M1', 'M3', 'M4', 'M5', 'M5b', 'M6', 'M7', 'M8', 'M9']
                             if n in traces]
 
     for name in model_names_ordered:
@@ -444,30 +440,6 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
                         ax.spines[['top', 'right']].set_visible(False)
                         plt.tight_layout()
                         card_html += _html_fig(fig, f'Posterior of {var} — the hierarchical hyperprior governing how much area-level means can deviate from the global mean')
-                        plt.close(fig)
-                    except Exception:  # noqa: BLE001
-                        pass
-
-        elif name == 'M2':
-            # Learned separate observation noise — key thing M2 adds over M0
-            for var, caption in [
-                ('sigma_plan', 'Posterior of planning observation noise — M2 learns this rather than fixing it at 2.0'),
-                ('sigma_ben',  'Posterior of BEN observation noise — M2 learns this separately from planning'),
-            ]:
-                if var in trace.posterior:
-                    try:
-                        vals = trace.posterior[var].values.ravel()
-                        fig, ax = plt.subplots(figsize=(6, 3))
-                        ax.hist(vals, bins=60, color='steelblue', alpha=0.7, density=True)
-                        ax.axvline(2.0, color='red', linestyle='--', linewidth=1,
-                                   label='M0 fixed value (2.0)')
-                        ax.set_xlabel(var)
-                        ax.set_ylabel('Density')
-                        ax.set_title(f'{name}: posterior of {var}')
-                        ax.spines[['top', 'right']].set_visible(False)
-                        ax.legend(fontsize=8)
-                        plt.tight_layout()
-                        card_html += _html_fig(fig, caption)
                         plt.close(fig)
                     except Exception:  # noqa: BLE001
                         pass

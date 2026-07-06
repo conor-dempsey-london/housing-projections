@@ -3,10 +3,10 @@ import numpy as np
 import pymc as pm
 import pytest  # noqa: F401
 
-from housing_projections.models.models import M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, M0h, M5b
+from housing_projections.models.models import M0, M0h, M1, M3, M4, M5, M5b, M6, M7, M8, M9
 
 
-@pytest.mark.parametrize('ModelClass', [M0, M0h, M1, M2, M3, M4, M5, M5b, M6, M7, M9])
+@pytest.mark.parametrize('ModelClass', [M0, M0h, M1, M3, M4, M5, M5b, M6, M7, M9])
 class TestModelBuild:
     def test_build_returns_model(self, ModelClass, data_dict):
         assert isinstance(ModelClass(data_dict).build(), pm.Model)
@@ -45,7 +45,7 @@ class TestModelBuild:
 
 class TestM0Structure:
     def test_var_names(self):
-        assert set(M0.var_names) == {'mu_slab', 'sigma_slab'}
+        assert set(M0.var_names) == {'mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben'}
 
     def test_snap_zeros_false(self):
         assert M0.snap_zeros is False
