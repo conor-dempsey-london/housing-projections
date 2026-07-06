@@ -111,10 +111,6 @@ _MODEL_DESCRIPTIONS = {
     'M0h': ('Half-normal baseline',
             'Like M0 but uses a half-normal prior on sigma_slab, making it '
             'more weakly regularising.'),
-    'M1':  ('Year-varying mean',
-            'Adds a per-year random effect on the latent z mean, allowing '
-            'the overall level of dwelling delivery to vary across the '
-            'intercensal period.'),
     'M3':  ('Temporal lag on planning',
             'Planning completions data (PLD) are recorded when a building '
             'permit closes, which can be 1–3 years after dwellings are '
@@ -153,7 +149,6 @@ _MODEL_DESCRIPTIONS = {
 # Which diagnostic plot best illustrates each model's contribution
 _MODEL_KEY_VAR = {
     'M0': None, 'M0h': None,
-    'M1': None,
     'M3': 'lambda_weights',
     'M4': 'pi_miss',
     'M5': 'pi_miss_pos',
@@ -387,7 +382,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
 
     html = ''
     model_names_ordered = [n for n in
-                            ['M0', 'M0h', 'M1', 'M3', 'M4', 'M5', 'M5b', 'M6', 'M7', 'M8', 'M9']
+                            ['M0', 'M0h', 'M3', 'M4', 'M5', 'M5b', 'M6', 'M7', 'M8', 'M9']
                             if n in traces]
 
     for name in model_names_ordered:

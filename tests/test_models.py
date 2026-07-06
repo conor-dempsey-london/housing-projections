@@ -3,10 +3,10 @@ import numpy as np
 import pymc as pm
 import pytest  # noqa: F401
 
-from housing_projections.models.models import M0, M0h, M1, M3, M4, M5, M5b, M6, M7, M8, M9
+from housing_projections.models.models import M0, M0h, M3, M4, M5, M5b, M6, M7, M8, M9
 
 
-@pytest.mark.parametrize('ModelClass', [M0, M0h, M1, M3, M4, M5, M5b, M6, M7, M9])
+@pytest.mark.parametrize('ModelClass', [M0, M0h, M3, M4, M5, M5b, M6, M7, M9])
 class TestModelBuild:
     def test_build_returns_model(self, ModelClass, data_dict):
         assert isinstance(ModelClass(data_dict).build(), pm.Model)

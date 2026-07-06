@@ -12,7 +12,7 @@ from housing_projections.spatial import build_spatial_weights
 
 from .base import DwellingModel
 
-__all__ = ["M0", "M0h", "M1", "M3", "M4", "M5", "M5b", "M6", "M7", "M8", "M9"]
+__all__ = ["M0", "M0h", "M3", "M4", "M5", "M5b", "M6", "M7", "M8", "M9"]
 
 # ── Builder functions (private) ───────────────────────────────────────────────
 
@@ -274,54 +274,6 @@ class M0h(DwellingModel):
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_plan,
                                              sigma_ben=sigma_ben)
-
-        self.model = model
-        return model
-
-
-class M1(DwellingModel):
-    """
-    Adds spike-and-slab prior on z to capture sparsity of dwelling changes.
-    Most LSOA-years see little activity (spike near zero); active years
-    follow a heavy-tailed StudentT distribution (slab).
-    """
-
-    name      = 'M1'
-    description = 'M0 + spike-and-slab prior on z'
-    var_names = ['pi', 'sigma_slab', 'nu', 'sigma_obs']
-
-    def build(self):
-        data, n_areas, n_years, D, sigma_census = self._build_context()
-        empirical_obs_sd = float(np.abs(data['P_obs'] - data['E_obs']).mean())
-
-        with pm.Model(coords=self._default_coords()) as model:
-
-            pi         = pm.Beta('pi',        alpha=4.5, beta=5.5)
-            mu_slab    = pm.TruncatedNormal('mu_slab',
-                             mu=data['D_full_mean'] / n_years,
-                             sigma=5, lower=0)
-            sigma_slab = pm.HalfNormal('sigma_slab', sigma=30)
-            nu         = pm.Gamma('nu',       alpha=2,   beta=0.1)
-            sigma_obs  = pm.HalfNormal('sigma_obs', sigma=empirical_obs_sd)
-
-            w = pt.stack([
-                pt.ones((n_areas, n_years)) * pi,
-                pt.ones((n_areas, n_years)) * (1 - pi),
-            ], axis=-1)
-
-            z = pm.Mixture('z',
-                           w=w,
-                           comp_dists=[
-                               pm.Normal.dist(mu=0, sigma=0.3),
-                               pm.StudentT.dist(nu=nu, mu=mu_slab,
-                                                sigma=sigma_slab),
-                           ],
-                           dims=('area', 'year'))
-
-            _build_census_constraint(z, D, sigma_census)
-            self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
-                                             sigma_plan=sigma_obs,
-                                             sigma_ben=sigma_obs)
 
         self.model = model
         return model
