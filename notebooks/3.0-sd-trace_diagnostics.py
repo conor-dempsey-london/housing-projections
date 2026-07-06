@@ -4,11 +4,13 @@ get_ipython().run_line_magic('load_ext', 'autoreload')
 get_ipython().run_line_magic('autoreload', '2')
 
 import arviz as az
+import gla_data
+import gla_data._ons
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from housing_projections.config import DATA_PATH, TRACES_DIR
+from housing_projections.config import DATA_PATH, INFER_YEARS, TRACES_DIR
 from housing_projections.diagnostics import diagnostics_summary, observation_summary, prior_predictive_summary
 from housing_projections.models import M0, M0h, M1
 import housing_projections.data as data_utils
@@ -220,9 +222,6 @@ print('  z_p99        : 99th percentile — how fat are the tails?')
 #
 # Requires M0h to be loaded in `traces`. Fetches the ONS LSOA→MSOA→Borough
 # lookup from the API (cached after first call).
-
-import gla_data
-from housing_projections.config import INFER_YEARS
 
 if 'M0h' in traces:
     _trace = traces['M0h']
