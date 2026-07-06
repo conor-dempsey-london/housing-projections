@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from housing_projections.config import DATA_PATH, TRACES_DIR
-from housing_projections.diagnostics import diagnostics_summary, prior_predictive_summary
+from housing_projections.diagnostics import diagnostics_summary, observation_summary, prior_predictive_summary
 from housing_projections.models import M0, M0h, M1
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
@@ -185,6 +185,15 @@ if sig_models:
         ax.legend()
     plt.tight_layout()
     plt.show()
+
+# %% Observation summary — empirical distribution of P_obs and E_obs
+obs_summary = observation_summary(data, burst_threshold=BURST_THRESHOLD)
+print(f'\n── Observed data summary (burst threshold = {BURST_THRESHOLD}) ──')
+print(obs_summary.to_string(float_format='{:.2f}'.format))
+print('\nUse these to calibrate the z prior:')
+print('  pct_negative should be in the same ballpark as the prior')
+print('  pct_burst should be roughly matched by prior pct_burst')
+print('  p99 gives the scale of genuine large observations')
 
 # %% Prior predictive summary — run before/after model changes to compare z prior
 # Edit this dict to include the models you want to check.

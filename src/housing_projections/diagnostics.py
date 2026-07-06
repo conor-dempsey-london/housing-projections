@@ -271,6 +271,43 @@ def diagnostics_summary(traces, data=None, rhat_threshold=1.01):
     return df
 
 
+def observation_summary(data, burst_threshold=30):
+    """
+    Summarise the empirical distribution of planning (P_obs) and BEN (E_obs)
+    observations in the data dict.
+
+    Useful for calibrating priors on z — the prior should broadly cover the
+    range of observations without being wildly wider.
+
+    Parameters
+    ----------
+    data            : data dict from make_data_dict
+    burst_threshold : values above this are counted as 'burst' observations
+
+    Returns
+    -------
+    pd.DataFrame with one row per source (planning, ben) and columns:
+        p05, p25, p50, p75, p95, p99, mean, std, pct_negative, pct_burst, n_obs
+    """
+    rows = {}
+    for label, obs in [('planning', data['P_obs']), ('ben', data['E_obs'])]:
+        flat = obs.ravel()
+        rows[label] = {
+            'p05':          float(np.percentile(flat, 5)),
+            'p25':          float(np.percentile(flat, 25)),
+            'p50':          float(np.percentile(flat, 50)),
+            'p75':          float(np.percentile(flat, 75)),
+            'p95':          float(np.percentile(flat, 95)),
+            'p99':          float(np.percentile(flat, 99)),
+            'mean':         float(flat.mean()),
+            'std':          float(flat.std()),
+            'pct_negative': float(100 * np.mean(flat < 0)),
+            'pct_burst':    float(100 * np.mean(flat > burst_threshold)),
+            'n_obs':        int(len(flat)),
+        }
+    return pd.DataFrame(rows).T
+
+
 def prior_predictive_summary(models, draws=500, burst_threshold=30, neg_threshold=0):
     """
     Run prior predictive simulation for one or more models and return a
