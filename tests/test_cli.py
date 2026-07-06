@@ -9,10 +9,10 @@ class TestParseModelList:
         assert _parse_model_list('M0') == ['M0']
 
     def test_multiple(self):
-        assert _parse_model_list('M0,M3,M5') == ['M0', 'M3', 'M5']
+        assert _parse_model_list('M0,M1,M3') == ['M0', 'M1', 'M3']
 
     def test_strips_whitespace(self):
-        assert _parse_model_list('M0, M3 , M5') == ['M0', 'M3', 'M5']
+        assert _parse_model_list('M0, M1 , M3') == ['M0', 'M1', 'M3']
 
     def test_empty_string_gives_empty_list(self):
         assert _parse_model_list('') == []
@@ -31,9 +31,9 @@ class TestParser:
         assert args.no_nutpie is False
 
     def test_run_models_custom_args(self):
-        args = self._parse(['run-models', '--data-path', '/d', '--models', 'M0,M3',
+        args = self._parse(['run-models', '--data-path', '/d', '--models', 'M0,M1',
                             '--n-areas', '100', '--traces-dir', '/traces', '--no-nutpie'])
-        assert args.models == 'M0,M3'
+        assert args.models == 'M0,M1'
         assert args.n_areas == 100
         assert args.traces_dir == '/traces'
         assert args.no_nutpie is True
@@ -44,9 +44,9 @@ class TestParser:
         assert args.models is None
 
     def test_compare_custom(self):
-        args = self._parse(['compare', '--traces-dir', '/t', '--models', 'M0,M5'])
+        args = self._parse(['compare', '--traces-dir', '/t', '--models', 'M0,M3'])
         assert args.traces_dir == '/t'
-        assert args.models == 'M0,M5'
+        assert args.models == 'M0,M3'
 
     def test_report_defaults(self):
         args = self._parse(['report'])

@@ -13,7 +13,7 @@ from pathlib import Path
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 import housing_projections.reporting as reporting
-from housing_projections.models import M0, M0h, M3, M4, M5, M5b, M6
+from housing_projections.models import M0, M0h, M1, M2, M3, M4, M5
 from housing_projections.config import DATA_PATH, DEFAULT_SAMPLE_KWARGS, TRACES_DIR
 
 # %% Configuration
@@ -24,13 +24,13 @@ RESULTS_DIR = TRACES_DIR
 RESAMPLE = {
     'M0': False,
     'M0h': False, 
+    'M1': False,
+    'M2': False,
     'M3': False,
     'M4': False,
-    'M5': False,
-    'M5b': False,
-    'M6': True
+    'M5': True
 }
-MODELS_TO_RUN = ['M5', 'M6']
+MODELS_TO_RUN = ['M3', 'M5']
 
 SAMPLE_KWARGS  = {
     **DEFAULT_SAMPLE_KWARGS,
@@ -60,11 +60,11 @@ print(f"D range: {data['D'].min():.0f} to {data['D'].max():.0f}")
 model_registry = {
     'M0': M0,
     'M0h': M0h,
+    'M1': M1,
+    'M2': M2,
     'M3': M3,
     'M4': M4,
-    'M5': M5,
-    'M5b': M5b,
-    'M6': M6
+    'M5': M5
 }
 
 models = {
@@ -72,9 +72,9 @@ models = {
     for name in MODELS_TO_RUN
 }
 
-# M6 specific — fix lambda weights at M5 posterior means
+# M5 specific — fix lambda weights at M3 posterior means
 # to resolve identifiability with alpha_spatial
-models['M6'].lambda_weights_fixed = np.array([0.04822521, 0.92909531, 0.00763223, 0.01504725])
+models['M5'].lambda_weights_fixed = np.array([0.04822521, 0.92909531, 0.00763223, 0.01504725])
 
 for name, model in models.items():
     print(model)

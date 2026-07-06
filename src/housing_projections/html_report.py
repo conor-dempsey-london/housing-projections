@@ -111,52 +111,52 @@ _MODEL_DESCRIPTIONS = {
     'M0h': ('Half-normal baseline',
             'Like M0 but uses a half-normal prior on sigma_slab, making it '
             'more weakly regularising.'),
-    'M3':  ('Temporal lag on planning',
+    'M1':  ('Temporal lag on planning',
             'Planning completions data (PLD) are recorded when a building '
             'permit closes, which can be 1–3 years after dwellings are '
-            'actually built. M3 adds a Dirichlet-weighted lag mixture that '
+            'actually built. M1 adds a Dirichlet-weighted lag mixture that '
             'allows the model to account for this recording delay.'),
-    'M4':  ('Zero-inflation (symmetric)',
+    'M2':  ('Zero-inflation (symmetric)',
             'Planning records are frequently absent (zero) for areas where '
-            'development happened but was never registered. M4 adds a '
+            'development happened but was never registered. M2 adds a '
             'zero-inflation probability pi_miss that mass at zero reflects '
             'missingness rather than true zero development.'),
-    'M5':  ('Asymmetric zero-inflation',
+    'M3':  ('Asymmetric zero-inflation',
             'Missingness in planning data is asymmetric: positive '
             'developments are more likely to be missed than demolitions. '
-            'M5 uses separate pi_miss_pos and pi_miss_neg parameters.'),
-    'M5b': ('Two-component mixture (alternative)',
-            'Alternative to M5 using a tight + broad two-component mixture '
+            'M3 uses separate pi_miss_pos and pi_miss_neg parameters.'),
+    'M4': ('Two-component mixture (alternative)',
+            'Alternative to M3 using a tight + broad two-component mixture '
             'for the planning likelihood instead of explicit zero-inflation.'),
-    'M6':  ('Spatial misallocation',
+    'M5':  ('Spatial misallocation',
             'Planning data is sometimes registered in the wrong LSOA '
-            '(particularly for developments straddling boundaries). M6 adds '
+            '(particularly for developments straddling boundaries). M5 adds '
             'an alpha_spatial weight that blends z with its spatial lag.'),
-    'M7':  ('AR(1) temporal prior',
+    'M6':  ('AR(1) temporal prior',
             'Replaces the i.i.d. year prior on z with an AR(1) process, '
             'encoding the belief that true dwelling delivery is temporally '
             'autocorrelated. rho ~ Beta(8,2) implies strong persistence.'),
-    'M8':  ('Borough hierarchy',
+    'M7':  ('Borough hierarchy',
             'Two-level hierarchy: LSOAs nested in boroughs. Borough-level '
             'mean is drawn from a global prior, providing stronger partial '
             'pooling within boroughs than across London.'),
-    'M9':  ('Time-varying observation noise',
+    'M8':  ('Time-varying observation noise',
             'The planning source becomes noisier in years with many large '
-            'developments or regulatory changes. M9 adds a year-specific '
+            'developments or regulatory changes. M8 adds a year-specific '
             'sigma_obs_plan to the planning likelihood.'),
 }
 
 # Which diagnostic plot best illustrates each model's contribution
 _MODEL_KEY_VAR = {
     'M0': None, 'M0h': None,
-    'M3': 'lambda_weights',
-    'M4': 'pi_miss',
-    'M5': 'pi_miss_pos',
-    'M5b': 'w_tight',
-    'M6': 'alpha_spatial',
-    'M7': 'rho',
-    'M8': 'mu_borough',
-    'M9': 'sigma_obs_plan',
+    'M1': 'lambda_weights',
+    'M2': 'pi_miss',
+    'M3': 'pi_miss_pos',
+    'M4': 'w_tight',
+    'M5': 'alpha_spatial',
+    'M6': 'rho',
+    'M7': 'mu_borough',
+    'M8': 'sigma_obs_plan',
 }
 
 
@@ -382,7 +382,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
 
     html = ''
     model_names_ordered = [n for n in
-                            ['M0', 'M0h', 'M3', 'M4', 'M5', 'M5b', 'M6', 'M7', 'M8', 'M9']
+                            ['M0', 'M0h', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8']
                             if n in traces]
 
     for name in model_names_ordered:
@@ -439,7 +439,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
                     except Exception:  # noqa: BLE001
                         pass
 
-        elif name == 'M3':
+        elif name == 'M1':
             try:
                 lag_results = compute_lag_weights(trace, verbose=False)
                 card_html += _safe_fig(
@@ -457,7 +457,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
                     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
                     for ax, resid, label, color in [
                         (axes[0], resids_m0['no_lag'].ravel(), 'M0 (no lag)', 'steelblue'),
-                        (axes[1], resids_m3['with_lag'].ravel(), 'M3 (with lag)', 'coral'),
+                        (axes[1], resids_m3['with_lag'].ravel(), 'M1 (with lag)', 'coral'),
                     ]:
                         clip = np.quantile(np.abs(resid), 0.99)
                         ax.hist(resid, bins=80, density=True, color=color, alpha=0.7,
@@ -469,14 +469,14 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
                         ax.set_xlabel('Observed − predicted')
                         ax.spines[['top', 'right']].set_visible(False)
                         ax.legend(fontsize=8)
-                    plt.suptitle('M3 lag correction — planning residuals before and after')
+                    plt.suptitle('M1 lag correction — planning residuals before and after')
                     plt.tight_layout()
-                    card_html += _html_fig(fig, 'Lag correction shrinks the mean residual — M3 accounts for completions recorded in later years')
+                    card_html += _html_fig(fig, 'Lag correction shrinks the mean residual — M1 accounts for completions recorded in later years')
                     plt.close(fig)
                 except Exception:  # noqa: BLE001
                     pass
 
-        elif name in ('M4', 'M5', 'M5b'):
+        elif name in ('M2', 'M3', 'M4'):
             card_html += _safe_fig(
                 plot_missingness_posterior,
                 'Missingness parameter posteriors — probability that a zero planning observation is a missing record rather than genuine zero activity',
@@ -492,7 +492,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
                 'What the model infers about LSOAs with zero planning observations — how many zeros are genuine vs missing records',
                 trace, data, title=name,
             )
-            if name == 'M5b':
+            if name == 'M4':
                 card_html += _safe_fig(
                     plot_twocomp_diagnostics,
                     'Two-component observation noise — weight on the tight vs loose component; the loose component absorbs outlier observations',
@@ -507,7 +507,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
                     title=name, label_before='M0', label_after=name,
                 )
 
-        elif name == 'M6':
+        elif name == 'M5':
             try:
                 stats_dict = compute_spatial_misallocation_stats(trace, data)
                 card_html += _safe_fig(
@@ -518,7 +518,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
             except Exception:  # noqa: BLE001
                 pass
 
-        elif name == 'M7':
+        elif name == 'M6':
             for var, caption in [
                 ('rho',        'AR(1) autocorrelation posterior — how strongly this year\'s delivery predicts next year\'s'),
                 ('sigma_innov', 'Innovation noise posterior — year-to-year variability in z beyond the AR(1) trend'),
@@ -538,7 +538,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
                     except Exception:  # noqa: BLE001
                         pass
 
-        elif name == 'M9':
+        elif name == 'M8':
             for var, caption in [
                 ('sigma_base_plan', 'Base planning uncertainty posterior — how much z can deviate from the planning signal on average'),
                 ('sigma_obs_plan',  'Planning observation noise posterior — residual noise beyond the structural uncertainty'),
@@ -738,13 +738,13 @@ def _build_conclusions(comparison_df, sensitivity_summary):
       <li><strong>High-sensitivity LSOAs</strong> are concentrated in areas with large
           source disagreement, where additional data (e.g. address base validation) would
           reduce uncertainty most.</li>
-      <li><strong>Lag structure</strong> (M3+) is supported by cross-correlations in
+      <li><strong>Lag structure</strong> (M1+) is supported by cross-correlations in
           the EDA: PLD completions lead BEN estimates by 1–2 years in many LSOAs.</li>
-      <li><strong>Zero-inflation</strong> (M4/M5) materially improves the negative tail
+      <li><strong>Zero-inflation</strong> (M2/M3) materially improves the negative tail
           of planning residuals, consistent with systematic under-recording in the PLD.</li>
     </ul>
     <div class="callout">
-    The recommended workflow is to sample M5 or M6 for the best balance of fit and
+    The recommended workflow is to sample M3 or M5 for the best balance of fit and
     interpretability. Use the LOO-stacking ensemble when communicating projections
     to stakeholders, as it integrates over model uncertainty.
     </div>
