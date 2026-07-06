@@ -3,10 +3,10 @@ import numpy as np
 import pymc as pm
 import pytest  # noqa: F401
 
-from housing_projections.models.models import M0, M0h, M3, M4, M5, M5b, M6, M7, M8, M9
+from housing_projections.models.models import M0, M0h, M1, M2, M3, M4, M5, M6, M7, M8
 
 
-@pytest.mark.parametrize('ModelClass', [M0, M0h, M3, M4, M5, M5b, M6, M7, M9])
+@pytest.mark.parametrize('ModelClass', [M0, M0h, M1, M2, M3, M4, M5, M6, M8])
 class TestModelBuild:
     def test_build_returns_model(self, ModelClass, data_dict):
         assert isinstance(ModelClass(data_dict).build(), pm.Model)
@@ -54,93 +54,93 @@ class TestM0Structure:
         assert M0.max_lag is None
 
 
-class TestM3Structure:
+class TestM1Structure:
     def test_has_lambda_weights(self, data_dict):
-        m = M3(data_dict)
+        m = M1(data_dict)
         m.build()
         assert 'lambda_weights' in m.model.named_vars
 
     def test_max_lag(self):
-        assert M3.max_lag == 3
+        assert M1.max_lag == 3
 
     def test_n_lags(self, data_dict):
-        assert M3(data_dict).n_lags == 4
+        assert M1(data_dict).n_lags == 4
 
 
-class TestM4Structure:
+class TestM2Structure:
     def test_has_pi_miss(self, data_dict):
-        m = M4(data_dict)
+        m = M2(data_dict)
         m.build()
         assert 'pi_miss' in m.model.named_vars
 
     def test_snap_zeros_true(self):
-        assert M4.snap_zeros is True
+        assert M2.snap_zeros is True
 
 
-class TestM5Structure:
+class TestM3Structure:
     def test_has_asymmetric_pi_miss(self, data_dict):
-        m = M5(data_dict)
+        m = M3(data_dict)
         m.build()
         assert 'pi_miss_pos' in m.model.named_vars
         assert 'pi_miss_neg' in m.model.named_vars
 
 
-class TestM5bStructure:
+class TestM4Structure:
     def test_has_w_tight(self, data_dict):
-        m = M5b(data_dict)
+        m = M4(data_dict)
         m.build()
         assert 'w_tight' in m.model.named_vars
 
 
-class TestM6Structure:
+class TestM5Structure:
     def test_has_alpha_spatial(self, data_dict):
-        m = M6(data_dict)
+        m = M5(data_dict)
         m.build()
         assert 'alpha_spatial' in m.model.named_vars
 
     def test_lambda_weights_sampled_by_default(self, data_dict):
-        m = M6(data_dict)
+        m = M5(data_dict)
         m.build()
         assert 'lambda_weights' in m.model.named_vars
 
     def test_fixed_lambda_weights_not_sampled(self, data_dict):
-        m = M6(data_dict)
+        m = M5(data_dict)
         m.lambda_weights_fixed = np.array([0.6, 0.2, 0.1, 0.1])
         m.build()
         assert 'lambda_weights' not in m.model.named_vars
 
     def test_var_names_excludes_lw_when_fixed(self, data_dict):
-        m = M6(data_dict)
+        m = M5(data_dict)
         m.lambda_weights_fixed = np.array([0.6, 0.2, 0.1, 0.1])
         assert 'lambda_weights' not in m.var_names
 
     def test_var_names_includes_lw_when_sampled(self, data_dict):
-        assert 'lambda_weights' in M6(data_dict).var_names
+        assert 'lambda_weights' in M5(data_dict).var_names
 
 
-class TestM7Structure:
+class TestM6Structure:
     def test_has_rho(self, data_dict):
-        m = M7(data_dict)
+        m = M6(data_dict)
         m.build()
         assert 'rho' in m.model.named_vars
 
     def test_has_sigma_innov(self, data_dict):
-        m = M7(data_dict)
+        m = M6(data_dict)
         m.build()
         assert 'sigma_innov' in m.model.named_vars
 
     def test_ar1_prior_parameters(self, data_dict):
-        m = M7(data_dict)
+        m = M6(data_dict)
         m.build()
         assert 'z_init_raw' in m.model.named_vars
 
     def test_snap_zeros_true(self):
-        assert M7.snap_zeros is True
+        assert M6.snap_zeros is True
 
 
-class TestM8Structure:
+class TestM7Structure:
     def test_raises_without_borough_idx(self, data_dict):
-        m = M8(data_dict)
+        m = M7(data_dict)
         with pytest.raises(ValueError, match='borough_idx'):
             m.build()
 
@@ -151,7 +151,7 @@ class TestM8Structure:
             'borough_idx': np.zeros(n, dtype=int),
             'n_boroughs': 1,
         }
-        m = M8(data_with_borough)
+        m = M7(data_with_borough)
         assert isinstance(m.build(), pm.Model)
 
     def test_has_mu_borough(self, data_dict):
@@ -161,24 +161,24 @@ class TestM8Structure:
             'borough_idx': np.zeros(n, dtype=int),
             'n_boroughs': 1,
         }
-        m = M8(data_with_borough)
+        m = M7(data_with_borough)
         m.build()
         assert 'mu_borough' in m.model.named_vars
 
 
-class TestM9Structure:
+class TestM8Structure:
     def test_has_sigma_base_plan(self, data_dict):
-        m = M9(data_dict)
+        m = M8(data_dict)
         m.build()
         assert 'sigma_base_plan' in m.model.named_vars
 
     def test_has_sigma_obs_plan(self, data_dict):
-        m = M9(data_dict)
+        m = M8(data_dict)
         m.build()
         assert 'sigma_obs_plan' in m.model.named_vars
 
     def test_sigma_year_offset_shape(self, data_dict):
-        m = M9(data_dict)
+        m = M8(data_dict)
         m.build()
         assert 'sigma_year_offset' in m.model.named_vars
 
@@ -204,11 +204,11 @@ class TestSamplingPipeline:
         from housing_projections.diagnostics import compute_model_comparison
 
         traces = {}
-        for ModelClass in (M0, M3):
+        for ModelClass in (M0, M1):
             m = ModelClass(data_dict)
             m.sample(use_nutpie=False, draws=100, tune=50, chains=2, cores=1,
                      target_accept=0.8)
             traces[ModelClass.name] = m.trace
 
         result = compute_model_comparison(traces, verbose=False)
-        assert set(result.index) == {'M0', 'M3'}
+        assert set(result.index) == {'M0', 'M1'}

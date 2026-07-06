@@ -12,7 +12,7 @@ from housing_projections.spatial import build_spatial_weights
 
 from .base import DwellingModel
 
-__all__ = ["M0", "M0h", "M3", "M4", "M5", "M5b", "M6", "M7", "M8", "M9"]
+__all__ = ["M0", "M0h", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]
 
 # ── Builder functions (private) ───────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ def _build_lag(z, pre_inference, n_areas, n_years, n_lags, alpha, max_lag,
 
 def _build_planning_likelihood_simple(P_mean, P_obs, nu_obs, sigma_obs):
     """
-    M3 planning likelihood — StudentT, no missingness.
+    M1 planning likelihood — StudentT, no missingness.
     Must be called inside a pm.Model() context.
     """
     pm.StudentT('P_like', nu=nu_obs, mu=P_mean,
@@ -95,7 +95,7 @@ def _build_planning_likelihood_simple(P_mean, P_obs, nu_obs, sigma_obs):
 
 def _build_symmetric_missingness():
     """
-    M4 symmetric missingness — single global pi_miss.
+    M2 symmetric missingness — single global pi_miss.
     Prior mean 0.2, informed by observed zero rates.
     Returns pi_miss scalar.
     Must be called inside a pm.Model() context.
@@ -125,7 +125,7 @@ def _build_planning_likelihood_zeroinflated(P_mean, P_obs,
                                             pi_miss, nu_obs, sigma_obs):
     """
     Zero-inflated planning likelihood using pm.Mixture.
-    pi_miss can be scalar (M4) or (n_areas, n_years) tensor (M5).
+    pi_miss can be scalar (M2) or (n_areas, n_years) tensor (M3).
     """
     shape = P_obs.shape
 
@@ -279,7 +279,7 @@ class M0h(DwellingModel):
         return model
 
 
-class M3(DwellingModel):
+class M1(DwellingModel):
     """
     Adds temporal lag in planning data.
     A true change in year t may be recorded in planning in year t+k,
@@ -287,7 +287,7 @@ class M3(DwellingModel):
     BEN is assumed to have no lag.
     """
 
-    name        = 'M3'
+    name        = 'M1'
     description = 'M0 + temporal lag in planning completions'
     var_names   = ['mu_slab', 'sigma_slab', 'lambda_weights']
     max_lag     = 3
@@ -309,15 +309,15 @@ class M3(DwellingModel):
         return model
 
 
-class M4(DwellingModel):
+class M2(DwellingModel):
     """
     Adds symmetric zero-inflation to planning likelihood.
     A planning observation of zero may reflect missing data
     rather than true zero change.
     """
 
-    name        = 'M4'
-    description = 'M3 + symmetric zero-inflated planning observations'
+    name        = 'M2'
+    description = 'M1 + symmetric zero-inflated planning observations'
     var_names   = ['mu_slab', 'sigma_slab', 'lambda_weights', 'pi_miss']
     max_lag     = 3
     snap_zeros  = True
@@ -340,14 +340,14 @@ class M4(DwellingModel):
         return model
 
 
-class M5(DwellingModel):
+class M3(DwellingModel):
     """
     Replaces symmetric missingness with asymmetric —
     separate missingness rates for completions (z>0) and demolitions (z<0).
     """
 
-    name        = 'M5'
-    description = 'M4 + asymmetric missingness in planning'
+    name        = 'M3'
+    description = 'M2 + asymmetric missingness in planning'
     var_names   = ['mu_slab', 'sigma_slab', 'lambda_weights',
                    'pi_miss_pos', 'pi_miss_neg']
     max_lag     = 3
@@ -371,16 +371,16 @@ class M5(DwellingModel):
         return model
 
 
-class M5b(DwellingModel):
+class M4(DwellingModel):
     """
-    M5 with two-component observation noise for planning data.
+    M3 with two-component observation noise for planning data.
     Separates typical precise observations (tight StudentT) from
     rare large-error observations due to temporal/spatial misallocation
     (loose StudentT).
     """
 
-    name             = 'M5b'
-    description      = 'M5 + two-component observation noise in planning'
+    name             = 'M4'
+    description      = 'M3 + two-component observation noise in planning'
     var_names        = ['mu_slab', 'sigma_slab', 'lambda_weights',
                         'pi_miss_pos', 'pi_miss_neg', 'w_tight']
     max_lag          = 3
@@ -411,9 +411,9 @@ class M5b(DwellingModel):
         return model
 
 
-class M6(DwellingModel):
+class M5(DwellingModel):
     """
-    Adds spatial misallocation in planning data to M5.
+    Adds spatial misallocation in planning data to M3.
     A fraction alpha of planning completions are recorded in a
     neighbouring LSOA rather than the true one, modelled via a
     row-stochastic spatial weights matrix derived from queen contiguity.
@@ -423,8 +423,8 @@ class M6(DwellingModel):
     rather than sampling them.
     """
 
-    name                 = 'M6'
-    description          = 'M5 + spatial misallocation in planning'
+    name                 = 'M5'
+    description          = 'M3 + spatial misallocation in planning'
     max_lag              = 3
     snap_zeros           = True
     lambda_weights_fixed = None
@@ -440,7 +440,7 @@ class M6(DwellingModel):
     def build(self):
         data, n_areas, n_years, D, sigma_census = self._build_context()
         pre_inference = _build_pre_inference(data, self.max_lag)
-        W             = build_spatial_weights(data['gdf'])  # M6-specific
+        W             = build_spatial_weights(data['gdf'])  # M5-specific
 
         with pm.Model(coords=self._default_coords()) as model:
             _, _, z = _build_z_prior(data, n_areas, n_years)
@@ -462,9 +462,9 @@ class M6(DwellingModel):
         return model
 
 
-# ── M7: Temporal AR(1) prior on z ────────────────────────────────────────────
+# ── M6: Temporal AR(1) prior on z ────────────────────────────────────────────
 
-class M7(DwellingModel):
+class M6(DwellingModel):
     """
     Replaces the i.i.d. year prior on z with an AR(1) process per area.
 
@@ -479,11 +479,11 @@ class M7(DwellingModel):
     separate sigma_init parameter.
 
     BEN is assumed lag-free.  Planning uses the same zero-inflated asymmetric
-    likelihood as M5 (no spatial misallocation).
+    likelihood as M3 (no spatial misallocation).
     """
 
-    name        = 'M7'
-    description = 'M5 + AR(1) temporal prior on z with pre-window warm-start'
+    name        = 'M6'
+    description = 'M3 + AR(1) temporal prior on z with pre-window warm-start'
     var_names   = ['mu_slab', 'sigma_innov', 'rho',
                    'lambda_weights', 'pi_miss_pos', 'pi_miss_neg']
     max_lag     = 3
@@ -540,9 +540,9 @@ class M7(DwellingModel):
         return model
 
 
-# ── M8: Borough-level hierarchy ───────────────────────────────────────────────
+# ── M7: Borough-level hierarchy ───────────────────────────────────────────────
 
-class M8(DwellingModel):
+class M7(DwellingModel):
     """
     Adds a borough-level hierarchical prior on the mean annual change.
 
@@ -559,8 +559,8 @@ class M8(DwellingModel):
     If ``borough_idx`` is absent from the data dict, raises ValueError.
     """
 
-    name        = 'M8'
-    description = 'M5 + borough-level hierarchical prior on mean annual change'
+    name        = 'M7'
+    description = 'M3 + borough-level hierarchical prior on mean annual change'
     var_names   = ['mu_global', 'sigma_borough', 'sigma_slab',
                    'lambda_weights', 'pi_miss_pos', 'pi_miss_neg']
     max_lag     = 3
@@ -570,7 +570,7 @@ class M8(DwellingModel):
         data, n_areas, n_years, D, sigma_census = self._build_context()
         if 'borough_idx' not in data:
             raise ValueError(
-                "M8 requires 'borough_idx' (int array, shape n_areas) and "
+                "M7 requires 'borough_idx' (int array, shape n_areas) and "
                 "'n_boroughs' (int) in the data dict.  "
                 "Derive them from a LSOA-to-LAD crosswalk joined on gdf."
             )
@@ -616,9 +616,9 @@ class M8(DwellingModel):
         return model
 
 
-# ── M9: Time-varying observation noise ───────────────────────────────────────
+# ── M8: Time-varying observation noise ───────────────────────────────────────
 
-class M9(DwellingModel):
+class M8(DwellingModel):
     """
     Replaces the fixed planning observation noise (sigma_obs) with a
     year-specific noise level drawn from a shared hierarchical prior.
@@ -633,8 +633,8 @@ class M9(DwellingModel):
     own right.  BEN noise remains fixed.
     """
 
-    name        = 'M9'
-    description = 'M5 + time-varying planning observation noise'
+    name        = 'M8'
+    description = 'M3 + time-varying planning observation noise'
     var_names   = ['mu_slab', 'sigma_slab', 'lambda_weights',
                    'pi_miss_pos', 'pi_miss_neg',
                    'sigma_base_plan', 'sigma_year_offset']

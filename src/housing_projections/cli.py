@@ -24,7 +24,7 @@ from housing_projections.data import (
 )
 from housing_projections.diagnostics import compute_model_comparison, diagnostics_summary
 from housing_projections.html_report import generate_report
-from housing_projections.models import M0, M0h, M3, M4, M5, M5b, M6, M7, M8, M9
+from housing_projections.models import M0, M0h, M1, M2, M3, M4, M5, M6, M7, M8
 from housing_projections.outliers import apply_outlier_exclusion
 from housing_projections.sensitivity import (
     compute_decomposed_uncertainty,
@@ -32,7 +32,7 @@ from housing_projections.sensitivity import (
     compute_z_model_sensitivity,
 )
 
-_ALL_MODELS = {m.name: m for m in [M0, M0h, M3, M4, M5, M5b, M6, M7, M8, M9]}
+_ALL_MODELS = {m.name: m for m in [M0, M0h, M1, M2, M3, M4, M5, M6, M7, M8]}
 
 _COMPARISON_CSV  = 'comparison.csv'
 _COMPARISON_META = 'comparison_meta.json'
@@ -41,7 +41,7 @@ _COMPARISON_META = 'comparison_meta.json'
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _parse_model_list(s):
-    """Parse 'M0,M3,M5' → ['M0', 'M3', 'M5']."""
+    """Parse 'M0,M1,M3' → ['M0', 'M1', 'M3']."""
     return [x.strip() for x in s.split(',') if x.strip()]
 
 
@@ -153,10 +153,10 @@ def cmd_run_models(args):
 
     for name in model_names:
         ModelClass = _ALL_MODELS[name]
-        # M8 requires borough_idx — skip unless user provides borough data
-        if name == 'M8' and 'borough_idx' not in data:
-            print('\n  [skip] M8 requires borough_idx in data dict. '
-                  'Add it manually and run M8 separately.')
+        # M7 requires borough_idx — skip unless user provides borough data
+        if name == 'M7' and 'borough_idx' not in data:
+            print('\n  [skip] M7 requires borough_idx in data dict. '
+                  'Add it manually and run M7 separately.')
             continue
 
         print(f'\n── Sampling {name}: {ModelClass.description} ──')
@@ -312,7 +312,7 @@ def _build_parser():
     p_run.add_argument('--data-path', default='data',
                        help='Root directory of raw data files (default: data).')
     p_run.add_argument('--models', default=None,
-                       help='Comma-separated model names, e.g. M0,M3,M5 (default: all).')
+                       help='Comma-separated model names, e.g. M0,M1,M3 (default: all).')
     p_run.add_argument('--n-areas', type=int, default=None,
                        help='Subsample to N LSOAs for faster runs.')
     p_run.add_argument('--traces-dir', default='results/traces',
