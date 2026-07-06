@@ -386,7 +386,7 @@ def _build_problem_statement():
     """)
 
 
-def _build_model_walk_through(traces, data, model_classes):
+def _build_model_walk_through(traces, data, model_classes, diag_df=None):
     """One subsection per model — universal plots plus model-specific diagnostics."""
 
     html = ''
@@ -397,16 +397,17 @@ def _build_model_walk_through(traces, data, model_classes):
     for name in model_names_ordered:
         trace = traces[name]
         desc_short, desc_long = _MODEL_DESCRIPTIONS.get(name, (name, ''))
-        diag  = full_diagnostics(trace, data, verbose=False)
-        n_div = int(trace.sample_stats.diverging.sum())
+
+        if diag_df is not None and name in diag_df.index:
+            n_div    = int(diag_df.loc[name, 'divergences'])
+            max_rhat = float(diag_df.loc[name, 'max_rhat'])
+        else:
+            n_div    = int(trace.sample_stats.diverging.sum())
+            max_rhat = float('nan')
 
         card_html = f'<p>{desc_long}</p>'
 
         # ── Diagnostics mini-summary ──────────────────────────────────────────
-        rhat_summary = diag.get('rhat', {})
-        rhat_df      = rhat_summary.get('summary') if isinstance(rhat_summary, dict) else None
-        max_rhat     = float(rhat_df['r_hat'].max()) if rhat_df is not None and 'r_hat' in rhat_df.columns else float('nan')
-
         card_html += _stat_row([
             ('Divergences', str(n_div)),
             ('Max R̂', f'{max_rhat:.3f}' if not np.isnan(max_rhat) else '—'),
@@ -598,7 +599,7 @@ def _build_model_walk_through(traces, data, model_classes):
     return html
 
 
-def _build_model_comparison(traces, comparison_df):
+def _build_model_comparison(traces, comparison_df, sensitivity_summary=None):
     html = ''
 
     # LOO table
@@ -617,21 +618,15 @@ def _build_model_comparison(traces, comparison_df):
     fig  = plot_model_agreement_matrix(corr)
     html += _html_fig(fig, 'Pairwise correlation of z posterior means across models')
 
-    # Sensitivity
-    summary, _ = compute_z_model_sensitivity(traces)
+    # Reuse pre-computed sensitivity if available
+    if sensitivity_summary is None:
+        sensitivity_summary, _ = compute_z_model_sensitivity(traces)
 
-    fig = plot_z_range_distribution(summary)
+    fig = plot_z_range_distribution(sensitivity_summary)
     html += _html_fig(fig, 'Per-LSOA range of z posterior means across models '
                       '(max − min); wider range = higher model sensitivity')
 
-    # Sensitivity map
-    try:
-        gdf = traces[list(traces)[0]].constant_data   # fallback
-    except Exception:
-        gdf = None
-
-    # Use gdf from data if available (passed via closure is complex; rely on caller)
-    return html, summary
+    return html, sensitivity_summary
 
 
 def _build_sensitivity_summary(sensitivity_summary, data, traces, comparison_df=None):
@@ -951,6 +946,14 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
         except Exception as e:
             print(f'  [warning] Sensitivity analysis failed: {e}')
 
+    # ── Diagnostics summary (r-hat + divergences — used in walk-through and exec summary) ──
+    print('  Computing sampling diagnostics...')
+    try:
+        diag_df = diagnostics_summary(traces)
+    except Exception as e:
+        print(f'  [warning] diagnostics_summary failed: {e}')
+        diag_df = None
+
     # ── Build HTML sections ───────────────────────────────────────────────────
     sections_html = ''
 
@@ -966,7 +969,7 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
 
     print('  Model walk-through...')
     try:
-        wt_html = _build_model_walk_through(traces, data, model_classes or {})
+        wt_html = _build_model_walk_through(traces, data, model_classes or {}, diag_df=diag_df)
         sections_html += _section('3. Model Walk-Through', wt_html, 'models')
     except Exception as e:
         sections_html += _section('3. Model Walk-Through',
@@ -976,7 +979,8 @@ def generate_report(data, traces, model_classes=None, output_path='results/repor
     comp_html = ''
     if len(traces) > 1:
         try:
-            result = _build_model_comparison(traces, comparison_df)
+            result = _build_model_comparison(traces, comparison_df,
+                                             sensitivity_summary=sensitivity_summary)
             comp_html = result[0] if isinstance(result, tuple) else result
         except Exception as e:
             comp_html = f'<p>[Error: {e}]</p>'
