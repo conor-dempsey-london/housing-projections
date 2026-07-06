@@ -1,6 +1,7 @@
 import arviz as az
 import numpy as np
 import pandas as pd
+import scipy.stats as stats
 
 from housing_projections.spatial import (
     build_spatial_weights,
@@ -53,29 +54,49 @@ def _check_divergences(trace, verbose=False):
     return n_divergences
 
 
-def _check_calibration(trace, data, alpha=0.1, verbose=False):
+def _check_calibration(trace, data, alpha=0.1, nu=4.0, verbose=False):
     """
-    Check calibration coverage of posterior credible intervals
-    against planning and BEN observations.
+    Check posterior predictive calibration coverage against planning and BEN
+    observations.
+
+    For each posterior draw of (z, sigma), samples from the StudentT likelihood
+    to form the posterior predictive, then checks whether observations fall
+    within the (1-alpha) credible interval.
+
+    Falls back to z-only coverage if sigma variables are absent from the trace
+    (e.g. models with fixed observation noise not stored in posterior).
 
     Returns
     -------
     dict with keys 'planning', 'ben'
     """
-    z_post   = trace.posterior['z'].values         # (chains, draws, n_areas, n_years)
-    z_lo     = np.percentile(z_post, 100 * alpha / 2,       axis=(0, 1))
-    z_hi     = np.percentile(z_post, 100 * (1 - alpha / 2), axis=(0, 1))
+    z_post = trace.posterior['z'].values          # (chains, draws, n_areas, n_years)
+    n_samples = z_post.shape[0] * z_post.shape[1]
+    z_flat = z_post.reshape(n_samples, z_post.shape[2], z_post.shape[3])
 
-    P_obs    = data['P_obs']
-    E_obs    = data['E_obs']
+    P_obs = data['P_obs']
+    E_obs = data['E_obs']
+
+    def _predictive_coverage(obs, sigma_key):
+        if sigma_key in trace.posterior:
+            sigma = trace.posterior[sigma_key].values.ravel()  # (n_samples,)
+            rng   = np.random.default_rng(0)
+            t_eps = stats.t.rvs(df=nu, size=z_flat.shape, random_state=rng)
+            pred  = z_flat + sigma[:, None, None] * t_eps    # (n_samples, areas, years)
+        else:
+            pred = z_flat
+
+        lo = np.percentile(pred, 100 * alpha / 2,       axis=0)
+        hi = np.percentile(pred, 100 * (1 - alpha / 2), axis=0)
+        return float(np.mean((obs >= lo) & (obs <= hi)))
 
     coverage = {
-        'planning': float(np.mean((P_obs >= z_lo) & (P_obs <= z_hi))),
-        'ben':      float(np.mean((E_obs >= z_lo) & (E_obs <= z_hi))),
+        'planning': _predictive_coverage(P_obs, 'sigma_plan'),
+        'ben':      _predictive_coverage(E_obs, 'sigma_ben'),
     }
 
     if verbose:
-        print(f"\n── Calibration ({int((1-alpha)*100)}% CI) ────────────────────")
+        print(f"\n── Posterior predictive calibration ({int((1-alpha)*100)}% CI) ──")
         print(f"  Planning coverage: {coverage['planning']:.3f}  "
               f"(nominal {1-alpha:.2f})")
         print(f"  BEN coverage:      {coverage['ben']:.3f}  "
