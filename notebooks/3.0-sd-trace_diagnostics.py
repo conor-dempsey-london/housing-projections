@@ -120,8 +120,7 @@ for name, trace in traces.items():
         trace,
         var_names=['z'],
         coords={'area': area_coords},
-        compact=True,
-        figsize=(12, 2 * N_SAMPLE_AREAS),
+        backend_kwargs={'figsize': (12, 2 * N_SAMPLE_AREAS)},
     )
     plt.suptitle(f'{name} — z trace (sample of {N_SAMPLE_AREAS} areas)', fontsize=11)
     plt.tight_layout()
