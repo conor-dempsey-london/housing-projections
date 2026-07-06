@@ -1,7 +1,7 @@
 [project]
-name = "housing-projections"
+name = "dwelling-estimates"
 version = "0.1.0"
-description = "Add your description here"
+description = "Bayesian estimation of dwelling delivery rates for London LSOAs"
 readme = "README.md"
 authors = [
     { name = "Sadhbh Dempsey", email = "conor.dempsey@london.gov.uk" }
@@ -19,7 +19,10 @@ dependencies = [
 ]
 
 [project.scripts]
-housing-projections = "housing_projections.cli:main"
+dwelling-estimates = "housing_projections.cli:main"
+
+[tool.uv.build-backend]
+module-name = "housing_projections"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]
@@ -38,9 +41,9 @@ markers   = ["slow: marks tests that run sampling (deselected by default)"]
 test       = "pytest"
 lint       = "ruff check src/housing_projections tests"
 typecheck  = "mypy src/housing_projections"
-run-models = "housing-projections run-models"
-compare    = "housing-projections compare"
-report     = "housing-projections report"
+run-models = "dwelling-estimates run-models"
+compare    = "dwelling-estimates compare"
+report     = "dwelling-estimates report"
 
 [tool.ruff]
 line-length = 100
@@ -71,7 +74,7 @@ nutpie = ">=0.16.10,<0.17"
 
 [tool.pixi.pypi-dependencies]
 pld-database-live = { git = "https://github.com/JamesB686/pld_database_live", branch = "make-installable" }
-housing_projections = { path = ".", editable = true }
+dwelling_estimates = { path = ".", editable = true }
 gla_data = ">=0.1.1"
 pymc = "*"
 arviz = "*"

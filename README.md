@@ -1,6 +1,6 @@
-# housing-projections
+# dwelling-estimates
 
-Bayesian dwelling projection models for London LSOAs.
+Bayesian estimation of dwelling delivery rates for London LSOAs from noisy administrative data sources.
 
 Requires access to [pld-database-live](https://github.com/JamesB686/pld_database_live).
 
