@@ -547,6 +547,48 @@ if lsoa_codes is not None:
         print(top_dark.to_string(float_format='{:.2f}'.format))
 
 # %% ── 9. Summary table ───────────────────────────────────────────────────────
+# Two versions: full data and trimmed (dropping top/bottom 1% of each series)
+# to separate the picture for typical areas from extreme outliers.
+
+def _trimmed_stats(x, pct=1.0):
+    """Return dict of stats after dropping the outer `pct`% on each side."""
+    lo, hi = np.percentile(x, [pct, 100 - pct])
+    xt = x[(x >= lo) & (x <= hi)]
+    return {
+        'n':      len(xt),
+        'mean':   xt.mean(),
+        'median': np.median(xt),
+        'std':    xt.std(),
+        'p25':    np.percentile(xt, 25),
+        'p75':    np.percentile(xt, 75),
+    }
+
+TRIM_PCT = 1.0   # drop outer 1% on each side
+
+diff_stats_full    = {'n': len(diff),    'mean': diff.mean(),    'median': np.median(diff),
+                      'std': diff.std(), 'p25': np.percentile(diff, 25),
+                      'p75': np.percentile(diff, 75)}
+diff_stats_trimmed = _trimmed_stats(diff, TRIM_PCT)
+
+abs_diff_full    = np.abs(diff)
+abs_diff_trimmed_stats = _trimmed_stats(abs_diff_full, TRIM_PCT)
+
+bias_valid = area_bias[~np.isnan(area_bias)]
+bias_stats_full    = {'n': len(bias_valid), 'mean': bias_valid.mean(),
+                      'median': np.median(bias_valid), 'std': bias_valid.std(),
+                      'p25': np.percentile(bias_valid, 25),
+                      'p75': np.percentile(bias_valid, 75)}
+bias_stats_trimmed = _trimmed_stats(bias_valid, TRIM_PCT)
+
+D_obs_stats_full    = {'n': observed.sum(), 'mean': D[observed].mean(),
+                       'median': np.median(D[observed]), 'std': D[observed].std(),
+                       'p25': np.percentile(D[observed], 25),
+                       'p75': np.percentile(D[observed], 75)}
+D_obs_stats_trimmed = _trimmed_stats(D[observed], TRIM_PCT)
+
+def _fmt(s):
+    return (f"n={s['n']:5d}  mean={s['mean']:7.2f}  median={s['median']:7.2f}  "
+            f"std={s['std']:7.2f}  IQR=[{s['p25']:.1f}, {s['p75']:.1f}]")
 
 print('\n══ P/E Disagreement Summary ══════════════════════════════════════════')
 print(f'\n  Total (area × year) cells: {total}')
@@ -554,12 +596,34 @@ print(f'  Both zero:                 {both_zero:5d}  ({100*both_zero/total:.1f}%
 print(f'  Both non-zero:             {both_nonzero:5d}  ({100*both_nonzero/total:.1f}%)')
 print(f'  P=0, E≠0 (P missing):      {p_only_zero:5d}  ({100*p_only_zero/total:.1f}%)')
 print(f'  P≠0, E=0 (E missing):      {e_only_zero:5d}  ({100*e_only_zero/total:.1f}%)')
-print(f'\n  When both non-zero:')
-print(f'    Mean P−E:                {diff.mean():.2f}')
-print(f'    |P−E| median:            {np.median(np.abs(diff)):.2f}')
-print(f'    Sign agree rate:         {(np.sign(P_nz)==np.sign(E_nz)).mean()*100:.1f}%')
+
+print(f'\n  When both non-zero — P−E (observation level):')
+print(f'    Full:          {_fmt(diff_stats_full)}')
+print(f'    Trimmed {TRIM_PCT:.0f}%:    {_fmt(diff_stats_trimmed)}')
+
+print(f'\n  When both non-zero — |P−E|:')
+print(f'    Full:          {_fmt({"n": len(abs_diff_full), "mean": abs_diff_full.mean(), "median": np.median(abs_diff_full), "std": abs_diff_full.std(), "p25": np.percentile(abs_diff_full,25), "p75": np.percentile(abs_diff_full,75)})}')
+print(f'    Trimmed {TRIM_PCT:.0f}%:    {_fmt(abs_diff_trimmed_stats)}')
+
+print(f'\n  Sign agree rate (both non-zero): {(np.sign(P_nz)==np.sign(E_nz)).mean()*100:.1f}%')
+
+print(f'\n  Per-area conditional bias (mean P−E when both non-zero):')
+print(f'    Full:          {_fmt(bias_stats_full)}')
+print(f'    Trimmed {TRIM_PCT:.0f}%:    {_fmt(bias_stats_trimmed)}')
+print(f'    Areas outside ±50: {(np.abs(bias_valid) > 50).sum()}')
+
+print(f'\n  Census D for observed areas:')
+print(f'    Full:          {_fmt(D_obs_stats_full)}')
+print(f'    Trimmed {TRIM_PCT:.0f}%:    {_fmt(D_obs_stats_trimmed)}')
+
 print(f'\n  Cross-correlation peak lag: {peak_lag} year(s)')
+
 print(f'\n  P missingness (E-active years where P=0):')
 print(f'    Median across areas:     {np.median(p_miss_rate)*100:.1f}%')
 print(f'    p75 across areas:        {np.percentile(p_miss_rate,75)*100:.1f}%')
 print(f'    p90 across areas:        {np.percentile(p_miss_rate,90)*100:.1f}%')
+
+print(f'\n  Lag-explainability of P missingness (within {MAX_LAG_EXPLAIN} yrs):')
+print(f'    Upper bound:   {100*n_lag_explain/total_missing:.1f}%  '
+      f'({int(n_lag_explain)} of {total_missing} P-missing cells)')
+print(f'    Unexplainable: {100*n_lag_unexplain/total_missing:.1f}%')
