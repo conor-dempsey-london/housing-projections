@@ -403,12 +403,15 @@ class M2h(DwellingModel):
             mu_area   = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
                                   shape=n_areas)
 
+            # Centred parameterisation: z is sampled directly rather than via
+            # z_offset, avoiding non-centred funnel when sigma_slab is small.
+            # Safe here because fixed sigma_plan forces z to track observations,
+            # keeping sigma_slab away from zero.
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
-            z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
+            z          = pm.Normal('z',
+                                   mu=mu_area[:, None],
+                                   sigma=sigma_slab,
                                    dims=('area', 'year'))
-            z          = pm.Deterministic('z',
-                                          mu_area[:, None] + sigma_slab * z_offset,
-                                          dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
 
