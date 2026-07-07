@@ -6,12 +6,9 @@ get_ipython().run_line_magic('autoreload', '2')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import stats
-
 from housing_projections.config import DATA_PATH, INFER_YEARS
 from housing_projections.data import load_data, make_data_dict
 from housing_projections.outliers import apply_outlier_exclusion
-import housing_projections.data as data_utils
 
 # %% Configuration
 ZERO_THRESHOLD  = 0.5   # |value| below this treated as zero
