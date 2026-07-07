@@ -164,9 +164,13 @@ axes[1].set_title('E missingness rate\n(E=0 when P≠0, per area)')
 axes[1].set_xlabel('% of P-active years where E=0')
 axes[1].set_ylabel('# areas')
 
-axes[2].hist(area_bias, bins=40, color='steelblue', edgecolor='none')
+clip = 50
+area_bias_clipped = np.clip(area_bias, -clip, clip)
+axes[2].hist(area_bias_clipped, bins=40, color='steelblue', edgecolor='none')
 axes[2].axvline(0, color='red', linewidth=1)
-axes[2].set_title('Conditional bias per area\nmean(P − E | both non-zero)')
+n_clipped = (np.abs(area_bias) > clip).sum()
+axes[2].set_title(f'Conditional bias per area\nmean(P − E | both non-zero), clipped ±{clip}\n'
+                  f'({n_clipped} areas outside ±{clip} not shown)')
 axes[2].set_xlabel('Mean P − E')
 axes[2].set_ylabel('# areas')
 
@@ -262,7 +266,181 @@ axes[1].legend(fontsize=7, ncol=2)
 plt.tight_layout()
 plt.show()
 
-# %% ── 6. Summary table ───────────────────────────────────────────────────────
+# %% ── 6. Systematic vs random missingness ───────────────────────────────────
+# For each area, examine whether P=0 years cluster (systematic absence)
+# or are scattered (random year-by-year dropout).
+#
+# Two diagnostics:
+#   a) Run-length distribution: how many areas have long unbroken runs of P=0
+#      when E is active — a sign of systematic rather than random absence.
+#   b) Missingness autocorrelation: is P missing in year t predictive of
+#      P missing in year t+1 (within the same area)?
+
+def _run_lengths(binary_row):
+    """Return lengths of all runs of True in a 1-D boolean array."""
+    runs = []
+    count = 0
+    for v in binary_row:
+        if v:
+            count += 1
+        elif count > 0:
+            runs.append(count)
+            count = 0
+    if count > 0:
+        runs.append(count)
+    return runs
+
+# Missingness indicator: P=0 when E≠0
+miss_indicator = P_zero & ~E_zero   # (n_areas, n_years)
+
+all_runs = []
+for a in range(n_areas):
+    all_runs.extend(_run_lengths(miss_indicator[a]))
+
+all_runs = np.array(all_runs) if all_runs else np.array([0])
+
+# Areas where P is missing for ALL E-active years (completely dark to planning)
+e_active_years = (~E_zero).sum(axis=1)
+p_miss_all     = (miss_indicator.sum(axis=1) == e_active_years) & (e_active_years > 0)
+p_miss_never   = (miss_indicator.sum(axis=1) == 0) & (e_active_years > 0)
+p_miss_partial = (~p_miss_all & ~p_miss_never) & (e_active_years > 0)
+
+print('\n── Systematic vs random P missingness ───────────────────────────────')
+print(f'  Areas where P is ALWAYS missing when E active:  '
+      f'{p_miss_all.sum():4d}  ({100*p_miss_all.mean():.1f}%)')
+print(f'  Areas where P is NEVER missing when E active:   '
+      f'{p_miss_never.sum():4d}  ({100*p_miss_never.mean():.1f}%)')
+print(f'  Areas with PARTIAL missingness:                 '
+      f'{p_miss_partial.sum():4d}  ({100*p_miss_partial.mean():.1f}%)')
+print(f'\n  Run-length distribution (consecutive P=0 years when E active):')
+for length in range(1, min(n_years + 1, 8)):
+    n = (all_runs == length).sum()
+    print(f'    Run of {length}: {n:5d}  ({100*n/len(all_runs):.1f}%)')
+
+# Missingness autocorrelation within areas
+# lag-1: does P_miss[t] predict P_miss[t+1]?
+miss_t  = miss_indicator[:, :-1].ravel().astype(float)
+miss_t1 = miss_indicator[:,  1:].ravel().astype(float)
+autocorr = np.corrcoef(miss_t, miss_t1)[0, 1]
+print(f'\n  Lag-1 autocorrelation of P missingness within areas: {autocorr:.3f}')
+print(f'  (0 = random year-to-year, 1 = perfectly persistent)')
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 3))
+
+run_counts = [(all_runs == k).sum() for k in range(1, n_years + 1)]
+axes[0].bar(range(1, n_years + 1), run_counts, color='darkorange', edgecolor='none')
+axes[0].set_xlabel('Consecutive P=0 years (run length)')
+axes[0].set_ylabel('# runs')
+axes[0].set_title('Run-length distribution of P missingness\n(when E is active)')
+axes[0].set_xticks(range(1, n_years + 1))
+
+labels = ['Always\nmissing', 'Partial\nmissing', 'Never\nmissing']
+sizes  = [p_miss_all.sum(), p_miss_partial.sum(), p_miss_never.sum()]
+colors = ['#d62728', '#ff7f0e', '#2ca02c']
+axes[1].bar(labels, sizes, color=colors, edgecolor='none')
+axes[1].set_ylabel('# areas')
+axes[1].set_title('Area-level P missingness type\n(relative to E-active years)')
+
+plt.tight_layout()
+plt.show()
+
+# %% ── 7. How much missingness could lag explain? ─────────────────────────────
+# For each cell where P=0 and E≠0 (a "P missing" event), check whether a
+# non-zero P appears in the same area within the next MAX_LAG_EXPLAIN years.
+# If so, the lag hypothesis *could* explain the zero — the completion may have
+# been recorded late rather than missing permanently.
+#
+# This is an upper bound: a nearby non-zero P doesn't prove it's the same
+# completion, but persistent zeros over many years clearly cannot be lag.
+
+MAX_LAG_EXPLAIN = 3
+
+lag_explainable = np.zeros(n_areas, dtype=float)
+lag_unexplainable = np.zeros(n_areas, dtype=float)
+
+for a in range(n_areas):
+    for t in range(n_years):
+        if not miss_indicator[a, t]:
+            continue
+        # Check if a non-zero P appears within MAX_LAG_EXPLAIN years
+        future_p = P[a, t+1 : t+1+MAX_LAG_EXPLAIN]
+        if len(future_p) > 0 and np.any(np.abs(future_p) >= ZERO_THRESHOLD):
+            lag_explainable[a] += 1
+        else:
+            lag_unexplainable[a] += 1
+
+total_missing    = miss_indicator.sum()
+n_lag_explain    = lag_explainable.sum()
+n_lag_unexplain  = lag_unexplainable.sum()
+
+# Areas where ALL missingness is lag-unexplainable (never a future P recovery)
+always_unexplained = (lag_explainable == 0) & ((lag_explainable + lag_unexplainable) > 0)
+
+print(f'\n── Lag-explainable P missingness (within {MAX_LAG_EXPLAIN} years) ──────────────')
+print(f'  Total P-missing cells:                   {total_missing:5d}')
+print(f'  Followed by non-zero P within {MAX_LAG_EXPLAIN} yrs:    {int(n_lag_explain):5d}  '
+      f'({100*n_lag_explain/total_missing:.1f}%)  ← upper bound on lag-explainable')
+print(f'  No recovery within {MAX_LAG_EXPLAIN} yrs:               {int(n_lag_unexplain):5d}  '
+      f'({100*n_lag_unexplain/total_missing:.1f}%)  ← cannot be lag')
+print(f'  Areas with zero P-recovery ever:         {always_unexplained.sum():5d}  '
+      f'({100*always_unexplained.mean():.1f}%)')
+
+# Break down by run length: short runs more likely to be lag
+fig, axes = plt.subplots(1, 2, figsize=(11, 3))
+
+# Per-area: fraction of P-missing cells that are lag-explainable
+total_miss_per_area = lag_explainable + lag_unexplainable
+frac_explainable = np.where(total_miss_per_area > 0,
+                             lag_explainable / total_miss_per_area, np.nan)
+frac_valid = frac_explainable[~np.isnan(frac_explainable)]
+
+axes[0].hist(frac_valid * 100, bins=20, color='steelblue', edgecolor='none')
+axes[0].axvline(np.nanmean(frac_explainable) * 100, color='red', linewidth=1,
+                linestyle='--', label=f'mean={np.nanmean(frac_explainable)*100:.0f}%')
+axes[0].set_xlabel(f'% of P-missing cells with P recovery within {MAX_LAG_EXPLAIN} yrs')
+axes[0].set_ylabel('# areas')
+axes[0].set_title(f'Lag-explainability per area\n(upper bound, lag ≤ {MAX_LAG_EXPLAIN})')
+axes[0].legend(fontsize=8)
+
+# Lag-explainability by run length
+run_explain = {k: {'yes': 0, 'no': 0} for k in range(1, n_years + 1)}
+for a in range(n_areas):
+    runs_with_pos = []
+    count = 0
+    start = None
+    for t in range(n_years):
+        if miss_indicator[a, t]:
+            if count == 0:
+                start = t
+            count += 1
+        else:
+            if count > 0:
+                future_p = P[a, t : t + MAX_LAG_EXPLAIN]
+                has_recovery = len(future_p) > 0 and np.any(np.abs(future_p) >= ZERO_THRESHOLD)
+                run_explain[count]['yes' if has_recovery else 'no'] += 1
+                count = 0
+    if count > 0:
+        run_explain[count]['no'] += 1   # run extends to end of window, no future data
+
+max_run_show = 8
+ks    = list(range(1, max_run_show + 1))
+yes_n = [run_explain[k]['yes'] for k in ks]
+no_n  = [run_explain[k]['no']  for k in ks]
+x = np.arange(len(ks))
+w = 0.4
+axes[1].bar(x - w/2, yes_n, w, label='Recovery found', color='steelblue', edgecolor='none')
+axes[1].bar(x + w/2, no_n,  w, label='No recovery',    color='darkorange', edgecolor='none')
+axes[1].set_xticks(x)
+axes[1].set_xticklabels([str(k) for k in ks])
+axes[1].set_xlabel('Run length (consecutive P=0 years)')
+axes[1].set_ylabel('# runs')
+axes[1].set_title('Lag-explainability by run length')
+axes[1].legend(fontsize=8)
+
+plt.tight_layout()
+plt.show()
+
+# %% ── 8. Summary table ───────────────────────────────────────────────────────
 
 print('\n══ P/E Disagreement Summary ══════════════════════════════════════════')
 print(f'\n  Total (area × year) cells: {total}')
