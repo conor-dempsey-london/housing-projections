@@ -127,6 +127,73 @@ axes[2].legend(fontsize=8)
 plt.tight_layout()
 plt.show()
 
+# %% ── 2b. Isolate the log₁₀(P/E) ≈ −1.5 spike ─────────────────────────────
+# The P/E ratio plot shows a secondary spike around log10(P/E) ≈ -1.5 (P/E ≈ 0.03),
+# which is too consistent to be random noise. Isolate these records and examine
+# what areas and years they come from.
+
+LOW_RATIO_LO = -2.0   # log10(P/E) lower bound for spike
+LOW_RATIO_HI = -1.0   # log10(P/E) upper bound for spike
+
+log_ratio = np.where(mask_both, np.log10(np.abs(P / np.where(E == 0, np.nan, E))), np.nan)
+spike_mask = mask_both & (log_ratio >= LOW_RATIO_LO) & (log_ratio <= LOW_RATIO_HI)
+
+n_spike = spike_mask.sum()
+print(f'\n── log₁₀(P/E) spike [{LOW_RATIO_LO}, {LOW_RATIO_HI}] ─────────────────────────────')
+print(f'  Records in spike:  {n_spike}  ({100*n_spike/mask_both.sum():.1f}% of both-nonzero)')
+
+if n_spike > 0:
+    P_spike = P[spike_mask]
+    E_spike = E[spike_mask]
+    print(f'  P in spike:  mean={P_spike.mean():.2f}  median={np.median(P_spike):.2f}  '
+          f'p25={np.percentile(P_spike,25):.2f}  p75={np.percentile(P_spike,75):.2f}')
+    print(f'  E in spike:  mean={E_spike.mean():.2f}  median={np.median(E_spike):.2f}  '
+          f'p25={np.percentile(E_spike,25):.2f}  p75={np.percentile(E_spike,75):.2f}')
+
+    # Which years are overrepresented?
+    spike_by_year = spike_mask.sum(axis=0)
+    both_by_year  = mask_both.sum(axis=0)
+    print(f'\n  Spike records by year:')
+    for y, yr in enumerate(years):
+        pct = 100 * spike_by_year[y] / both_by_year[y] if both_by_year[y] > 0 else 0
+        print(f'    {yr}: {spike_by_year[y]:4d} / {both_by_year[y]:4d}  ({pct:.1f}%)')
+
+    # How many distinct areas are affected?
+    areas_with_spike = spike_mask.any(axis=1).sum()
+    always_spike = (spike_mask.sum(axis=1) == (~E_zero & ~P_zero).sum(axis=1)) & \
+                   ((~E_zero & ~P_zero).sum(axis=1) > 0)
+    print(f'\n  Distinct areas with ≥1 spike record: {areas_with_spike}  '
+          f'({100*areas_with_spike/n_areas:.1f}%)')
+    print(f'  Areas where ALL both-nonzero obs are in spike: {always_spike.sum()}')
+
+    # Distribution of spike records vs non-spike in P/E scatter
+    non_spike_mask = mask_both & ~spike_mask
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+
+    lim = np.percentile(np.abs(np.concatenate([P[mask_both], E[mask_both]])), 98)
+    axes[0].scatter(E[non_spike_mask], P[non_spike_mask],
+                    alpha=0.1, s=4, color='steelblue', label='Normal')
+    axes[0].scatter(E[spike_mask], P[spike_mask],
+                    alpha=0.4, s=8, color='firebrick', label=f'Spike (log P/E ∈ [{LOW_RATIO_LO},{LOW_RATIO_HI}])')
+    axes[0].plot([-lim, lim], [-lim, lim], 'k--', linewidth=0.8)
+    axes[0].set_xlim(-lim, lim)
+    axes[0].set_ylim(-lim, lim)
+    axes[0].set_xlabel('E_obs')
+    axes[0].set_ylabel('P_obs')
+    axes[0].set_title('P vs E: spike records highlighted')
+    axes[0].legend(fontsize=8)
+
+    axes[1].bar(years, spike_by_year, color='firebrick', label='Spike records')
+    axes[1].bar(years, both_by_year - spike_by_year, bottom=spike_by_year,
+                color='steelblue', label='Normal both-nonzero')
+    axes[1].set_xlabel('Year')
+    axes[1].set_ylabel('# records')
+    axes[1].set_title('Spike records by year')
+    axes[1].legend(fontsize=8)
+
+    plt.tight_layout()
+    plt.show()
+
 # %% ── 3. Disagreement typology per area ─────────────────────────────────────
 # Classify each area by its dominant P/E disagreement pattern.
 
