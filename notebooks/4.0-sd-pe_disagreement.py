@@ -683,6 +683,84 @@ print(f'\n  Census D for observed areas:')
 print(f'    Full:          {_fmt(D_obs_stats_full)}')
 print(f'    Trimmed {TRIM_PCT:.0f}%:    {_fmt(D_obs_stats_trimmed)}')
 
+# %% ── 10. Recording-rate decomposition: area vs year vs residual ─────────────
+# For cells where both P and E are non-zero, log(P/E) approximates the log
+# recording rate. We decompose its variance into area, year, and residual
+# components using a simple two-way ANOVA without interaction (additive model:
+# log(P/E)[a,t] ≈ mu + alpha[a] + beta[t] + epsilon[a,t]).
+# This tells us whether to prioritise a per-area or per-year recording rate
+# in the next model, or whether the residual dominates (idiosyncratic noise).
+
+area_idx, year_idx = np.where(mask_both)   # mask_both defined in section 2
+log_ratio = np.log(P[mask_both] / E[mask_both])
+
+n_obs   = len(log_ratio)
+n_a     = n_areas
+n_t     = n_years
+
+# Grand mean
+mu_hat = log_ratio.mean()
+
+# Area effects: mean log(P/E) per area (where observed), centred
+area_means = np.full(n_a, np.nan)
+for a in range(n_a):
+    sel = area_idx == a
+    if sel.sum() > 0:
+        area_means[a] = log_ratio[sel].mean()
+alpha_hat = np.where(np.isnan(area_means), 0.0, area_means - mu_hat)
+
+# Year effects: mean log(P/E) per year, after removing area effect, centred
+year_means = np.full(n_t, np.nan)
+for t in range(n_t):
+    sel = year_idx == t
+    if sel.sum() > 0:
+        residuals_area_removed = log_ratio[sel] - alpha_hat[area_idx[sel]]
+        year_means[t] = residuals_area_removed.mean()
+beta_hat = np.where(np.isnan(year_means), 0.0, year_means - year_means[~np.isnan(year_means)].mean())
+
+# Fitted values and residual
+fitted    = mu_hat + alpha_hat[area_idx] + beta_hat[year_idx]
+residual  = log_ratio - fitted
+
+# Variance components (SS / n_obs as a fraction of total variance)
+var_total  = np.var(log_ratio)
+var_area   = np.var(alpha_hat[area_idx])
+var_year   = np.var(beta_hat[year_idx])
+var_resid  = np.var(residual)
+
+print('\n══ Recording-rate variance decomposition ══════════════════════════════')
+print(f'  Both-nonzero cells: {n_obs}')
+print(f'  log(P/E) mean: {mu_hat:.3f}  (P/E ≈ {np.exp(mu_hat):.2f})')
+print(f'  Total variance: {var_total:.4f}')
+print(f'  Area effect:    {var_area:.4f}  ({100*var_area/var_total:.1f}%)')
+print(f'  Year effect:    {var_year:.4f}  ({100*var_year/var_total:.1f}%)')
+print(f'  Residual:       {var_resid:.4f}  ({100*var_resid/var_total:.1f}%)')
+
+fig, axes = plt.subplots(1, 3, figsize=(13, 3))
+
+# Area effects distribution
+a_valid = alpha_hat[~np.isnan(area_means)]
+axes[0].hist(a_valid, bins=60, color='steelblue', edgecolor='none')
+axes[0].axvline(0, color='red', lw=1)
+axes[0].set_xlabel('Area effect α[a]  (log P/E)')
+axes[0].set_title(f'Per-area recording bias\n({100*var_area/var_total:.1f}% of variance)')
+
+# Year effects
+axes[1].bar(years, beta_hat, color='steelblue', edgecolor='none')
+axes[1].axhline(0, color='red', lw=1)
+axes[1].set_xlabel('Year')
+axes[1].set_title(f'Per-year recording bias\n({100*var_year/var_total:.1f}% of variance)')
+
+# Residual distribution
+axes[2].hist(residual, bins=60, color='steelblue', edgecolor='none')
+axes[2].axvline(0, color='red', lw=1)
+axes[2].set_xlabel('Residual ε[a,t]  (log P/E)')
+axes[2].set_title(f'Idiosyncratic residual\n({100*var_resid/var_total:.1f}% of variance)')
+
+plt.suptitle('log(P/E) variance decomposition: area + year + residual', y=1.02)
+plt.tight_layout()
+plt.show()
+
 print(f'\n  Cross-correlation peak lag: {peak_lag} year(s)')
 
 print(f'\n  P missingness (E-active years where P=0):')
