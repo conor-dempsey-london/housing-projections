@@ -384,7 +384,7 @@ class M2h(DwellingModel):
 
     name        = 'M2h'
     description = 'M1h + per-area zero-inflation, fixed observation noise'
-    var_names   = ['mu_global', 'sigma_mu', 'sigma_slab',
+    var_names   = ['mu_global', 'sigma_mu', 'sigma_slab', 'z_offset',
                    'mu_logit_miss', 'sigma_logit_miss', 'lambda_weights']
     max_lag     = 3
     snap_zeros  = True
@@ -403,15 +403,17 @@ class M2h(DwellingModel):
             mu_area   = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
                                   shape=n_areas)
 
-            # Centred parameterisation: z is sampled directly rather than via
-            # z_offset, avoiding non-centred funnel when sigma_slab is small.
-            # Safe here because fixed sigma_plan forces z to track observations,
-            # keeping sigma_slab away from zero.
+            # Non-centred z: avoids the mu_area/z correlation ridge (shifting
+            # mu_area[a] by ε and all z[a,t] by -ε is nearly likelihood-neutral
+            # in the centred form). The non-centred funnel only bites when
+            # sigma_slab → 0, which can't happen here: fixed sigma_plan means
+            # active areas' E residuals must go through sigma_slab (≈5–10).
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
-            z          = pm.Normal('z',
-                                   mu=mu_area[:, None],
-                                   sigma=sigma_slab,
+            z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
                                    dims=('area', 'year'))
+            z          = pm.Deterministic('z',
+                                          mu_area[:, None] + sigma_slab * z_offset,
+                                          dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
 
