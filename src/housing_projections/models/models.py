@@ -230,15 +230,15 @@ class M0(DwellingModel):
 
 class M0h(DwellingModel):
     """
-    Hierarchical extension of M0. Each LSOA has its own mean annual change
-    drawn from a global distribution (centred parameterisation — strongly
-    identified by the census). z uses a non-centered Normal prior on
-    sigma_slab. Observation noise learned per source.
+    Hierarchical extension of M0. Each LSOA mean is pinned to D[a]/n_years
+    (the census-implied annual rate — empirically the mu_area posterior is
+    completely determined by this). z deviates from that fixed mean via
+    sigma_slab (non-centred). Observation noise learned per source.
     """
 
     name             = 'M0h'
-    description      = 'M0 + hierarchical area-level mean annual change'
-    var_names        = ['mu_global', 'sigma_mu', 'sigma_slab', 'sigma_plan', 'sigma_ben', 'mu_area']
+    description      = 'M0 + area-level mean pinned to census, sigma_slab hierarchy'
+    var_names        = ['sigma_slab', 'sigma_plan', 'sigma_ben']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
 
@@ -247,15 +247,9 @@ class M0h(DwellingModel):
 
         with pm.Model(coords=self._default_coords()) as model:
 
-            # ── Global hyperprior ─────────────────────────────────────────
-            mu_global = pm.Normal('mu_global',
-                                   mu=data['D_full_mean'] / n_years,
-                                   sigma=5)
-            sigma_mu  = pm.HalfNormal('sigma_mu', sigma=10)
-
-            # ── Area-level means (centred — census pins mu_area strongly) ─
-            mu_area = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
-                                shape=n_areas)
+            # Area mean fixed at census-implied annual rate — the mu_area
+            # posterior is empirically indistinguishable from D[a]/n_years.
+            mu_area = D / n_years  # (n_areas,) numpy constant
 
             # ── Latent true changes (non-centered on sigma_slab) ─────────
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
@@ -310,21 +304,19 @@ class M1(DwellingModel):
 
 class M1h(DwellingModel):
     """
-    Combines the M0h area-level hierarchy with the M1 temporal lag.
+    Combines the M0h area-level structure with the M1 temporal lag.
 
-    Each LSOA has an area-specific mean annual change (mu_area) drawn from a
-    global distribution, and z deviates from that mean via sigma_slab.  The
-    planning likelihood uses a lagged z mean (lambda_weights), giving sigma_plan
-    a structural explanation for why P_obs != z and allowing sigma_slab to
-    identify genuine within-area temporal variation.
+    Area means are pinned to D[a]/n_years (census-implied annual rate).
+    z deviates from that fixed mean via sigma_slab (non-centred). The
+    planning likelihood uses a lagged z mean (lambda_weights), giving
+    sigma_plan a structural explanation for why P_obs != z.
 
     BEN is assumed lag-free.
     """
 
     name        = 'M1h'
-    description = 'M0h hierarchy + M1 temporal lag in planning'
-    var_names   = ['mu_global', 'sigma_mu', 'sigma_slab',
-                   'sigma_plan', 'sigma_ben', 'lambda_weights']
+    description = 'Census-pinned area means + M1 temporal lag in planning'
+    var_names   = ['sigma_slab', 'sigma_plan', 'sigma_ben', 'lambda_weights']
     max_lag     = 3
 
     def build(self):
@@ -333,13 +325,7 @@ class M1h(DwellingModel):
 
         with pm.Model(coords=self._default_coords()) as model:
 
-            # ── Area-level hierarchy (from M0h) ───────────────────────────
-            mu_global = pm.Normal('mu_global',
-                                   mu=data['D_full_mean'] / n_years,
-                                   sigma=5)
-            sigma_mu  = pm.HalfNormal('sigma_mu', sigma=10)
-            mu_area   = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
-                                  shape=n_areas)
+            mu_area = D / n_years  # (n_areas,) numpy constant
 
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
             z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
@@ -384,7 +370,7 @@ class M2h(DwellingModel):
 
     name        = 'M2h'
     description = 'M1h + per-area zero-inflation, fixed observation noise'
-    var_names   = ['mu_global', 'sigma_mu', 'sigma_slab', 'z_offset',
+    var_names   = ['sigma_slab', 'z_offset',
                    'mu_logit_miss', 'sigma_logit_miss', 'lambda_weights']
     max_lag     = 3
     snap_zeros  = True
@@ -395,19 +381,8 @@ class M2h(DwellingModel):
 
         with pm.Model(coords=self._default_coords()) as model:
 
-            # ── Area-level hierarchy (M0h) ────────────────────────────────
-            mu_global = pm.Normal('mu_global',
-                                   mu=data['D_full_mean'] / n_years,
-                                   sigma=5)
-            sigma_mu  = pm.HalfNormal('sigma_mu', sigma=10)
-            mu_area   = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
-                                  shape=n_areas)
+            mu_area = D / n_years  # (n_areas,) numpy constant
 
-            # Non-centred z: avoids the mu_area/z correlation ridge (shifting
-            # mu_area[a] by ε and all z[a,t] by -ε is nearly likelihood-neutral
-            # in the centred form). The non-centred funnel only bites when
-            # sigma_slab → 0, which can't happen here: fixed sigma_plan means
-            # active areas' E residuals must go through sigma_slab (≈5–10).
             sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
             z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
                                    dims=('area', 'year'))
