@@ -203,7 +203,7 @@ p75_xcorr  = np.nanpercentile(xcorr_matrix, 75, axis=0)
 peak_lag   = lags[np.argmax(mean_xcorr)]
 
 print(f'  Mean cross-correlation peaks at lag = {peak_lag} year(s)')
-print(f'  (positive lag: P leads E, i.e. P records events before BEN does)')
+print(f'  (positive lag: E leads P, i.e. BEN records completions earlier than planning does)')
 
 fig, ax = plt.subplots(figsize=(8, 3))
 ax.fill_between(lags, p25_xcorr, p75_xcorr, alpha=0.25, color='steelblue', label='IQR across areas')
@@ -211,7 +211,7 @@ ax.plot(lags, mean_xcorr, 'o-', color='steelblue', linewidth=1.5, label='Mean xc
 ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
 ax.axvline(peak_lag, color='red', linewidth=1, linestyle=':', label=f'Peak lag={peak_lag}')
 ax.axhline(0, color='black', linewidth=0.5)
-ax.set_xlabel('Lag (years, positive = P leads E)')
+ax.set_xlabel('Lag (years, positive = E leads P / planning lags behind BEN)')
 ax.set_ylabel('Cross-correlation')
 ax.set_title('P–E cross-correlation by lag\n(mean ± IQR across areas)')
 ax.legend(fontsize=8)
