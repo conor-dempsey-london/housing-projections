@@ -440,7 +440,113 @@ axes[1].legend(fontsize=8)
 plt.tight_layout()
 plt.show()
 
-# %% ── 8. Summary table ───────────────────────────────────────────────────────
+# %% ── 8. Dark areas: no P or E signal ───────────────────────────────────────
+# Identify areas that have no useful observation from either source across the
+# full inference window. These areas must rely entirely on the census to identify
+# their mean rate — a good model should handle them by falling back to the area
+# mean without affecting inference in observed areas.
+#
+# Three tiers:
+#   Fully dark  — P=0 and E=0 for every year
+#   P-dark only — P=0 for every year, E has some signal
+#   E-dark only — E=0 for every year, P has some signal
+
+p_ever_nonzero = (~P_zero).any(axis=1)
+e_ever_nonzero = (~E_zero).any(axis=1)
+
+fully_dark  = ~p_ever_nonzero & ~e_ever_nonzero
+p_dark_only = ~p_ever_nonzero &  e_ever_nonzero
+e_dark_only =  p_ever_nonzero & ~e_ever_nonzero
+observed    =  p_ever_nonzero &  e_ever_nonzero
+
+print('\n── Dark area classification ─────────────────────────────────────────')
+print(f'  Fully dark  (no P, no E):  {fully_dark.sum():5d}  ({100*fully_dark.mean():.1f}%)')
+print(f'  P-dark only (no P, has E): {p_dark_only.sum():5d}  ({100*p_dark_only.mean():.1f}%)')
+print(f'  E-dark only (no E, has P): {e_dark_only.sum():5d}  ({100*e_dark_only.mean():.1f}%)')
+print(f'  Observed    (has P and E): {observed.sum():5d}  ({100*observed.mean():.1f}%)')
+
+D = data['D']
+
+print('\n── Census D values by area type ─────────────────────────────────────')
+for label, mask in [('Fully dark',  fully_dark),
+                    ('P-dark only', p_dark_only),
+                    ('E-dark only', e_dark_only),
+                    ('Observed',    observed)]:
+    if mask.sum() == 0:
+        continue
+    d = D[mask]
+    print(f'  {label:12s}  n={mask.sum():5d}  '
+          f'median={np.median(d):6.1f}  mean={d.mean():6.1f}  '
+          f'p25={np.percentile(d,25):6.1f}  p75={np.percentile(d,75):6.1f}  '
+          f'pct_zero={100*(d==0).mean():.1f}%')
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+# D distribution by area type
+bins = np.linspace(D.min(), np.percentile(D, 99), 50)
+for label, mask, color in [
+    ('Observed',    observed,    'steelblue'),
+    ('P-dark only', p_dark_only, 'darkorange'),
+    ('E-dark only', e_dark_only, 'forestgreen'),
+    ('Fully dark',  fully_dark,  'firebrick'),
+]:
+    if mask.sum() == 0:
+        continue
+    axes[0].hist(D[mask], bins=bins, alpha=0.5, color=color,
+                 label=f'{label} (n={mask.sum()})', density=True)
+
+axes[0].set_xlabel('Census completions D (total over window)')
+axes[0].set_ylabel('Density')
+axes[0].set_title('D distribution by observation tier')
+axes[0].legend(fontsize=8)
+
+# CDF version for easier comparison
+for label, mask, color in [
+    ('Observed',    observed,    'steelblue'),
+    ('P-dark only', p_dark_only, 'darkorange'),
+    ('E-dark only', e_dark_only, 'forestgreen'),
+    ('Fully dark',  fully_dark,  'firebrick'),
+]:
+    if mask.sum() == 0:
+        continue
+    d_sorted = np.sort(D[mask])
+    axes[1].plot(d_sorted, np.linspace(0, 1, len(d_sorted)),
+                 color=color, linewidth=1.5, label=label)
+
+axes[1].set_xlabel('Census completions D (total over window)')
+axes[1].set_ylabel('Cumulative fraction')
+axes[1].set_title('CDF of D by observation tier')
+axes[1].legend(fontsize=8)
+axes[1].axvline(0, color='black', linewidth=0.8, linestyle='--')
+
+plt.tight_layout()
+plt.show()
+
+# Spatial pattern: are dark areas concentrated in particular boroughs?
+# Use LSOA codes from the data if available.
+lsoa_codes = data['gdf']['LSOA21CD'].values if 'gdf' in data else None
+if lsoa_codes is not None:
+    dark_df = pd.DataFrame({
+        'LSOA21CD': lsoa_codes,
+        'D':        D,
+        'tier': np.where(fully_dark,  'fully_dark',
+                np.where(p_dark_only, 'p_dark_only',
+                np.where(e_dark_only, 'e_dark_only', 'observed'))),
+    })
+    # Borough code = first 9 chars of LSOA (E09xxxxx + LSOA suffix → use first 3 chars of suffix)
+    # LAD code embedded in LSOA21CD as E01xxxxxx → borough not directly readable.
+    # Approximate: count dark areas per first-6-char prefix (ward-level grouping).
+    dark_df['prefix'] = dark_df['LSOA21CD'].str[:6]
+    tier_by_prefix = dark_df.groupby('prefix')['tier'].value_counts().unstack(fill_value=0)
+    if 'fully_dark' in tier_by_prefix.columns:
+        tier_by_prefix['pct_dark'] = (
+            tier_by_prefix.get('fully_dark', 0) + tier_by_prefix.get('p_dark_only', 0)
+        ) / tier_by_prefix.sum(axis=1)
+        top_dark = tier_by_prefix.nlargest(10, 'pct_dark')[['fully_dark', 'p_dark_only', 'observed', 'pct_dark']]
+        print('\n── Top 10 prefixes by dark-area concentration ───────────────────')
+        print(top_dark.to_string(float_format='{:.2f}'.format))
+
+# %% ── 9. Summary table ───────────────────────────────────────────────────────
 
 print('\n══ P/E Disagreement Summary ══════════════════════════════════════════')
 print(f'\n  Total (area × year) cells: {total}')
