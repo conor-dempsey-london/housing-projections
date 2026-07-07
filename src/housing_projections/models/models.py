@@ -360,17 +360,17 @@ class M2h(DwellingModel):
       - reliable reporters      (pi_miss[a] → 0, ~5% of areas)
       - partial reporters        (intermediate, ~80% of areas)
 
-    sigma_plan is inferred with a HalfNormal(5) prior. The identifiability
-    competition between sigma_plan and sigma_slab is resolved by zero-inflation
-    (pi_miss handles structural zeros) and E constraining z (fixed sigma_ben),
-    so sigma_plan explains only residual noise in non-zero P observations.
+    sigma_plan is fixed at 5 rather than inferred. Inferring it creates a
+    ridge with pi_miss: a large sigma_plan weakens the P likelihood, leaving
+    pi_miss unconstrained. Recording-rate variation (the deeper reason P≠z)
+    is deferred to M3h via a per-area alpha[a] parameter.
 
     BEN is assumed lag-free and always present.
     """
 
     name        = 'M2h'
-    description = 'M1h + per-area zero-inflation, inferred sigma_plan'
-    var_names   = ['sigma_slab', 'sigma_plan',
+    description = 'M1h + per-area zero-inflation, sigma_plan fixed at 5'
+    var_names   = ['sigma_slab',
                    'mu_logit_miss', 'sigma_logit_miss', 'lambda_weights']
     max_lag     = 3
     snap_zeros  = True
@@ -408,13 +408,13 @@ class M2h(DwellingModel):
                 pm.math.sigmoid(mu_logit_miss + sigma_logit_miss * miss_offset),
             )
 
-            sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
-
-            # Broadcast pi_miss (n_areas,) → (n_areas, n_years) for Mixture
+            # sigma_plan fixed: inferring it creates a ridge with pi_miss
+            # (large sigma_plan weakens the P likelihood, leaving pi_miss
+            # unconstrained). Recording-rate variation is addressed in M3h.
             _build_planning_likelihood_zeroinflated(
                 P_mean, data['P_obs'],
                 pi_miss[:, None],   # broadcasts over years
-                self.nu_obs, sigma_plan,
+                self.nu_obs, 5.0,
             )
 
             # ── BEN: direct, fixed noise ──────────────────────────────────
