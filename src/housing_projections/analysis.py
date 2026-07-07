@@ -3,7 +3,6 @@ import gla_data._ons
 import numpy as np
 import pandas as pd
 
-from housing_projections.config import INFER_YEARS
 from housing_projections.spatial import build_spatial_weights
 
 __all__ = [

@@ -3,8 +3,6 @@ from IPython import get_ipython
 get_ipython().run_line_magic('load_ext', 'autoreload')
 get_ipython().run_line_magic('autoreload', '2')
 
-import os
-
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +11,7 @@ import pandas as pd
 from housing_projections.analysis import uncertainty_by_geography, variance_components
 from housing_projections.config import DATA_PATH, INFER_YEARS, TRACES_DIR
 from housing_projections.diagnostics import diagnostics_summary, observation_summary, prior_predictive_summary
-from housing_projections.models import M0, M0h, M1, M1h
+from housing_projections.models import M0, M0h
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 
