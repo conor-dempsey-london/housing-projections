@@ -260,7 +260,7 @@ class M0h(DwellingModel):
                                           dims=('area', 'year'))
 
             _build_census_constraint(z, D, sigma_census)
-            sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
             sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_plan,
@@ -340,7 +340,7 @@ class M1h(DwellingModel):
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                    self.n_lags, self.lag_alpha, self.max_lag)
 
-            sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
             sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                               self.nu_obs, sigma_plan)
@@ -360,17 +360,17 @@ class M2h(DwellingModel):
       - reliable reporters      (pi_miss[a] → 0, ~5% of areas)
       - partial reporters        (intermediate, ~80% of areas)
 
-    Planning observation noise is fixed at sigma_obs (base class default)
-    rather than inferred, resolving the identifiability competition between
-    sigma_plan and sigma_slab. sigma_slab is then identified by residual
-    variation in non-missing planning observations and BEN.
+    sigma_plan is inferred with a HalfNormal(5) prior. The identifiability
+    competition between sigma_plan and sigma_slab is resolved by zero-inflation
+    (pi_miss handles structural zeros) and E constraining z (fixed sigma_ben),
+    so sigma_plan explains only residual noise in non-zero P observations.
 
     BEN is assumed lag-free and always present.
     """
 
     name        = 'M2h'
-    description = 'M1h + per-area zero-inflation, fixed observation noise'
-    var_names   = ['sigma_slab', 'z_offset',
+    description = 'M1h + per-area zero-inflation, inferred sigma_plan'
+    var_names   = ['sigma_slab', 'sigma_plan',
                    'mu_logit_miss', 'sigma_logit_miss', 'lambda_weights']
     max_lag     = 3
     snap_zeros  = True
@@ -408,11 +408,13 @@ class M2h(DwellingModel):
                 pm.math.sigmoid(mu_logit_miss + sigma_logit_miss * miss_offset),
             )
 
+            sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
+
             # Broadcast pi_miss (n_areas,) → (n_areas, n_years) for Mixture
             _build_planning_likelihood_zeroinflated(
                 P_mean, data['P_obs'],
                 pi_miss[:, None],   # broadcasts over years
-                self.nu_obs, self.sigma_obs,
+                self.nu_obs, sigma_plan,
             )
 
             # ── BEN: direct, fixed noise ──────────────────────────────────
