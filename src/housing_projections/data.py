@@ -224,6 +224,12 @@ def make_data_dict(gdf, n_areas=None):
     P_obs = gdf[INFER_COLS_PLAN].values.astype(float)
     E_obs = gdf[INFER_COLS_BEN].values.astype(float)
 
+    # Snap erroneous P records to zero: cells where P is non-zero but records
+    # less than 10% of E are likely PLD data errors (e.g. geocoding or batch
+    # mis-allocation) rather than genuine low completions. Treat as missing.
+    erroneous = (P_obs > 0) & (E_obs > 0) & (P_obs < 0.1 * E_obs)
+    P_obs[erroneous] = 0.0
+
     P_obs_full = gdf[ALL_COLS_PLAN].values.astype(float)
     E_obs_full = gdf[ALL_COLS_BEN].values.astype(float)
 
