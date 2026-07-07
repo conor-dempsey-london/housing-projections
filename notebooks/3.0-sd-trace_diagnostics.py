@@ -165,16 +165,26 @@ for name, trace in traces.items():
                         alpha=0.25, color='steelblue', label='z 90% CI')
         ax.plot(years, z_mean[area_i], color='steelblue', linewidth=1.5, label='z mean')
 
+        post_sum = z_mean[area_i].sum()
+
         if data is not None and area_i < data['n_areas']:
-            p_cv = (data['P_obs'][area_i].std() /
-                    max(abs(data['P_obs'][area_i].mean()), 0.5))
+            p_cv    = (data['P_obs'][area_i].std() /
+                       max(abs(data['P_obs'][area_i].mean()), 0.5))
+            d_true  = data['D'][area_i]
             ax.plot(years, data['P_obs'][area_i], 'x', color='darkorange',
                     markersize=5, label='P_obs')
             ax.plot(years, data['E_obs'][area_i], 'o', color='forestgreen',
                     markersize=4, fillstyle='none', label='E_obs')
-            ax.set_title(f'{str(code)[:12]}  CV={p_cv:.2f}', fontsize=8)
+            ax.set_title(
+                f'{str(code)[:12]}  CV={p_cv:.2f}\n'
+                f'D={d_true:.0f}  Σz={post_sum:.0f}',
+                fontsize=7,
+            )
         else:
-            ax.set_title(str(code)[:12], fontsize=8)
+            ax.set_title(
+                f'{str(code)[:12]}\nΣz={post_sum:.0f}',
+                fontsize=7,
+            )
 
         ax.axhline(0, color='black', linewidth=0.5, linestyle='--')
         ax.set_xticks(years[::2])
