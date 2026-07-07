@@ -12,7 +12,7 @@ from housing_projections.spatial import build_spatial_weights
 
 from .base import DwellingModel
 
-__all__ = ["M0", "M0h", "M1", "M1h", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]
+__all__ = ["M0", "M0h", "M1", "M1h", "M2h", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]
 
 # ── Builder functions (private) ───────────────────────────────────────────────
 
@@ -359,6 +359,84 @@ class M1h(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                               self.nu_obs, sigma_plan)
             self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
+
+        self.model = model
+        return model
+
+
+class M2h(DwellingModel):
+    """
+    Extends M1h with per-area zero-inflation in the planning likelihood.
+
+    Each area has its own missingness probability pi_miss[a] drawn from a
+    logit-normal hierarchical prior, capturing:
+      - structural non-reporters (pi_miss[a] → 1, ~15% of areas)
+      - reliable reporters      (pi_miss[a] → 0, ~5% of areas)
+      - partial reporters        (intermediate, ~80% of areas)
+
+    Planning observation noise is fixed at sigma_obs (base class default)
+    rather than inferred, resolving the identifiability competition between
+    sigma_plan and sigma_slab. sigma_slab is then identified by residual
+    variation in non-missing planning observations and BEN.
+
+    BEN is assumed lag-free and always present.
+    """
+
+    name        = 'M2h'
+    description = 'M1h + per-area zero-inflation, fixed observation noise'
+    var_names   = ['mu_global', 'sigma_mu', 'sigma_slab',
+                   'mu_logit_miss', 'sigma_logit_miss', 'lambda_weights']
+    max_lag     = 3
+    snap_zeros  = True
+
+    def build(self):
+        data, n_areas, n_years, D, sigma_census = self._build_context()
+        pre_inference = _build_pre_inference(data, self.max_lag)
+
+        with pm.Model(coords=self._default_coords()) as model:
+
+            # ── Area-level hierarchy (M0h) ────────────────────────────────
+            mu_global = pm.Normal('mu_global',
+                                   mu=data['D_full_mean'] / n_years,
+                                   sigma=5)
+            sigma_mu  = pm.HalfNormal('sigma_mu', sigma=10)
+            mu_area   = pm.Normal('mu_area', mu=mu_global, sigma=sigma_mu,
+                                  shape=n_areas)
+
+            sigma_slab = pm.HalfNormal('sigma_slab', sigma=10)
+            z_offset   = pm.Normal('z_offset', mu=0, sigma=1,
+                                   dims=('area', 'year'))
+            z          = pm.Deterministic('z',
+                                          mu_area[:, None] + sigma_slab * z_offset,
+                                          dims=('area', 'year'))
+
+            _build_census_constraint(z, D, sigma_census)
+
+            # ── Temporal lag (M1) ─────────────────────────────────────────
+            _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
+                                   self.n_lags, self.lag_alpha, self.max_lag)
+
+            # ── Per-area zero-inflation ───────────────────────────────────
+            # Logit-normal hierarchy: mean ≈ logit(0.55) ≈ 0.2, reflecting
+            # ~55% empirical P missingness rate across areas.
+            mu_logit_miss    = pm.Normal('mu_logit_miss', mu=0.2, sigma=1)
+            sigma_logit_miss = pm.HalfNormal('sigma_logit_miss', sigma=1)
+            miss_offset      = pm.Normal('miss_offset', mu=0, sigma=1,
+                                         shape=n_areas)
+            pi_miss = pm.Deterministic(
+                'pi_miss',
+                pm.math.sigmoid(mu_logit_miss + sigma_logit_miss * miss_offset),
+            )
+
+            # Broadcast pi_miss (n_areas,) → (n_areas, n_years) for Mixture
+            _build_planning_likelihood_zeroinflated(
+                P_mean, data['P_obs'],
+                pi_miss[:, None],   # broadcasts over years
+                self.nu_obs, self.sigma_obs,
+            )
+
+            # ── BEN: direct, fixed noise ──────────────────────────────────
+            self.add_ben_likelihood(z, data['E_obs'])
 
         self.model = model
         return model
