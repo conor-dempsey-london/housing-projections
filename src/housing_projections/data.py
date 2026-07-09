@@ -241,6 +241,9 @@ def make_data_dict(gdf, n_areas=None):
     n_active = e_active.sum(axis=1)               # (n_areas,)
     p_zero_when_active = ((P_obs == 0) & e_active).sum(axis=1)
     pi_miss_empirical = np.where(n_active > 0, p_zero_when_active / n_active, 1.0)
+    # Clip away from exact 0/1: pi_miss=1 combined with any non-zero P (e.g.
+    # in E=0 years) gives -inf log-likelihood in the zero-inflated mixture.
+    pi_miss_empirical = np.clip(pi_miss_empirical, 0.01, 0.99)
 
     return {
         'D':                D,
