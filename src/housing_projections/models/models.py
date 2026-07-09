@@ -354,24 +354,21 @@ class M2h(DwellingModel):
     """
     Extends M1h with per-area zero-inflation in the planning likelihood.
 
-    Each area has its own missingness probability pi_miss[a] drawn from a
-    logit-normal hierarchical prior, capturing:
-      - structural non-reporters (pi_miss[a] → 1, ~15% of areas)
-      - reliable reporters      (pi_miss[a] → 0, ~5% of areas)
-      - partial reporters        (intermediate, ~80% of areas)
+    pi_miss[a] is fixed at the empirical P=0 rate conditioned on E>0,
+    computed from the data rather than inferred. Inferring pi_miss per area
+    creates a bimodal posterior (reporter vs non-reporter) for each of ~5k
+    areas, causing NUTS non-convergence. With pi_miss fixed, the model is
+    identified and tractable.
 
-    sigma_plan is fixed at 5 rather than inferred. Inferring it creates a
-    ridge with pi_miss: a large sigma_plan weakens the P likelihood, leaving
-    pi_miss unconstrained. Recording-rate variation (the deeper reason P≠z)
-    is deferred to M3h via a per-area alpha[a] parameter.
+    sigma_plan is fixed at 5. Recording-rate variation (alpha[a]) is
+    deferred to M3h.
 
     BEN is assumed lag-free and always present.
     """
 
     name        = 'M2h'
-    description = 'M1h + per-area zero-inflation, sigma_plan fixed at 5'
-    var_names   = ['sigma_slab',
-                   'mu_logit_miss', 'sigma_logit_miss', 'lambda_weights']
+    description = 'M1h + per-area zero-inflation, empirical pi_miss from data'
+    var_names   = ['sigma_slab', 'lambda_weights']
     max_lag     = 3
     snap_zeros  = True
 
@@ -396,21 +393,13 @@ class M2h(DwellingModel):
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                    self.n_lags, self.lag_alpha, self.max_lag)
 
-            # ── Per-area zero-inflation ───────────────────────────────────
-            # Logit-normal hierarchy: mean ≈ logit(0.55) ≈ 0.2, reflecting
-            # ~55% empirical P missingness rate across areas.
-            mu_logit_miss    = pm.Normal('mu_logit_miss', mu=0.2, sigma=1)
-            sigma_logit_miss = pm.HalfNormal('sigma_logit_miss', sigma=1)
-            miss_offset      = pm.Normal('miss_offset', mu=0, sigma=1,
-                                         shape=n_areas)
-            pi_miss = pm.Deterministic(
-                'pi_miss',
-                pm.math.sigmoid(mu_logit_miss + sigma_logit_miss * miss_offset),
-            )
+            # ── Per-area zero-inflation (fixed from data) ─────────────────
+            # pi_miss[a] = empirical P=0 rate conditioned on E>0. Inferring
+            # pi_miss per area creates a bimodal posterior (reporter vs
+            # non-reporter) for each of ~5k areas, making NUTS non-convergent.
+            # Recording-rate modelling (alpha[a]) deferred to M3h.
+            pi_miss = data['pi_miss_empirical']   # (n_areas,) numpy constant
 
-            # sigma_plan fixed: inferring it creates a ridge with pi_miss
-            # (large sigma_plan weakens the P likelihood, leaving pi_miss
-            # unconstrained). Recording-rate variation is addressed in M3h.
             _build_planning_likelihood_zeroinflated(
                 P_mean, data['P_obs'],
                 pi_miss[:, None],   # broadcasts over years
