@@ -1,6 +1,7 @@
 import os
 
 import boto3
+import numpy as np
 import geopandas as gpd
 import gla_data
 import pandas as pd
@@ -233,15 +234,24 @@ def make_data_dict(gdf, n_areas=None):
     P_obs_full = gdf[ALL_COLS_PLAN].values.astype(float)
     E_obs_full = gdf[ALL_COLS_BEN].values.astype(float)
 
+    # Empirical P-missingness rate per area, conditioned on E being active.
+    # P=0 when E=0 reflects no completions, not a recording gap.
+    # Areas with no active E years default to pi_miss=1 (nothing to record).
+    e_active = E_obs > 0                          # (n_areas, n_years)
+    n_active = e_active.sum(axis=1)               # (n_areas,)
+    p_zero_when_active = ((P_obs == 0) & e_active).sum(axis=1)
+    pi_miss_empirical = np.where(n_active > 0, p_zero_when_active / n_active, 1.0)
+
     return {
-        'D':            D,
-        'P_obs':        P_obs,
-        'E_obs':        E_obs,
-        'P_obs_full':   P_obs_full,
-        'E_obs_full':   E_obs_full,
-        'n_years':      len(INFER_COLS_PLAN),
-        'n_years_full': len(ALL_COLS_PLAN),
-        'n_areas':      len(gdf),
-        'gdf':          gdf,
-        'D_full_mean':  D_full_mean,
+        'D':                D,
+        'P_obs':            P_obs,
+        'E_obs':            E_obs,
+        'P_obs_full':       P_obs_full,
+        'E_obs_full':       E_obs_full,
+        'pi_miss_empirical': pi_miss_empirical,
+        'n_years':          len(INFER_COLS_PLAN),
+        'n_years_full':     len(ALL_COLS_PLAN),
+        'n_areas':          len(gdf),
+        'gdf':              gdf,
+        'D_full_mean':      D_full_mean,
     }
