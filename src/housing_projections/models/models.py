@@ -124,24 +124,31 @@ def _build_asymmetric_missingness(P_mean, sigma_obs):
 def _build_planning_likelihood_zeroinflated(P_mean, P_obs,
                                             pi_miss, nu_obs, sigma_obs):
     """
-    Zero-inflated planning likelihood using pm.Mixture.
-    pi_miss can be scalar (M2) or (n_areas, n_years) tensor (M3).
+    Zero-inflated planning likelihood via pm.Potential.
+
+    Implements the correct zero-inflation formula without a spike approximation:
+      P=0:  log p = logaddexp(log(pi_miss), log(1-pi_miss) + logT(0; P_mean, σ))
+      P>0:  log p = log(1-pi_miss) + logT(P_obs; P_mean, σ)
+
+    The spike-Normal approach (sigma=1e-6) was wrong for HMC: it made the
+    zero component dominate with a huge constant (~26.7), killing the gradient
+    from P=0 cells and confusing NUTS step-size adaptation.
     """
-    shape = P_obs.shape
+    is_zero = (P_obs == 0)   # fixed boolean numpy mask
 
-    w = pt.stack([
-        pt.ones(shape) * pi_miss,
-        pt.ones(shape) * (1 - pi_miss),
-    ], axis=-1)
+    log_p_student = pm.logp(
+        pm.StudentT.dist(nu=nu_obs, mu=P_mean, sigma=sigma_obs), P_obs
+    )
+    log_pi       = pt.log(pi_miss)
+    log_1mpi     = pt.log(1 - pi_miss)
 
-    pm.Mixture('P_like',
-               w=w,
-               comp_dists=[
-                   pm.Normal.dist(mu=0, sigma=1e-6, shape=shape),
-                   pm.StudentT.dist(nu=nu_obs, mu=P_mean,
-                                    sigma=sigma_obs, shape=shape),
-               ],
-               observed=P_obs)
+    # P=0: mixture of structural zero and StudentT evaluated at 0
+    log_lik_zero    = pt.logaddexp(log_pi, log_1mpi + log_p_student)
+    # P>0: only the non-zero component can generate the observation
+    log_lik_nonzero = log_1mpi + log_p_student
+
+    log_lik = pt.where(is_zero, log_lik_zero, log_lik_nonzero)
+    pm.Potential('P_like', log_lik.sum())
 
 
 def _build_planning_likelihood_zeroinflated_twocomp(P_mean, P_obs,
