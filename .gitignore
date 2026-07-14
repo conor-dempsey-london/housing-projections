@@ -16,6 +16,19 @@ output
 .env
 results/traces
 
+az3*csv
+results/*.uncertainty.csv
+results/*.identifiability.csv
+
+*.html
+
+results/artifacts/
+results/scratch/
+results/traces_full/
+scratch_upars.npy
+notebooks/__marimo__/
+
+
 # pixi environments
 .pixi/*
 !.pixi/config.toml
@@ -35,3 +48,7 @@ pixi.lock
 # Plan docs — internal working notes, not part of the shipped project
 PLAN*.md
 WORKPLAN.md
+
+# Claude Code — local agent config/instructions, not part of the shipped project
+CLAUDE.md
+.claude/
