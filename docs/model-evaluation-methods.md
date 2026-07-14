@@ -77,7 +77,8 @@ Every AZ-family model anchors `z`'s prior mean directly to `D` (the trusted, onl
 10-years census total): `mu_area = D/n_years`. That construction makes a specific,
 non-approximate test available: hold out one decade's census figure, refit with the
 z-prior anchored only on the *other* decades, and compare the model's predicted decadal
-total for the held-out period against the real (known) census number for that period.
+total for the held-out period against the recorded census number for that period (treated as
+exact for this comparison, per the project's current census-exactness assumption).
 
 This is the single most defensible quantitative check available, because it tests the
 actual thing under active iteration — the temporal reallocation / lag mechanism — against
