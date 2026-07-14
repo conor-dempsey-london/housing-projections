@@ -166,7 +166,7 @@ pixi run run-models --models AZ1c --n-areas 50
 pixi run diagnose --models AZ1c
 
 # 3. If diagnose flags elevated r-hat/low ESS, classify whether it's genuine
-#    multimodality before chasing it as a bug (see docs/multimodality-diagnostic-pipeline.md)
+#    multimodality before chasing it as a bug
 pixi run multimodality --models AZ1c
 
 # 4. Once convergence looks sound, resample on the full 200-area set
@@ -179,5 +179,3 @@ pixi run compare --models AZ0a,AZ1c
 #    before calling the iteration accepted or rejected
 pixi run report --models AZ0a,AZ1c --output results/report_az1c.html
 ```
-
-Record the outcome (accepted/rejected, and why) in `docs/az-family-work-plan.md`.
