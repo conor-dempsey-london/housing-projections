@@ -8,7 +8,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 # ── Weights matrix ────────────────────────────────────────────────────────────
 
 
-def weights_to_dense(w):
+def _weights_to_dense(w):
     """Convert libpysal weights to dense numpy array."""
     return libpysal.weights.full(w)[0]
 
@@ -55,7 +55,7 @@ def add_spatial_lag_features(gdf, feature_cols, use_index=False):
     GeoDataFrame with additional lag columns
     """
     w       = build_weights_libpysal(gdf)
-    W_dense = weights_to_dense(w)
+    W_dense = _weights_to_dense(w)
 
     gdf_out = gdf.copy()
     for col in feature_cols:
@@ -90,7 +90,7 @@ class SpatialLagTransformer(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         w       = build_weights_libpysal(X)
-        W_dense = weights_to_dense(w)
+        W_dense = _weights_to_dense(w)
 
         feature_arr = X[self.feature_cols].values
         lag_arr     = W_dense @ X[self.lag_cols_].values

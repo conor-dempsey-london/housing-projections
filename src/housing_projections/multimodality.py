@@ -24,6 +24,8 @@ definitions, and worked thresholds; docs/ess-rhat-diagnostic-guide.md §2 step 2
 docs/multimodality-characterization-guide.md §0/Step 3 for the underlying methodology this
 formalizes.
 """
+from dataclasses import dataclass
+
 import arviz as az
 import numpy as np
 import pandas as pd
@@ -31,6 +33,7 @@ import pandas as pd
 from housing_projections.diagnostics import diagnostics_summary, hierarchical_mode_summary
 
 __all__ = [
+    "ModeClassificationThresholds",
     "compute_switch_rates",
     "compute_loglik_gap",
     "compute_logp_gap",
@@ -44,6 +47,28 @@ __all__ = [
     "multimodality_report",
     "adjusted_diagnostics_summary",
 ]
+
+
+@dataclass(frozen=True)
+class ModeClassificationThresholds:
+    """
+    The four thresholds that jointly decide a classify_multimodality/
+    classify_scalar_multimodality category (see `_categorize`) — bundled as one object
+    because they are only ever meaningful together, not because they're independently
+    tunable knobs. All defaults were derived empirically from the AZ1 family this session,
+    not from a universal statistical rule — see classify_multimodality's own docstring for
+    the full calibration caveat; re-check before trusting them on a materially different
+    model. `rhat_threshold` (which cells get classified at all) and `sigma_threshold`
+    (scalar-only mode discovery) are deliberately NOT included here — both are used well
+    beyond this classification step (shared with `hierarchical_mode_summary`/
+    `diagnostics_summary`, or specific to `_discover_modes_from_chain_means`), so folding
+    them in here would misrepresent them as part of this one decision.
+    """
+    purity_threshold: float = 0.95
+    switch_rate_threshold: float = 0.02
+    gap_tied_threshold: float = 2.0
+    gap_decisive_threshold: float = 10.0
+
 
 CAT_HARD_GENUINE    = "hard_genuine"
 CAT_STUCK_FIXABLE   = "stuck_fixable"
@@ -324,8 +349,7 @@ def compute_logp_gap(trace, dominant, purity_threshold=0.95):
             "gaps": gaps, "n_mixed_chains": n_mixed}
 
 
-def _categorize(mean_switch_rate, gap_result, switch_rate_threshold, gap_tied_threshold,
-                gap_decisive_threshold, action_templates, unit_label="nats"):
+def _categorize(mean_switch_rate, gap_result, thresholds, action_templates, unit_label="nats"):
     """
     Shared five-category decision logic, extracted so classify_multimodality (known
     categories, nat-scale gaps from a named per-source log-likelihood) and
@@ -339,6 +363,7 @@ def _categorize(mean_switch_rate, gap_result, switch_rate_threshold, gap_tied_th
     mean_switch_rate     : float
     gap_result            : dict from compute_loglik_gap/compute_logp_gap (best_category,
                             group_means, gaps, n_mixed_chains)
+    thresholds            : ModeClassificationThresholds
     action_templates      : dict with keys 'round_tripping', 'needs_review_none',
                             'needs_review_ambiguous' (a .format(gaps_str=..., unit_label=...)
                             template), 'stuck_fixable', 'hard_genuine', 'mixed'
@@ -348,14 +373,14 @@ def _categorize(mean_switch_rate, gap_result, switch_rate_threshold, gap_tied_th
     -------
     (category, recommended_action)
     """
-    if mean_switch_rate > switch_rate_threshold:
+    if mean_switch_rate > thresholds.switch_rate_threshold:
         return CAT_ROUND_TRIPPING, action_templates["round_tripping"]
     if gap_result["best_category"] is None:
         return CAT_NEEDS_REVIEW, action_templates["needs_review_none"]
 
     gaps = gap_result["gaps"]
-    tied     = [c for c, g in gaps.items() if g < gap_tied_threshold]
-    decisive = [c for c, g in gaps.items() if g > gap_decisive_threshold]
+    tied     = [c for c, g in gaps.items() if g < thresholds.gap_tied_threshold]
+    decisive = [c for c, g in gaps.items() if g > thresholds.gap_decisive_threshold]
     ambiguous = [c for c in gaps if c not in tied and c not in decisive]
     if ambiguous:
         gaps_str = [round(gaps[c], 1) for c in ambiguous]
@@ -381,9 +406,7 @@ _LAG_VAR_ACTION_TEMPLATES = {
 
 
 def classify_multimodality(trace, lag_var_name, loglik_var_name,
-                           rhat_threshold=1.01, purity_threshold=0.95,
-                           switch_rate_threshold=0.02,
-                           gap_tied_threshold=2.0, gap_decisive_threshold=10.0):
+                           rhat_threshold=1.01, thresholds=ModeClassificationThresholds()):
     """
     Classify every area `hierarchical_mode_summary` flags into one of five categories.
 
@@ -437,7 +460,7 @@ def classify_multimodality(trace, lag_var_name, loglik_var_name,
                "best_category", "gaps", "category", "recommended_action"]
 
     mode_df = hierarchical_mode_summary(trace, lag_var_name, rhat_threshold=rhat_threshold,
-                                        purity_threshold=purity_threshold)
+                                        purity_threshold=thresholds.purity_threshold)
     if mode_df.empty:
         return pd.DataFrame(columns=columns)
 
@@ -452,12 +475,12 @@ def classify_multimodality(trace, lag_var_name, loglik_var_name,
         mean_switch_rate = float(switch_rate[:, area_idx].mean())
 
         gap_result = compute_loglik_gap(trace, dominant, area_idx, loglik_var_name,
-                                        purity_threshold=purity_threshold)
+                                        purity_threshold=thresholds.purity_threshold)
         n_pure = int(row["n_chains"]) - int(row["n_mixed_chains"])
 
         category, action = _categorize(
-            mean_switch_rate, gap_result, switch_rate_threshold, gap_tied_threshold,
-            gap_decisive_threshold, _LAG_VAR_ACTION_TEMPLATES, unit_label="nats")
+            mean_switch_rate, gap_result, thresholds,
+            _LAG_VAR_ACTION_TEMPLATES, unit_label="nats")
 
         rows.append({
             "area": area_code,
@@ -490,9 +513,9 @@ _SCALAR_ACTION_TEMPLATES = {
 }
 
 
-def classify_scalar_multimodality(trace, var_names, rhat_threshold=1.01, purity_threshold=0.95,
-                                  switch_rate_threshold=0.02, gap_tied_threshold=2.0,
-                                  gap_decisive_threshold=10.0, sigma_threshold=3.0):
+def classify_scalar_multimodality(trace, var_names, rhat_threshold=1.01,
+                                  thresholds=ModeClassificationThresholds(),
+                                  sigma_threshold=3.0):
     """
     Generic-variable counterpart to classify_multimodality: classifies every individual cell
     of every named scalar/vector variable in `var_names` with elevated r-hat, using
@@ -521,6 +544,8 @@ def classify_scalar_multimodality(trace, var_names, rhat_threshold=1.01, purity_
                      same convention `diagnostics_summary` uses) — names absent from
                      `trace.posterior` are silently skipped
     rhat_threshold : per-cell r-hat above this triggers classification for that cell
+    thresholds     : ModeClassificationThresholds — see classify_multimodality
+    sigma_threshold : passed to `_discover_modes_from_chain_means` for mode discovery
 
     Returns
     -------
@@ -561,17 +586,17 @@ def classify_scalar_multimodality(trace, var_names, rhat_threshold=1.01, purity_
 
             dominant = _nearest_mode_labels(cell_values, mode_locations)
             mean_switch_rate = float(_switch_rate_from_dominant(dominant).mean())
-            gap_result = compute_logp_gap(trace, dominant, purity_threshold=purity_threshold)
+            gap_result = compute_logp_gap(trace, dominant,
+                                          purity_threshold=thresholds.purity_threshold)
 
             n_pure = 0
             for c in range(n_chains):
                 _, counts = np.unique(dominant[c], return_counts=True)
-                if counts[counts.argmax()] / counts.sum() >= purity_threshold:
+                if counts[counts.argmax()] / counts.sum() >= thresholds.purity_threshold:
                     n_pure += 1
 
             category, action = _categorize(
-                mean_switch_rate, gap_result, switch_rate_threshold, gap_tied_threshold,
-                gap_decisive_threshold, _SCALAR_ACTION_TEMPLATES,
+                mean_switch_rate, gap_result, thresholds, _SCALAR_ACTION_TEMPLATES,
                 unit_label="pooled within-chain logp std devs")
 
             rows.append({
@@ -752,7 +777,7 @@ def _within_chain_ess(trace, var_name, area_idx, category):
 
 def adjusted_diagnostics_report(trace, lag_var_name, loglik_var_name,
                                 rhat_threshold=1.01, resolved_verification=None,
-                                classify_kwargs=None):
+                                thresholds=None):
     """
     The "at a glance" summary this pipeline exists to produce: how much of the raw
     bad-r-hat/low-ESS picture is genuine (expected) multimodality versus a real problem.
@@ -788,6 +813,11 @@ def adjusted_diagnostics_report(trace, lag_var_name, loglik_var_name,
         resolved_verification shows did NOT actually resolve (the classification's own
         wrong guesses, surfaced rather than silently trusted)
 
+    Parameters
+    ----------
+    thresholds : ModeClassificationThresholds, passed through to classify_multimodality
+                 (default: ModeClassificationThresholds() if None)
+
     Returns
     -------
     dict — see the five bullet groups above for keys; also includes the full
@@ -795,7 +825,7 @@ def adjusted_diagnostics_report(trace, lag_var_name, loglik_var_name,
     """
     classification_df = classify_multimodality(
         trace, lag_var_name, loglik_var_name, rhat_threshold=rhat_threshold,
-        **(classify_kwargs or {}))
+        thresholds=thresholds or ModeClassificationThresholds())
 
     counts = classification_df["category"].value_counts().to_dict()
     for cat in (CAT_HARD_GENUINE, CAT_STUCK_FIXABLE, CAT_ROUND_TRIPPING, CAT_MIXED,
@@ -902,7 +932,7 @@ def derive_loglik_var(lag_var_name):
     return f"{source}_like"
 
 
-def _scalar_diagnostics_report(trace, var_names, rhat_threshold=1.01, classify_kwargs=None):
+def _scalar_diagnostics_report(trace, var_names, rhat_threshold=1.01, thresholds=None):
     """
     Scalar-variable counterpart to adjusted_diagnostics_report: runs
     classify_scalar_multimodality over `var_names` and reports counts across all SIX
@@ -927,7 +957,8 @@ def _scalar_diagnostics_report(trace, var_names, rhat_threshold=1.01, classify_k
     adjusted_max_rhat/min_ess, best_case_max_rhat/min_ess, classification_df.
     """
     classification_df = classify_scalar_multimodality(
-        trace, var_names, rhat_threshold=rhat_threshold, **(classify_kwargs or {}))
+        trace, var_names, rhat_threshold=rhat_threshold,
+        thresholds=thresholds or ModeClassificationThresholds())
 
     counts = classification_df["category"].value_counts().to_dict()
     for cat in (CAT_HARD_GENUINE, CAT_STUCK_FIXABLE, CAT_ROUND_TRIPPING, CAT_MIXED,
@@ -1029,7 +1060,7 @@ def _passthrough_report(rhat_da, ess_da):
 
 
 def multimodality_report(trace, lag_vars=None, var_names=None, rhat_threshold=1.01,
-                         resolved_trace=None, classify_kwargs=None):
+                         resolved_trace=None, thresholds=None):
     """
     The actual entry point `check-multimodality` uses: combines adjusted_diagnostics_report
     across EVERY `*_lambda_weights` variable a trace has (by default — pass `lag_vars` to
@@ -1070,7 +1101,9 @@ def multimodality_report(trace, lag_vars=None, var_names=None, rhat_threshold=1.
                       `check-multimodality --resolve`'s saved `{model}_resolved.nc`) — used
                       to verify resolution for EACH lag var's own stuck_fixable subset (never
                       applies to scalars — there is no automated scalar resolution path)
-    classify_kwargs : passed through to classify_multimodality/classify_scalar_multimodality
+    thresholds      : ModeClassificationThresholds, passed through to
+                      classify_multimodality/classify_scalar_multimodality (default:
+                      ModeClassificationThresholds() if None)
 
     Returns
     -------
@@ -1099,6 +1132,7 @@ def multimodality_report(trace, lag_vars=None, var_names=None, rhat_threshold=1.
     lose which source the finding is actually about.
     """
     lag_vars = list(lag_vars) if lag_vars is not None else lag_vars_in_trace(trace)
+    thresholds = thresholds or ModeClassificationThresholds()
     n_areas_total = (len(trace.posterior.coords["area"].values)
                      if "area" in trace.posterior.coords else 0)
 
@@ -1126,7 +1160,7 @@ def multimodality_report(trace, lag_vars=None, var_names=None, rhat_threshold=1.
         if resolved_trace is not None:
             prelim_df = classify_multimodality(
                 trace, lag_var, loglik_var, rhat_threshold=rhat_threshold,
-                **(classify_kwargs or {}))
+                thresholds=thresholds)
             stuck_areas = prelim_df.loc[
                 prelim_df["category"] == CAT_STUCK_FIXABLE, "area"].tolist()
             if stuck_areas:
@@ -1134,12 +1168,12 @@ def multimodality_report(trace, lag_vars=None, var_names=None, rhat_threshold=1.
 
         per_lag_reports[lag_var] = adjusted_diagnostics_report(
             trace, lag_var, loglik_var, rhat_threshold=rhat_threshold,
-            resolved_verification=resolved_verification, classify_kwargs=classify_kwargs)
+            resolved_verification=resolved_verification, thresholds=thresholds)
 
     scalar_report = None
     if var_names is not None:
         scalar_report = _scalar_diagnostics_report(
-            trace, var_names, rhat_threshold=rhat_threshold, classify_kwargs=classify_kwargs)
+            trace, var_names, rhat_threshold=rhat_threshold, thresholds=thresholds)
 
     all_reports = (list(per_lag_reports.values()) + passthrough_reports
                   + ([scalar_report] if scalar_report else []))
