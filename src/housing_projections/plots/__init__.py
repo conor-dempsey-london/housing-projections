@@ -1,4 +1,7 @@
 from housing_projections.plots.core import (
+    REFERENCE_AREAS as REFERENCE_AREAS,
+)
+from housing_projections.plots.core import (
     plot_parameter_posteriors as plot_parameter_posteriors,
 )
 from housing_projections.plots.core import (
@@ -26,13 +29,22 @@ from housing_projections.plots.core import (
     plot_sample_areas as plot_sample_areas,
 )
 from housing_projections.plots.core import (
+    plot_spike_tracking_examples as plot_spike_tracking_examples,
+)
+from housing_projections.plots.core import (
     plot_uncertainty_vs_disagreement as plot_uncertainty_vs_disagreement,
 )
 from housing_projections.plots.core import (
     plot_z_area as plot_z_area,
 )
 from housing_projections.plots.core import (
+    plot_z_area_modes as plot_z_area_modes,
+)
+from housing_projections.plots.core import (
     select_sample_areas as select_sample_areas,
+)
+from housing_projections.plots.core import (
+    select_spike_tracking_areas as select_spike_tracking_areas,
 )
 from housing_projections.plots.model import (
     plot_lag_effect as plot_lag_effect,
