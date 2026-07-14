@@ -1,10 +1,10 @@
+from housing_projections.analysis import compute_model_comparison
 from housing_projections.data import (
     load_data,
     make_data_dict,
     select_spatial_sample,
     validate_data_path,
 )
-from housing_projections.analysis import compute_model_comparison
 from housing_projections.diagnostics import full_diagnostics
 from housing_projections.outliers import (
     apply_outlier_exclusion,
