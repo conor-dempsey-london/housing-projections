@@ -7,6 +7,7 @@ import arviz as az
 import numpy as np
 import pymc as pm
 import pytensor.tensor as pt
+import xarray as xr
 
 from housing_projections.config import (
     CENSUS_ABS_FLOOR,
@@ -14,6 +15,44 @@ from housing_projections.config import (
     DEFAULT_SAMPLE_KWARGS,
     INFER_YEARS,
 )
+
+
+def _attach_pointwise_log_likelihood(trace):
+    """
+    pm.Potential-based mixture likelihoods (zero-inflation, agreement
+    gating, temporal reallocation) aren't observed RVs, so
+    pm.compute_log_likelihood() can't derive their pointwise
+    log-likelihood automatically -- it only walks observed RVs, and a
+    Potential is just a scalar term added to the joint log-density. The
+    builders that use pm.Potential also expose the per-cell array as a
+    '<name>_pointwise' Deterministic (e.g. 'P_like_pointwise'); pull
+    those into the log_likelihood group here under their un-suffixed
+    name so LOO/az.compare (which look for e.g. trace.log_likelihood
+    ['P_like']) work the same regardless of whether a model's likelihood
+    was built from an observed RV or a marginalised Potential.
+    """
+    pointwise_vars = [v for v in trace.posterior.data_vars
+                      if v.endswith('_pointwise')]
+    if not pointwise_vars:
+        return trace
+
+    has_group = '/log_likelihood' in trace.groups
+    existing_ds = trace.log_likelihood.to_dataset() if has_group else xr.Dataset()
+    new_vars = {
+        v[:-len('_pointwise')]: trace.posterior[v]
+        for v in pointwise_vars
+        if v[:-len('_pointwise')] not in existing_ds.data_vars
+    }
+    if not new_vars:
+        return trace
+
+    # Item-style assignment (trace['log_likelihood'] = ...), NOT attribute-style
+    # (trace.log_likelihood = ...): on an xarray DataTree, attribute assignment
+    # appears to work in-memory (immediate reads reflect it) but silently fails
+    # to update the node that to_netcdf() serialises from, so the group comes
+    # back empty on reload. Confirmed via a minimal DataTree repro.
+    trace['log_likelihood'] = xr.merge([existing_ds, xr.Dataset(new_vars)])
+    return trace
 
 
 class DwellingModel(ABC):
@@ -119,6 +158,11 @@ class DwellingModel(ABC):
     def __repr__(self):
         return f"{self.name}: {self.description}"
 
+    # nutpie kwargs forwarded only if explicitly passed to sample() — e.g.
+    # adaptation='flow' (normalizing-flow adaptation, helps with funnel
+    # geometries) or init_mean (seed chains away from a pathological region).
+    _NUTPIE_PASSTHROUGH_KEYS = ('adaptation', 'init_mean', 'cores')
+
     def sample(self, use_nutpie=True, **kwargs):
         """
         Build (if needed) and sample from the model.
@@ -126,7 +170,10 @@ class DwellingModel(ABC):
         Parameters
         ----------
         use_nutpie : bool — use nutpie sampler if available (default True)
-        **kwargs   : override self.sample_kwargs
+        **kwargs   : override self.sample_kwargs. Recognises the usual
+                     draws/tune/chains/target_accept/random_seed, plus (when
+                     use_nutpie=True) nutpie-specific passthrough kwargs:
+                     adaptation, init_mean, cores.
         """
         if self.model is None:
             self.build()
@@ -137,7 +184,11 @@ class DwellingModel(ABC):
             if use_nutpie:
                 try:
                     import nutpie
-                    compiled   = nutpie.compile_pymc_model(self.model)
+                    compiled = nutpie.compile_pymc_model(self.model)
+                    nutpie_extra = {
+                        k: merged[k] for k in self._NUTPIE_PASSTHROUGH_KEYS
+                        if k in merged and merged[k] is not None
+                    }
                     self.trace = nutpie.sample(
                         compiled,
                         draws         = merged.get('draws',         500),
@@ -145,6 +196,7 @@ class DwellingModel(ABC):
                         chains        = merged.get('chains',        2),
                         target_accept = merged.get('target_accept', 0.9),
                         seed          = merged.get('random_seed',   42),
+                        **nutpie_extra,
                     )
                 except ImportError:
                     print("nutpie not installed, falling back to PyMC sampler")
@@ -152,6 +204,7 @@ class DwellingModel(ABC):
             else:
                 self.trace = pm.sample(**merged)
             self.trace = pm.compute_log_likelihood(self.trace)
+            self.trace = _attach_pointwise_log_likelihood(self.trace)
         return self.trace
 
     def run(self, results_dir='results/traces', **kwargs):
