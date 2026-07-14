@@ -43,7 +43,7 @@ def validate_data_path(data_path):
         )
 
 
-def load_csv(location, file_name, s3=False) -> pd.DataFrame:
+def _load_csv(location, file_name, s3=False) -> pd.DataFrame:
     if not s3:
         df = pd.read_csv(os.path.join(location, file_name), low_memory=False)
     else:
@@ -120,7 +120,7 @@ def load_data(data_path):
     validate_data_path(data_path)
 
     # ── I/O shell — four external reads ──────────────────────────────────────
-    completions = load_csv(
+    completions = _load_csv(
         os.path.join(data_path, 'pld'),
         'lsoa_completions_time_series_pivot.csv',
     )

@@ -119,12 +119,12 @@ MODEL_DIAGNOSTICS = {
 # ── Model comparison registry ─────────────────────────────────────────────────
 # Maps tuple of model names to comparison report function.
 
-def get_model_comparisons():
+def _get_model_comparisons():
     return {
-        ('M3', 'M4'):  missingness_comparison_report,
-        ('M4', 'M5'):  missingness_comparison_report,
-        ('M5', 'M5b'): missingness_comparison_report,
-        ('M5', 'M6'):  spatial_misallocation_comparison,
+        ('M3', 'M4'):  _missingness_comparison_report,
+        ('M4', 'M5'):  _missingness_comparison_report,
+        ('M5', 'M5b'): _missingness_comparison_report,
+        ('M5', 'M6'):  _spatial_misallocation_comparison,
     }
 
 
@@ -246,7 +246,7 @@ def run_comparison_reports(models, traces, data, post_preds):
     post_preds: dict mapping model name (str) to posterior predictive InferenceData
     """
     sampled = set(models.keys())
-    for (name_before, name_after), report_fn in get_model_comparisons().items():
+    for (name_before, name_after), report_fn in _get_model_comparisons().items():
         if name_before in sampled and name_after in sampled:
             print(f"\nRunning comparison: {name_before} vs {name_after}")
             report_fn(
@@ -257,7 +257,7 @@ def run_comparison_reports(models, traces, data, post_preds):
 
 
 # ── missingness comparisons ──────────────────────────────────────────────────────
-def missingness_comparison_report(trace_before, trace_after, data,
+def _missingness_comparison_report(trace_before, trace_after, data,
                                    post_pred_before, post_pred_after,
                                    title=''):
     # Extract model names from title e.g. 'M3 vs M4' -> 'M3', 'M4'
@@ -278,7 +278,7 @@ def missingness_comparison_report(trace_before, trace_after, data,
         label_after=label_after)
 
 
-def spatial_misallocation_comparison(trace_m5, trace_m6, data,
+def _spatial_misallocation_comparison(trace_m5, trace_m6, data,
                                       post_pred_m5, post_pred_m6,
                                       title='M5 vs M6'):
     """
