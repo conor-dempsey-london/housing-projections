@@ -227,19 +227,46 @@ def area_timeseries_frame(trace, data, area_idx, area_code, reason):
     return pd.DataFrame(rows)
 
 
-def plot_mode_decomposition_if_available(trace, area_idx, area_code, output_dir):
+def plot_mode_decomposition_if_available(trace, data, area_idx, area_code, output_dir,
+                                          n_clusters=2, z_post=None):
     """Save a static PNG of the whole-draw mode decomposition (plot_z_area_modes)
     for one example area, if that area has any multimodal year. Kept as a
     pre-rendered image (not CSV data) since it needs the full per-draw z array,
-    which is deliberately not carried into the CSVs."""
+    which is deliberately not carried into the CSVs.
+
+    Passes P_obs/E_obs/D through so the panel carries the same context as the
+    main deep-dive chart (previously omitted entirely -- see
+    docs/az3-report-review-plan.md item 4). Deliberately does NOT pass
+    resp_noise_P/E here: plot_z_area_modes colours P/E markers by a red/green
+    noise-probability colormap when given it, which is exactly the "hard to
+    read" style the report review asked to move away from for this report --
+    keep these panels' P/E markers plain instead, matching build_report.py's
+    own deep-dive chart.
+
+    Does NOT set its own title after calling plot_z_area_modes -- that
+    function's internal title carries the
+    top-n_clusters-year-concentration diagnostic (a caveat on whether the
+    scenario split is genuine or a k-means artifact); overwriting it silently
+    discarded that diagnostic in every previously-generated PNG.
+
+    Pass z_post explicitly (trace.posterior['z'].values, computed once by the
+    caller) when calling this in a loop over several example areas -- each
+    access to trace.posterior['z'].values is a fresh multi-GB materialization
+    off the lazily-opened trace, so recomputing it once per example area (as
+    this function used to do internally) needlessly re-touches the trace file
+    on every call.
+    """
     try:
         from housing_projections.plots.core import plot_z_area_modes
     except ImportError:
         return None
-    z_post = trace.posterior['z'].values
-    fig, ax = plt.subplots(figsize=(9, 4))
-    plot_z_area_modes(ax, z_post, area_idx)
-    ax.set_title(f'{area_code} — mode decomposition')
+    if z_post is None:
+        z_post = trace.posterior['z'].values
+    fig, ax = plt.subplots(figsize=(9, 4.5))
+    plot_z_area_modes(ax, z_post, area_idx, P_obs=data['P_obs'], E_obs=data['E_obs'],
+                       D=data['D'], n_years=data['n_years'], show_legend=True,
+                       n_clusters=n_clusters,
+                       lsoa_codes=trace.posterior['z'].coords['area'].values.tolist())
     fname = output_dir / f'mode_decomposition_{area_code}.png'
     fig.savefig(fname, dpi=110, bbox_inches='tight')
     plt.close(fig)
@@ -389,11 +416,18 @@ def main():
                                           n_examples=args.n_example_areas)
 
     example_meta, example_ts = [], []
+    z_post_examples = None
     for idx, reason in examples:
         code = lsoa_codes[idx]
         example_meta.append({'area_idx': idx, 'area': code, 'reason': reason})
         example_ts.append(area_timeseries_frame(trace, data, idx, code, reason))
-        plot_mode_decomposition_if_available(trace, idx, code, output_dir)
+        n_modes_years = (area_df_indexed.loc[idx, 'n_multimodal_years']
+                         if 'n_multimodal_years' in area_df_indexed.columns else 0)
+        if n_modes_years > 0:
+            if z_post_examples is None:
+                z_post_examples = trace.posterior['z'].values
+            plot_mode_decomposition_if_available(trace, data, idx, code, output_dir,
+                                                  z_post=z_post_examples)
 
     pd.DataFrame(example_meta).to_csv(output_dir / 'example_areas.csv', index=False)
     pd.concat(example_ts, ignore_index=True).to_csv(
