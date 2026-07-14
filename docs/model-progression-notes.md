@@ -15,6 +15,31 @@ out (and re-discovering dead ends that have already been ruled out).
 > out in that family; **section 0 covers the AZ family, which is where active
 > work is now.**
 
+## Table of contents
+
+- [0. The AZ (Anchored Zero-sum) family — current state](#0-the-az-anchored-zero-sum-family-current-state)
+  - [AZ0b in detail: why it's not (yet) a win over AZ0a](#az0b-in-detail-why-its-not-yet-a-win-over-az0a)
+  - [Reusable infrastructure fix (affects every Potential-based model, AZ or M-family)](#reusable-infrastructure-fix-affects-every-potential-based-model-az-or-m-family)
+  - [Moment matching for `pm.Potential`-based models — a reusable pattern, not (yet) committed to the repo](#moment-matching-for-pmpotential-based-models-a-reusable-pattern-not-yet-committed-to-the-repo)
+  - [Open next steps for the AZ family](#open-next-steps-for-the-az-family)
+- [1. Model-by-model: what each one is and how it did](#1-model-by-model-what-each-one-is-and-how-it-did)
+- [2. Unexplored / open threads](#2-unexplored-open-threads)
+  - [Z-prior architecture](#z-prior-architecture)
+  - [Spatial](#spatial)
+  - [Temporal / likelihood](#temporal-likelihood)
+  - [Model comparison / LOO](#model-comparison-loo)
+  - [Diagnostics infrastructure](#diagnostics-infrastructure)
+  - [Closing the original question](#closing-the-original-question)
+- [3. The marginalized profile-library alternative — M16, done and working](#3-the-marginalized-profile-library-alternative-m16-done-and-working)
+  - [What M14/M15 actually did](#what-m14m15-actually-did)
+  - [Obstacle 1 — `pm.Potential` isn't traceable, `pm.CustomDist` is](#obstacle-1-pmpotential-isnt-traceable-pmcustomdist-is)
+  - [Obstacle 2 — `z` can't be a `pm.Deterministic` either](#obstacle-2-z-cant-be-a-pmdeterministic-either)
+  - [Obstacle 3 — `area` must be a batch dimension, not folded into one opaque call](#obstacle-3-area-must-be-a-batch-dimension-not-folded-into-one-opaque-call)
+  - [Recovering `z` after marginalized sampling](#recovering-z-after-marginalized-sampling)
+  - [A fourth gotcha: two `CustomDist`s sharing one marginalized RV](#a-fourth-gotcha-two-customdists-sharing-one-marginalized-rv)
+  - [What this buys, confirmed](#what-this-buys-confirmed)
+  - [What this does *not* fix](#what-this-does-not-fix)
+
 ## 0. The AZ (Anchored Zero-sum) family — current state
 
 **Core idea** (validated by direct simulation before implementation): `z`'s
