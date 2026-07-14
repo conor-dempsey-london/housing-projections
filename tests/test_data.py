@@ -76,7 +76,15 @@ class TestMakeDataDict:
         assert sliced['D_full_mean'] == full['D_full_mean']
 
     def test_p_obs_matches_gdf_columns(self, data_dict, synthetic_gdf):
+        """
+        P_obs matches the raw gdf columns, except cells make_data_dict
+        intentionally snaps to zero (0 < P < 10% of E — likely PLD data
+        errors, see the comment in make_data_dict).
+        """
         expected = synthetic_gdf[INFER_COLS_PLAN].values.astype(float)
+        e_obs = synthetic_gdf[INFER_COLS_BEN].values.astype(float)
+        erroneous = (expected > 0) & (e_obs > 0) & (expected < 0.1 * e_obs)
+        expected[erroneous] = 0.0
         np.testing.assert_array_equal(data_dict['P_obs'], expected)
 
     def test_e_obs_matches_gdf_columns(self, data_dict, synthetic_gdf):
