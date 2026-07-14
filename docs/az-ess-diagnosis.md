@@ -22,6 +22,44 @@ New models added to the codebase: `AZ1c`, `AZ2b` (both registered in `models/__i
 `cli.py`, tested in `tests/test_models.py`). AZ1a unchanged except `sample_kwargs` now
 requests 8 chains.
 
+## Table of contents
+
+- [AZ1a — fully-pooled lag convolution](#az1a-fully-pooled-lag-convolution)
+  - [Symptom (already diagnosed pre-this-document)](#symptom-already-diagnosed-pre-this-document)
+  - [Diagnosis (already established, re-verified here)](#diagnosis-already-established-re-verified-here)
+  - [Fix tried](#fix-tried)
+  - [Result — as expected, r-hat/ESS did NOT improve; the split is now cleanly characterized](#result-as-expected-r-hatess-did-not-improve-the-split-is-now-cleanly-characterized)
+  - [Verdict](#verdict)
+- [AZ1b → AZ1c — hard cap on tau](#az1b-az1c-hard-cap-on-tau)
+  - [Symptom (already diagnosed pre-this-document)](#symptom-already-diagnosed-pre-this-document-1)
+  - [What was already tried and ruled out](#what-was-already-tried-and-ruled-out)
+  - [Fix tried](#fix-tried-1)
+  - [Result — negative, made it worse, and the tau posterior shows exactly why](#result-negative-made-it-worse-and-the-tau-posterior-shows-exactly-why)
+  - [Verdict](#verdict-1)
+  - [Follow-up: is the ambiguity actually all genuine? Checked directly, and no — it's mixed](#follow-up-is-the-ambiguity-actually-all-genuine-checked-directly-and-no-its-mixed)
+  - [AZ1b → AZ1d — remove E's lag mechanism entirely: a real, clean win](#az1b-az1d-remove-es-lag-mechanism-entirely-a-real-clean-win)
+  - [AZ1d's own residual ESS/r-hat, dug into properly: what's left after removing E's lag](#az1ds-own-residual-essr-hat-dug-into-properly-whats-left-after-removing-es-lag)
+  - [Two follow-up fix attempts, tried and both fully resolved (one accepted, one rejected)](#two-follow-up-fix-attempts-tried-and-both-fully-resolved-one-accepted-one-rejected)
+  - [Follow-up: which areas are genuinely multimodal, and does that explain everything else?](#follow-up-which-areas-are-genuinely-multimodal-and-does-that-explain-everything-else)
+  - [AZ1d → AZ1f — marginalize P's lag likelihood instead of mean-mixing it — rejected, badly](#az1d-az1f-marginalize-ps-lag-likelihood-instead-of-mean-mixing-it-rejected-badly)
+  - [E01002702, characterized properly via `docs/multimodality-characterization-guide.md`](#e01002702-characterized-properly-via-docsmultimodality-characterization-guidemd)
+- [AZ2 → AZ2b — smooth top-boost ramp](#az2-az2b-smooth-top-boost-ramp)
+  - [Symptom (already diagnosed pre-this-document)](#symptom-already-diagnosed-pre-this-document-2)
+  - [Fix tried](#fix-tried-2)
+  - [Result — positive, a real and fairly large improvement](#result-positive-a-real-and-fairly-large-improvement)
+  - [Verdict](#verdict-2)
+- [What this changes about Phase 4 (combine validated pieces)](#what-this-changes-about-phase-4-combine-validated-pieces)
+- [Phase 4 — AZ4, the combined model (built after this document's three fixes)](#phase-4-az4-the-combined-model-built-after-this-documents-three-fixes)
+  - [Follow-up options, not yet chosen](#follow-up-options-not-yet-chosen)
+  - [Ablation test: is it really "the lag-ambiguous minority leaking into the shared scalars"?](#ablation-test-is-it-really-the-lag-ambiguous-minority-leaking-into-the-shared-scalars)
+  - [AZ1d → AZ1g — regularized horseshoe: the leakage mechanism confirmed far more strongly than the ablation test showed, and a real (if partial, and sample-dependent) fix](#az1d-az1g-regularized-horseshoe-the-leakage-mechanism-confirmed-far-more-strongly-than-the-ablation-test-showed-and-a-real-if-partial-and-sample-dependent-fix)
+  - [AZ1g's residual: does "just sample more" fix it? Tested directly, not assumed — no](#az1gs-residual-does-just-sample-more-fix-it-tested-directly-not-assumed-no)
+  - [AZ1g → AZ1h — moving to the CANONICAL regularized horseshoe recipe: rejected, on both changes tested](#az1g-az1h-moving-to-the-canonical-regularized-horseshoe-recipe-rejected-on-both-changes-tested)
+- [AZ2b's `sigma_plan`/`sigma_ben` follow-up: closing the branch](#az2bs-sigma_plansigma_ben-follow-up-closing-the-branch)
+  - [Verdict](#verdict-3)
+- [Not done in this pass (flagged, not forgotten)](#not-done-in-this-pass-flagged-not-forgotten)
+- [Follow-up: the manual multimodality investigation is now a reusable pipeline](#follow-up-the-manual-multimodality-investigation-is-now-a-reusable-pipeline)
+
 ---
 
 ## AZ1a — fully-pooled lag convolution

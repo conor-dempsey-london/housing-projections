@@ -16,6 +16,23 @@ more tuning); they do not tell you how to tell which of six very-differently-sha
 you're looking at, or that some of the textbook fixes actively make specific problems worse.
 That's what this document is for.
 
+## Table of contents
+
+- [§1 — Two checks before any real diagnosis starts](#1-two-checks-before-any-real-diagnosis-starts)
+- [§2 — Decision procedure](#2-decision-procedure)
+- [§3 — Pattern catalog](#3-pattern-catalog)
+  - [Pattern 1 — Architectural hard multimodality (no sampling fix exists)](#pattern-1-architectural-hard-multimodality-no-sampling-fix-exists)
+  - [Pattern 2 — Per-group ambiguity after partial pooling: genuine vs. spurious](#pattern-2-per-group-ambiguity-after-partial-pooling-genuine-vs-spurious)
+  - [Pattern 3 — Fighting genuine ambiguity with a tighter prior or a hard cap fails, repeatedly](#pattern-3-fighting-genuine-ambiguity-with-a-tighter-prior-or-a-hard-cap-fails-repeatedly)
+  - [Pattern 4 — A hard threshold/discontinuity creates a shallow-basin disagreement](#pattern-4-a-hard-thresholddiscontinuity-creates-a-shallow-basin-disagreement)
+  - [Pattern 5 — Scale-parameter collapse toward a boundary: funnel vs. degenerate fixed point](#pattern-5-scale-parameter-collapse-toward-a-boundary-funnel-vs-degenerate-fixed-point)
+  - [Pattern 6 — Cross-parameter/cross-source coupling masquerading as an unrelated problem](#pattern-6-cross-parametercross-source-coupling-masquerading-as-an-unrelated-problem)
+  - [Pattern 7 — Composition leakage: combining validated pieces destabilizes previously-clean shared parameters](#pattern-7-composition-leakage-combining-validated-pieces-destabilizes-previously-clean-shared-parameters)
+  - [Pattern 8 — Diagnostic tooling itself can hide the problem](#pattern-8-diagnostic-tooling-itself-can-hide-the-problem)
+- [§4 — The log-likelihood-gap check, worked recipe](#4-the-log-likelihood-gap-check-worked-recipe)
+- [§5 — Quick-reference table](#5-quick-reference-table)
+- [§6 — When to stop fixing and report instead](#6-when-to-stop-fixing-and-report-instead)
+
 ## §1 — Two checks before any real diagnosis starts
 
 **1. Are you actually looking at the whole model, or just the named scalars?**

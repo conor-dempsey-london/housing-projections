@@ -36,6 +36,22 @@ best-validated model — max r-hat 1.006, min ESS 3180, 0 divergences. AZ0b
 a full moment-matching PSIS-LOO check found its apparent LOO win over AZ0a
 was an artefact (0/561 bad-k points fixed).
 
+## Table of contents
+
+- [Reference areas (plotting)](#reference-areas-plotting)
+- [Ground rules for this round](#ground-rules-for-this-round)
+- [Phase status](#phase-status)
+  - [Phase 0 — spike-tracking diagnostic tool — DONE](#phase-0-spike-tracking-diagnostic-tool-done)
+  - [Phase 1a — AZ1a: fully-pooled continuous lag convolution — DONE, mixed result](#phase-1a-az1a-fully-pooled-continuous-lag-convolution-done-mixed-result)
+  - [Phase 1b — area-level (not borough) grouping for lag weights — DONE, clear improvement](#phase-1b-area-level-not-borough-grouping-for-lag-weights-done-clear-improvement)
+  - [Phase 2 — top-D-quartile sigma_delta boost — DONE, resolved via simplification](#phase-2-top-d-quartile-sigma_delta-boost-done-resolved-via-simplification)
+  - [Phase 3 — floored outlier/noise branch + automatic flagging — BUILT, verdict still open](#phase-3-floored-outliernoise-branch-automatic-flagging-built-verdict-still-open)
+  - [Phase 4 — combine validated pieces — BUILT (AZ4), verdict mixed](#phase-4-combine-validated-pieces-built-az4-verdict-mixed)
+  - [Phase 5 — AZ5: AZ1g + AZ3, a narrower two-piece combination — SAMPLED, verdict mixed (not a finalist)](#phase-5-az5-az1g-az3-a-narrower-two-piece-combination-sampled-verdict-mixed-not-a-finalist)
+  - [Phase 6 — redundancy-hypothesis check, model comparison, full-dataset AZ3 validation](#phase-6-redundancy-hypothesis-check-model-comparison-full-dataset-az3-validation)
+  - [Deferred (explicit user instruction, not forgotten)](#deferred-explicit-user-instruction-not-forgotten)
+- [Side thread (not part of this modelling plan, tracked separately)](#side-thread-not-part-of-this-modelling-plan-tracked-separately)
+
 ## Reference areas (plotting)
 
 `plot_spike_tracking_examples` (Phase 0 tool) now always includes these

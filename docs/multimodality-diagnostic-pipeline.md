@@ -20,6 +20,24 @@ picture come out of one combined report.
 Run it whenever a model's `pixi run diagnose` output shows elevated r-hat/ESS (not for every
 model — see §0 below).
 
+## Table of contents
+
+- [Why this exists, briefly](#why-this-exists-briefly)
+- [§0 — Is this worth running?](#0-is-this-worth-running)
+- [§1 — The five categories](#1-the-five-categories)
+- [§1b — The sixth outcome: `not_multimodal` (scalars/vectors only)](#1b-the-sixth-outcome-not_multimodal-scalarsvectors-only)
+- [§2 — The full workflow, step by step](#2-the-full-workflow-step-by-step)
+- [§2a — Running it](#2a-running-it)
+  - [Worked example (AZ1d, real data, this session)](#worked-example-az1d-real-data-this-session)
+- [§2b — Why `check-multimodality` checks every lag var by default (AZ4b, real data)](#2b-why-check-multimodality-checks-every-lag-var-by-default-az4b-real-data)
+- [§2c — Generalizing beyond `*_lambda_weights`: scalars and vectors (AZ4b, real data)](#2c-generalizing-beyond-_lambda_weights-scalars-and-vectors-az4b-real-data)
+  - [Worked result: `lag_E_mu_logit`, resolved (AZ4b, real data)](#worked-result-lag_e_mu_logit-resolved-az4b-real-data)
+  - [`--resolve` in practice: verification catches a real edge case, not just a formality](#--resolve-in-practice-verification-catches-a-real-edge-case-not-just-a-formality)
+  - [Step 4 in detail: `diagnose --adjust-for-multimodality`](#step-4-in-detail-diagnose---adjust-for-multimodality)
+- [§3 — What "within-chain ESS" is checking, and why it's a separate number](#3-what-within-chain-ess-is-checking-and-why-its-a-separate-number)
+- [§4 — When the "adjusted" figures actually move](#4-when-the-adjusted-figures-actually-move)
+- [§5 — Limitations, stated plainly](#5-limitations-stated-plainly)
+
 ## Why this exists, briefly
 
 Diagnosing AZ1d's residual r-hat/ESS problems this session required, by hand, in sequence:
