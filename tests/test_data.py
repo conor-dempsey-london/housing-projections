@@ -1,5 +1,7 @@
 """Tests for housing_projections.data (offline — no file I/O or network)."""
+import gla_data
 import numpy as np
+import pandas as pd
 import pytest
 
 from housing_projections.config import (
@@ -7,7 +9,12 @@ from housing_projections.config import (
     INFER_COLS_BEN,
     INFER_COLS_PLAN,
 )
-from housing_projections.data import make_data_dict, select_spatial_sample, validate_data_path
+from housing_projections.data import (
+    make_borough_idx,
+    make_data_dict,
+    select_spatial_sample,
+    validate_data_path,
+)
 
 
 class TestMakeDataDict:
@@ -75,6 +82,60 @@ class TestMakeDataDict:
     def test_e_obs_matches_gdf_columns(self, data_dict, synthetic_gdf):
         expected = synthetic_gdf[INFER_COLS_BEN].values.astype(float)
         np.testing.assert_array_equal(data_dict['E_obs'], expected)
+
+
+class TestMakeBoroughIdx:
+    """
+    make_borough_idx calls the real gla_data.load_geography_lookup, which
+    won't resolve synthetic_gdf's fake LSOA21CD codes (e.g. 'E00000000')
+    against real ONS geography — so gla_data.load_geography_lookup is
+    mocked here. Only this repo's own merge/factorize logic is under test;
+    the real crosswalk's column names/coverage were spot-checked manually
+    against real data separately (see M10's plan).
+    """
+
+    def test_raises_on_unmapped_lsoa(self, synthetic_gdf, monkeypatch):
+        codes = synthetic_gdf['LSOA21CD'].tolist()
+        partial_lookup = pd.DataFrame({
+            'LSOA21CD': codes[:-1],  # omit the last LSOA
+            'LAD22CD':  ['E09000001'] * (len(codes) - 1),
+        })
+        monkeypatch.setattr(
+            gla_data, 'load_geography_lookup', lambda **kwargs: partial_lookup)
+
+        with pytest.raises(ValueError, match=codes[-1]):
+            make_borough_idx(synthetic_gdf)
+
+    def test_returns_correct_shapes_and_roundtrip(self, synthetic_gdf, monkeypatch):
+        codes = synthetic_gdf['LSOA21CD'].tolist()
+        lad_codes = ['E09000001'] * 3 + ['E09000002'] * 3 + ['E09000003'] * 3
+        full_lookup = pd.DataFrame({'LSOA21CD': codes, 'LAD22CD': lad_codes})
+        monkeypatch.setattr(
+            gla_data, 'load_geography_lookup', lambda **kwargs: full_lookup)
+
+        borough_idx, n_boroughs, borough_codes = make_borough_idx(synthetic_gdf)
+
+        assert borough_idx.shape == (len(codes),)
+        assert borough_idx.dtype == np.int64 or borough_idx.dtype == int
+        assert n_boroughs == 3
+        assert borough_codes.shape == (3,)
+        np.testing.assert_array_equal(borough_codes[borough_idx], lad_codes)
+
+    def test_ignores_duplicate_lookup_rows(self, synthetic_gdf, monkeypatch):
+        # Real gla_data lookup has no duplicate LSOA21CD rows (verified
+        # separately), but make_borough_idx should be robust to a
+        # crosswalk source that does, rather than silently duplicating rows.
+        codes = synthetic_gdf['LSOA21CD'].tolist()
+        lad_codes = ['E09000001'] * len(codes)
+        dup_lookup = pd.DataFrame({
+            'LSOA21CD': codes + [codes[0]],
+            'LAD22CD':  lad_codes + ['E09000002'],  # conflicting dup for codes[0]
+        })
+        monkeypatch.setattr(
+            gla_data, 'load_geography_lookup', lambda **kwargs: dup_lookup)
+
+        borough_idx, n_boroughs, borough_codes = make_borough_idx(synthetic_gdf)
+        assert borough_idx.shape == (len(codes),)
 
 
 class TestValidateDataPath:
