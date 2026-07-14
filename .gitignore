@@ -14,15 +14,18 @@ figures
 data
 output
 .env
-results/traces
-
-az3*csv
-results/*.uncertainty.csv
-results/*.identifiability.csv
 
 *.html
 
-results/
+# Ignore everything generated under results/ except the final numerical
+# estimates export (results/artifacts/az3_year_estimates/) — every
+# intermediate directory has to be explicitly un-ignored too, or git never
+# looks inside it to find the deeper negation.
+results/*
+!results/artifacts/
+results/artifacts/*
+!results/artifacts/az3_year_estimates/
+
 scratch_upars.npy
 notebooks/__marimo__/
 
