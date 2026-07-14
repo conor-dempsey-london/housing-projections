@@ -8,7 +8,7 @@ import housing_projections.outliers as outliers
 import housing_projections.eda.comparison as comparison
 import housing_projections.eda.timeseries as timeseries
 import housing_projections.eda.agreement as agreement
-import housing_projections.eda.spatial as spatial
+import housing_projections.eda.spatial_plots as spatial
 from housing_projections.config import DATA_PATH, INFER_COLS_BEN, INFER_COLS_PLAN
 
 # %% Load data

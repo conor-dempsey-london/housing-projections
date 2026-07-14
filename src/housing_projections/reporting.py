@@ -1,3 +1,13 @@
+"""
+Legacy per-model-family diagnostic report, for notebook use.
+
+`full_report` runs the deep-dive diagnostic suite (lag weights, missingness, spatial
+misallocation) registered per model name in `MODEL_DIAGNOSTICS`/`MODEL_COMPARISONS` below —
+currently wired up for the M3-M6 progression only. It is not used by the CLI.
+
+For the current CLI-facing report (`housing-projections report`, any registered model), see
+`html_report.py`'s `generate_report` instead.
+"""
 import matplotlib.pyplot as plt
 import numpy as np
 

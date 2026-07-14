@@ -1,7 +1,13 @@
 """
 Self-contained HTML report generator.
 
-Figures are embedded as base64 PNGs — no external dependencies required.
+This is the current report builder — `generate_report` is what the `housing-projections
+report` CLI subcommand calls, covering any registered model. Figures are embedded as base64
+PNGs — no external dependencies required.
+
+For the older, per-model-family (M3-M6) interactive diagnostic report used from notebooks
+(lag/missingness/spatial-misallocation deep dives specific to that model progression), see
+`reporting.py`'s `full_report` instead — it is not used by the CLI.
 """
 import base64
 import io
@@ -290,15 +296,16 @@ def _build_eda(data):
         plot_cumulative_vs_intercensal(gdf)
         html += _html_fig(plt.gcf(),
                           'Cumulative PLD completions vs census intercensal change')
-    except Exception:
+    except Exception as e:
+        print(f'  [warning] plot_cumulative_vs_intercensal failed: {e}')
         plt.close(fig)
 
     # Annual mean trends
     try:
         fig = plot_mean_trends(gdf)
         html += _html_fig(fig, 'Mean annual completions: PLD vs BEN')
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'  [warning] plot_mean_trends failed: {e}')
 
     # Source agreement
     stats = compute_agreement_stats(gdf, verbose=False)
@@ -314,31 +321,32 @@ def _build_eda(data):
     try:
         fig = plot_total_agreement(gdf)
         html += _html_fig(fig, 'PLD vs BEN total completions per LSOA')
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'  [warning] plot_total_agreement failed: {e}')
 
     # Annual PLD vs E
     try:
         fig = plt.figure(figsize=(12, 4))
         plot_annual_p_vs_e(gdf)
         html += _html_fig(plt.gcf(), 'Annual PLD vs BEN mean by year')
-    except Exception:
+    except Exception as e:
+        print(f'  [warning] plot_annual_p_vs_e failed: {e}')
         plt.close(fig)
 
     # Lag candidates
     try:
         fig = plot_lag_candidates(gdf)
         html += _html_fig(fig, 'Cross-correlation by lag: PLD leading BEN suggests recording delay')
-    except Exception:
-        pass
+    except Exception as e:
+        print(f'  [warning] plot_lag_candidates failed: {e}')
 
     # Moran's I
     try:
         w = build_weights_libpysal(gdf)
         fig = plot_morans_i_by_year(gdf[INFER_COLS_PLAN].values, w)
         html += _html_fig(fig, "Moran's I by year: PLD spatial autocorrelation")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  [warning] plot_morans_i_by_year failed: {e}")
 
     return html
 

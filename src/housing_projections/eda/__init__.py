@@ -16,7 +16,7 @@ from .comparison import (
     plot_per_area_correlation,
     plot_stock_scatter,
 )
-from .spatial import (
+from .spatial_plots import (
     plot_census_stock_maps,
     plot_change_hotspots,
     plot_intercensal_change_histogram_map,
