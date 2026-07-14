@@ -67,6 +67,32 @@ def mock_traces_with_ll(data_dict, rng):
     return traces
 
 
+@pytest.fixture(scope='session')
+def mock_traces_with_pe_ll(data_dict, rng):
+    """
+    Two InferenceData objects with BOTH P_like and E_like log_likelihood
+    variables, identical on P_like but differing sharply on E_like --
+    suitable for verifying compute_model_comparison scores E jointly with P
+    rather than P_like alone (see _joint_pe_loglik).
+    """
+    n_areas = data_dict['n_areas']
+    n_years = data_dict['n_years']
+    n_obs   = n_areas * n_years
+
+    shared_p_like = rng.normal(-1.5, 0.3, size=(N_CHAINS, N_DRAWS, n_obs))
+
+    traces = {}
+    for name, e_loc in (('MA', -1.5), ('MB', -8.0)):
+        z = rng.normal(1.0, 2.0, size=(N_CHAINS, N_DRAWS, n_areas, n_years))
+        e_like = rng.normal(e_loc, 0.3, size=(N_CHAINS, N_DRAWS, n_obs))
+        traces[name] = make_idata(
+            posterior={'z': z},
+            sample_stats={'diverging': np.zeros((N_CHAINS, N_DRAWS), dtype=bool)},
+            log_likelihood={'P_like': shared_p_like, 'E_like': e_like},
+        )
+    return traces
+
+
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope='session')
@@ -128,6 +154,58 @@ def mock_trace(data_dict, rng):
             'lambda_weights': lw,
             'alpha_spatial': np.clip(
                 rng.normal(0.05, 0.02, size=(N_CHAINS, N_DRAWS)), 0, 1),
+        },
+        sample_stats={'diverging': np.zeros((N_CHAINS, N_DRAWS), dtype=bool)},
+    )
+
+
+@pytest.fixture(scope='session')
+def data_dict_with_borough(data_dict):
+    """
+    data_dict + a realistic 3-borough split (3 areas each) of the 3x3
+    synthetic grid, row-major (each grid row = one borough) so the split
+    is spatially coherent. Unlike M7's degenerate all-zeros/n_boroughs=1
+    test fixture, this actually exercises a real per-borough broadcast.
+    """
+    n = data_dict['n_areas']
+    return {
+        **data_dict,
+        'borough_idx': np.repeat(np.arange(3), n // 3),
+        'n_boroughs':  3,
+    }
+
+
+@pytest.fixture(scope='session')
+def mock_trace_m9(data_dict, rng):
+    """
+    Minimal az.InferenceData shaped like M9's trace: per-area sigma_slab
+    (not the scalar used by mock_trace's M0h/M1h shape), independent
+    lambda_weights_P/lambda_weights_E, and the mu_log_sigma/tau_log_sigma
+    hierarchy hyperparameters — for testing diagnostics/sensitivity code
+    against M9-shaped output (e.g. _check_sigma_slab_vs_disagreement).
+    """
+    n_areas = data_dict['n_areas']
+    n_years = data_dict['n_years']
+
+    z_samples = rng.normal(1.0, 2.0, size=(N_CHAINS, N_DRAWS, n_areas, n_years))
+
+    def _dirichlet_weights():
+        raw = rng.random(size=(N_CHAINS * N_DRAWS, 4))
+        return (raw / raw.sum(axis=1, keepdims=True)).reshape(N_CHAINS, N_DRAWS, 4)
+
+    sigma_slab = np.abs(
+        rng.normal(5.0, 1.0, size=(N_CHAINS, N_DRAWS, n_areas)))
+
+    return make_idata(
+        posterior={
+            'z':                z_samples,
+            'mu_log_sigma':     rng.normal(np.log(12), 0.3, size=(N_CHAINS, N_DRAWS)),
+            'tau_log_sigma':    np.abs(rng.normal(0.3, 0.1, size=(N_CHAINS, N_DRAWS))),
+            'sigma_slab':       sigma_slab,
+            'lambda_weights_P': _dirichlet_weights(),
+            'lambda_weights_E': _dirichlet_weights(),
+            'sigma_plan':       np.abs(rng.normal(5.0, 1.0, size=(N_CHAINS, N_DRAWS))),
+            'sigma_ben':        np.abs(rng.normal(5.0, 1.0, size=(N_CHAINS, N_DRAWS))),
         },
         sample_stats={'diverging': np.zeros((N_CHAINS, N_DRAWS), dtype=bool)},
     )

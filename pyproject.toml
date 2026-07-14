@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12.9"
 dependencies = [
+    "altair>=5.4",
     "boto3>=1.42.39",
     "elasticsearch>=8.3.0",
     "geopandas>=1.1.2",
@@ -15,7 +16,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "openpyxl>=3.1.5",
     "python-dotenv>=1.2.1",
-    "seaborn>=0.13.2", "ruff>=0.15.20,<0.16", "mypy>=2.1.0,<3",
+    "seaborn>=0.13.2", "ruff>=0.15.20,<0.16", "mypy>=2.1.0,<3", "marimo>=0.23.4,<0.24", "pymc-extras>=0.12.1,<0.13",
 ]
 
 [project.scripts]
@@ -35,12 +36,14 @@ addopts   = "-v --tb=short -m 'not slow'"
 markers   = ["slow: marks tests that run sampling (deselected by default)"]
 
 [tool.pixi.tasks]
-test       = "pytest"
-lint       = "ruff check src/housing_projections tests"
-typecheck  = "mypy src/housing_projections"
-run-models = "housing-projections run-models"
-compare    = "housing-projections compare"
-report     = "housing-projections report"
+test          = "pytest"
+lint          = "ruff check src/housing_projections tests"
+typecheck     = "mypy src/housing_projections"
+run-models    = "housing-projections run-models"
+compare       = "housing-projections compare"
+diagnose      = "housing-projections diagnose"
+multimodality = "housing-projections check-multimodality"
+report        = "housing-projections report"
 
 [tool.ruff]
 line-length = 100
@@ -58,6 +61,14 @@ python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_ignores = false
 
+[tool.marimo.runtime]
+# Auto-reload imported housing_projections modules (e.g. new model classes
+# added to models.py) without needing a manual kernel restart — notebooks
+# like 7.0-sd-trace_browser.py import housing_projections.models once at
+# startup, and without this, editing models.py externally leaves the
+# running kernel with a stale copy of the module.
+auto_reload = "autorun"
+
 [tool.pixi.dependencies]
 fiona = ">=1.9" 
 pysal = "*"
@@ -70,7 +81,7 @@ llvm-openmp = "*"
 nutpie = ">=0.16.10,<0.17"
 
 [tool.pixi.pypi-dependencies]
-pld-database-live = { git = "https://github.com/JamesB686/pld_database_live", branch = "make-installable" }
+pld-database-live = { git = "https://github.com/JamesB686/pld_database_live", branch = "fix-pyproject-dependencies" }
 housing_projections = { path = ".", editable = true }
 gla_data = ">=0.1.1"
 pymc = "*"

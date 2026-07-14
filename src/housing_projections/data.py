@@ -3,6 +3,7 @@ import os
 import boto3
 import geopandas as gpd
 import gla_data
+import numpy as np
 import pandas as pd
 from shapely.geometry import Point
 
@@ -224,18 +225,75 @@ def make_data_dict(gdf, n_areas=None):
     P_obs = gdf[INFER_COLS_PLAN].values.astype(float)
     E_obs = gdf[INFER_COLS_BEN].values.astype(float)
 
+    # Snap erroneous P records to zero: cells where P is non-zero but records
+    # less than 10% of E are likely PLD data errors (e.g. geocoding or batch
+    # mis-allocation) rather than genuine low completions. Treat as missing.
+    erroneous = (P_obs > 0) & (E_obs > 0) & (P_obs < 0.1 * E_obs)
+    P_obs[erroneous] = 0.0
+
     P_obs_full = gdf[ALL_COLS_PLAN].values.astype(float)
     E_obs_full = gdf[ALL_COLS_BEN].values.astype(float)
 
+    # Empirical P-missingness rate per area, conditioned on E being active.
+    # P=0 when E=0 reflects no completions, not a recording gap.
+    # Areas with no active E years default to pi_miss=1 (nothing to record).
+    e_active = E_obs > 0                          # (n_areas, n_years)
+    n_active = e_active.sum(axis=1)               # (n_areas,)
+    p_zero_when_active = ((P_obs == 0) & e_active).sum(axis=1)
+    pi_miss_empirical = np.where(n_active > 0, p_zero_when_active / n_active, 1.0)
+    # Clip away from exact 0/1: pi_miss=1 combined with any non-zero P (e.g.
+    # in E=0 years) gives -inf log-likelihood in the zero-inflated mixture.
+    pi_miss_empirical = np.clip(pi_miss_empirical, 0.01, 0.99)
+
     return {
-        'D':            D,
-        'P_obs':        P_obs,
-        'E_obs':        E_obs,
-        'P_obs_full':   P_obs_full,
-        'E_obs_full':   E_obs_full,
-        'n_years':      len(INFER_COLS_PLAN),
-        'n_years_full': len(ALL_COLS_PLAN),
-        'n_areas':      len(gdf),
-        'gdf':          gdf,
-        'D_full_mean':  D_full_mean,
+        'D':                D,
+        'P_obs':            P_obs,
+        'E_obs':            E_obs,
+        'P_obs_full':       P_obs_full,
+        'E_obs_full':       E_obs_full,
+        'pi_miss_empirical': pi_miss_empirical,
+        'n_years':          len(INFER_COLS_PLAN),
+        'n_years_full':     len(ALL_COLS_PLAN),
+        'n_areas':          len(gdf),
+        'gdf':              gdf,
+        'D_full_mean':      D_full_mean,
     }
+
+
+def make_borough_idx(gdf):
+    """
+    Derive a per-LSOA borough (LAD) index from the GLA LSOA-to-LAD crosswalk.
+
+    Parameters
+    ----------
+    gdf : gpd.GeoDataFrame with an 'LSOA21CD' column. Pass data['gdf']
+          (post make_data_dict) rather than the pre-subset sample, so the
+          returned array's row order always matches the data dict a model
+          is actually built from.
+
+    Returns
+    -------
+    borough_idx   : np.ndarray[int], shape (len(gdf),) — 0-indexed borough
+                    id per row, same order as gdf.
+    n_boroughs    : int
+    borough_codes : np.ndarray[str], shape (n_boroughs,) — sorted LAD22CD
+                    values; borough_codes[borough_idx[i]] recovers row i's LAD.
+
+    Raises
+    ------
+    ValueError — lists any LSOA21CD in gdf with no match in the crosswalk.
+    """
+    lookup = gla_data.load_geography_lookup(year=2021, smallest_geography='lsoa')
+    lookup = lookup[['LSOA21CD', 'LAD22CD']].drop_duplicates('LSOA21CD')
+
+    merged = gdf[['LSOA21CD']].merge(lookup, on='LSOA21CD', how='left')
+    assert len(merged) == len(gdf)
+
+    unmapped = merged.loc[merged['LAD22CD'].isna(), 'LSOA21CD'].tolist()
+    if unmapped:
+        raise ValueError(
+            f"make_borough_idx: {len(unmapped)} LSOA21CD code(s) not found "
+            f"in the LAD crosswalk: {unmapped}")
+
+    borough_codes, borough_idx = np.unique(merged['LAD22CD'].values, return_inverse=True)
+    return borough_idx.astype(int), int(len(borough_codes)), borough_codes

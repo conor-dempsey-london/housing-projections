@@ -1,13 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from housing_projections.analysis import (
+    compute_lag_residuals,
+    compute_lag_weights,
+    compute_spatial_misallocation_stats,
+)
 from housing_projections.diagnostics import (
     _check_calibration,
     _check_census_constraint,
     _check_morans_i,
-    compute_lag_residuals,
-    compute_lag_weights,
-    compute_spatial_misallocation_stats,
     full_diagnostics,
 )
 from housing_projections.plots.core import (
