@@ -22,9 +22,7 @@ results/*.identifiability.csv
 
 *.html
 
-results/artifacts/
-results/scratch/
-results/traces_full/
+results/
 scratch_upars.npy
 notebooks/__marimo__/
 
@@ -32,15 +30,6 @@ notebooks/__marimo__/
 # pixi environments
 .pixi/*
 !.pixi/config.toml
-results/traces/M0.nc
-results/traces/M0h.nc
-results/traces/M1.nc
-results/traces/M2.nc
-results/traces/M3.nc
-results/traces/M4.nc
-results/traces/M5.nc
-results/traces/M5b.nc
-results/traces/M6.nc
 .gitattributes
 .vscode/settings.json
 pixi.lock
