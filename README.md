@@ -13,7 +13,7 @@ the prior so `sum(z)` matches the Census total *exactly*, by construction.
 
 ## Results
 
-- [Stakeholder summary](docs/az3-stakeholder-summary.md) — plain-language write-up of the AZ3 findings
+- [Stakeholder summary](docs/az3-stakeholder-summary.md) — write-up of the AZ3 findings
 - [Output files](results/artifacts/az3_year_estimates/) — the underlying per-area/per-year estimates (CSV/GeoJSON, see the folder's own README)
 - [Live dashboard](https://conor-dempsey-london.github.io/dwelling-change-dashboard/) — interactive map/chart dashboard, hosted on GitHub Pages
 
