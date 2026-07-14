@@ -7,13 +7,12 @@ import matplotlib.pyplot as plt
 import time
 import arviz as az
 import pymc as pm
-import numpy as np
 from pathlib import Path
 
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 import housing_projections.reporting as reporting
-from housing_projections.models import M0, M0h, M1, M2, M3, M4, M5
+from housing_projections.models import ALL_MODELS
 from housing_projections.config import DATA_PATH, DEFAULT_SAMPLE_KWARGS, TRACES_DIR
 
 # %% Configuration
@@ -23,14 +22,14 @@ RESULTS_DIR = TRACES_DIR
 # Set True to resample, False to load from disk
 RESAMPLE = {
     'M0': False,
-    'M0h': False, 
+    'M0h': False,
     'M1': False,
-    'M2': False,
-    'M3': False,
-    'M4': False,
-    'M5': True
+    'M1h': False,
+    'M5': True,
+    'M6': False,
+    'M8': False,
 }
-MODELS_TO_RUN = ['M3', 'M5']
+MODELS_TO_RUN = ['M1h', 'M5']
 
 SAMPLE_KWARGS  = {
     **DEFAULT_SAMPLE_KWARGS,
@@ -57,24 +56,10 @@ print(f"D mean:  {data['D'].mean():.2f}")
 print(f"D range: {data['D'].min():.0f} to {data['D'].max():.0f}")
 
 # %% Instantiate models
-model_registry = {
-    'M0': M0,
-    'M0h': M0h,
-    'M1': M1,
-    'M2': M2,
-    'M3': M3,
-    'M4': M4,
-    'M5': M5
-}
-
 models = {
-    name: model_registry[name](data)
+    name: ALL_MODELS[name](data)
     for name in MODELS_TO_RUN
 }
-
-# M5 specific — fix lambda weights at M3 posterior means
-# to resolve identifiability with alpha_spatial
-models['M5'].lambda_weights_fixed = np.array([0.04822521, 0.92909531, 0.00763223, 0.01504725])
 
 for name, model in models.items():
     print(model)

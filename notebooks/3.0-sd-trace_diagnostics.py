@@ -11,12 +11,12 @@ import pandas as pd
 from housing_projections.analysis import uncertainty_by_geography, variance_components
 from housing_projections.config import DATA_PATH, INFER_YEARS, TRACES_DIR
 from housing_projections.diagnostics import diagnostics_summary, observation_summary, prior_predictive_summary
-from housing_projections.models import M0, M0h
+from housing_projections.models import M0, M0h, AZ0
 import housing_projections.data as data_utils
 import housing_projections.outliers as outliers
 
 # %% Configuration — edit these
-MODELS_TO_DIAGNOSE = ['M0', 'M0h', 'M1']   # or None to load all found
+MODELS_TO_DIAGNOSE = ['AZ0']   # or None to load all found
 RHAT_THRESHOLD     = 1.01
 N_SAMPLE_AREAS     = 6   # areas to show in trace plots
 N_SAMPLE_YEARS     = 3   # years to show per area (evenly spaced)
@@ -242,8 +242,12 @@ for name, trace in traces.items():
 # %% Pair plot for scalar parameters (helpful for spotting funnels)
 SCALAR_VARS = {
     'M0':  ['sigma_plan', 'sigma_ben'],
-    'M0h': ['mu_global', 'sigma_mu', 'sigma_slab', 'sigma_plan', 'sigma_ben'],
+    'M0h': ['sigma_slab', 'sigma_plan', 'sigma_ben'],
     'M1':  ['sigma_plan', 'sigma_ben', 'lambda_weights'],
+    'M1h': ['sigma_slab', 'sigma_plan', 'sigma_ben', 'lambda_weights'],
+    'M5':  ['sigma_slab', 'sigma_plan', 'sigma_ben', 'alpha_spatial'],
+    'M6':  ['sigma_innov', 'rho', 'sigma_plan', 'sigma_ben'],
+    'M8':  ['sigma_slab', 'sigma_ben', 'sigma_base_plan'],
 }
 
 for name, trace in traces.items():
