@@ -29,6 +29,11 @@ results/artifacts/*
 scratch_upars.npy
 notebooks/__marimo__/
 
+# Internal working docs — only the stakeholder-facing summary is tracked
+docs/*
+!docs/az3-stakeholder-summary.md
+!docs/az3-stakeholder-summary.pdf
+
 
 # pixi environments
 .pixi/*

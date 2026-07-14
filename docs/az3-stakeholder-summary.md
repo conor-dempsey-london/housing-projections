@@ -1,14 +1,11 @@
 # London dwelling-stock change, 2012-2021: summary of findings
 
-**Purpose**: a plain-language summary of what our model of annual dwelling-stock
-change across London's LSOAs currently shows, for readers who don't need the
-statistical detail. For the technical case behind these numbers — why this model,
-how it was checked, what "confident" and "diffuse" mean precisely — see
-`docs/model-stopping-criteria-and-communication.md`. For a browsable, area-by-area
-version of everything below, see the dashboard at
-`results/artifacts/az3_estimates_dashboard/`.
+This is a plain-language summary of what our model of annual dwelling-stock change
+across London's LSOAs currently shows. For a browsable, area-by-area version of
+everything below, see the live dashboard:
+[dwelling-change-dashboard](https://conor-dempsey-london.github.io/dwelling-change-dashboard/).
 
-## The headline number
+## Total change across London, 2011–2021
 
 Between the 2011 and 2021 Censuses, London's dwelling stock grew by an estimated
 **~354,000 homes**. This is the Census-recorded figure itself, not a separate model
@@ -50,7 +47,7 @@ For example, London's estimated change by year (with a 90% plausible range):
 | 2020 | 32,200 | 31,000 – 33,400 |
 | 2021 | 27,500 | 26,100 – 28,800 |
 
-## How confident are we, area by area?
+## Confidence by area
 
 We looked at all 4,987 London LSOAs individually. Each one falls into one of three
 groups:
@@ -67,11 +64,11 @@ groups:
   for that area are too sparse or too inconsistent over the decade to distinguish
   between years. We report the total only in these cases, rather than guessing.
 
-We think this last group is worth being upfront about rather than glossing over —
-it's a real, sizeable minority, and it reflects a genuine limit of the underlying
-records, not a shortcoming we expect to fix by refining the model further.
+We report this last group directly rather than omitting it. It is a real, sizeable
+minority, and it reflects a genuine limit of the underlying records, not a
+shortcoming we expect to fix by refining the model further.
 
-### Three examples, to make this concrete
+### Example areas
 
 - **A confident area** — an LSOA in Newham grew by about 720 homes over the decade,
   and we're confident it happened in four clear bursts (around 2015, 2016, 2018 and
@@ -83,7 +80,7 @@ records, not a shortcoming we expect to fix by refining the model further.
   but the records don't let us say in which year(s) — only that it happened
   sometime across the decade.
 
-## How this varies across London
+## Variation by borough
 
 Growth is concentrated in a fairly small number of boroughs: **Tower Hamlets**
 (~29,000 homes), **Newham** (~22,000), **Southwark** (~19,000), **Greenwich**
@@ -134,7 +131,7 @@ account for.
   model, gave at best a marginal improvement on one measure while making the
   year-by-year confidence picture worse. We haven't ruled out a different way of
   building in either idea helping in future, but based on what we've tried so far we
-  don't expect adding them back in to meaningfully change the headline numbers above.
+  don't expect adding them back in to meaningfully change the totals reported above.
 - **The dashboard is the right tool for area-specific questions** — anyone can look
   up a specific LSOA or borough and see exactly which group it falls into and why,
   rather than relying on the borough-level averages above. It also breaks down which
