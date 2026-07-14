@@ -1,8 +1,8 @@
 # London dwelling-stock change, 2012-2021: summary of findings
 
-This is a plain-language summary of what our model of annual dwelling-stock change
-across London's LSOAs currently shows. For a browsable, area-by-area version of
-everything below, see the live dashboard:
+This summarises what our model of annual dwelling-stock change across London's LSOAs
+currently shows. For a browsable, area-by-area version of everything below, see the
+live dashboard:
 [dwelling-change-dashboard](https://conor-dempsey-london.github.io/dwelling-change-dashboard/).
 
 ## Total change across London, 2011–2021
