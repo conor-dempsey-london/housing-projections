@@ -151,20 +151,6 @@ _MODEL_DESCRIPTIONS = {
             'sigma_obs_plan to the planning likelihood.'),
 }
 
-# Which diagnostic plot best illustrates each model's contribution
-_MODEL_KEY_VAR = {
-    'M0': None, 'M0h': None,
-    'M1': 'lambda_weights',
-    'M2': 'pi_miss',
-    'M3': 'pi_miss_pos',
-    'M4': 'w_tight',
-    'M5': 'alpha_spatial',
-    'M6': 'rho',
-    'M7': 'mu_borough',
-    'M8': 'sigma_obs_plan',
-}
-
-
 def _fig_to_base64(fig):
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
