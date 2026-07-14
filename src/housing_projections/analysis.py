@@ -15,13 +15,60 @@ __all__ = [
 ]
 
 
+def _joint_pe_loglik(idata, name):
+    """
+    Return (idata, var_name) where var_name is the pointwise log-likelihood
+    variable to hand to az.compare, scoring BOTH observation sources jointly
+    rather than P_like alone.
+
+    - If a joint variable ('PE_like') already exists, used as-is.
+    - If both 'P_like' and 'E_like' exist, sums them elementwise into a new
+      'PE_like' variable on a copy of idata -- valid because every P/E
+      likelihood in this codebase is conditionally independent given z, so
+      the joint pointwise log-density is just the elementwise sum. Summed via
+      raw .values, not xarray's own '+', and wrapped back into P_like's own
+      dims/coords: some older traces (e.g. AZ0a) attached P_like/E_like with
+      each variable's own auto-generated dim names (P_like_dim_0 vs
+      E_like_dim_0) rather than shared ('area', 'year') dims, and xarray's
+      dimension-name alignment treats differently-named dims of the same
+      length as genuinely different axes -- '+' silently broadcasts a full
+      outer product (200x10 vs 200x10 becomes 200x10x200x10) instead of
+      raising, which is a multi-hundred-GB memory blowup waiting to happen.
+    - If only one source exists (e.g. a single-source test fixture), falls
+      back to that one alone.
+    """
+    ll = idata['log_likelihood']
+    if 'PE_like' in ll.data_vars:
+        return idata, 'PE_like'
+    has_p, has_e = 'P_like' in ll.data_vars, 'E_like' in ll.data_vars
+    if has_p and has_e:
+        p_like, e_like = ll['P_like'], ll['E_like']
+        if p_like.shape != e_like.shape:
+            raise ValueError(f"{name}: P_like {p_like.shape} and E_like "
+                             f"{e_like.shape} have different shapes -- "
+                             f"cannot be summed into a joint likelihood")
+        idata = idata.copy()
+        idata['log_likelihood']['PE_like'] = p_like.copy(
+            data=p_like.values + e_like.values)
+        return idata, 'PE_like'
+    if has_p:
+        return idata, 'P_like'
+    if has_e:
+        return idata, 'E_like'
+    raise ValueError(f"{name}: log_likelihood group has none of 'PE_like', "
+                     f"'P_like', 'E_like' -- found {list(ll.data_vars)}")
+
+
 def compute_model_comparison(traces, verbose=True):
     """
     Compare models using Leave-One-Out cross-validation (LOO-CV).
 
     Uses LOO-CV (PSIS-LOO). Requires traces sampled with
     ``idata_kwargs={'log_likelihood': True}`` (the default sampling config
-    already sets this).
+    already sets this). Scores the JOINT P+E pointwise log-likelihood
+    (elementwise sum of 'P_like'/'E_like', see _joint_pe_loglik) when both
+    are present, not 'P_like' alone -- a model that fits P well but E badly
+    (or vice versa) should not look artificially good here.
 
     Parameters
     ----------
@@ -33,7 +80,20 @@ def compute_model_comparison(traces, verbose=True):
     pd.DataFrame — ArviZ LOO comparison table, models ranked best-to-worst.
         Key columns: ``elpd``, ``se``, ``p``, ``elpd_diff``, ``weight``.
     """
-    comparison = az.compare(traces, var_name='P_like')
+    joint_traces, var_names_used = {}, set()
+    for name, idata in traces.items():
+        joint_idata, var_name = _joint_pe_loglik(idata, name)
+        joint_traces[name] = joint_idata
+        var_names_used.add(var_name)
+
+    if len(var_names_used) > 1:
+        raise ValueError(
+            f"Models resolve to different log-likelihood variables after "
+            f"joining ({sorted(var_names_used)}) -- az.compare needs the "
+            f"same var_name across every model being compared, so these "
+            f"models aren't directly comparable as given.")
+
+    comparison = az.compare(joint_traces, var_name=var_names_used.pop())
 
     if verbose:
         print("\n── LOO model comparison ─────────────────────────────────────")
