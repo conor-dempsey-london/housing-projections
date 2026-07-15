@@ -15,10 +15,12 @@ from our current best model and may be refined in future versions.
 ## Background
 
 Two administrative sources try to track housing-stock change year to year —
-planning-permission records and OS AddressBase net address-count changes —
-but both are noisy and sometimes disagree. The 10-yearly Census gives a much
+planning-permission completion records and OS AddressBase net UPRN changes —
+but both are noisy and sometimes disagree. 
+
+The 10-yearly Census gives a much
 more reliable total for how much an area changed *over the whole decade*,
-but not *which year*. The model treats the Census total as fixed and uses
+but not *which year*. The model currently treats the Census total as fixed and uses
 the noisier annual sources to work out the most plausible year-by-year path
 consistent with it — so every estimate comes with a **90% credible
 interval**: given the data and the model's assumptions, a 90% probability
@@ -40,7 +42,10 @@ Every area is one of:
 - **Tier 1 — Confident.** A single clear year-by-year path. Use the estimate and range as given.
 - **Tier 2 — Ambiguous.** The 10-year total is unaffected, but more than one story fits which year(s) absorbed the change.
   - **Resolved** — a small number of distinct, labelled scenarios (`area_scenarios.csv`), each with a likelihood.
-  - **Unresolved** — no clean split; treat the year-by-year figures as indicative only and rely on the 10-year total.
+  - **Unresolved** — no clean split. Check `frac_flagged_magnitude` in `area_tier_summary.csv`
+    first: if it's low, the ambiguity is confined to a small part of the decade's change and
+    the rest of the year-by-year story (including the dominant year(s)) is still reliable;
+    only if it's high does "treat the year-by-year figures as indicative only" really apply.
 - **Tier 3 — Total only.** Next to no annual data for this area. Only the 10-year Census total is reported.
 
 Roughly: most areas are Tier 1; ~30% are Tier 2 resolved.
@@ -89,6 +94,8 @@ One row per area — the tier and the evidence behind it.
 | `n_low_confidence_years` | Years showing year-allocation ambiguity |
 | `n_multimodal_years` | Years flagged with more than one plausible story |
 | `n_flagged_years` | Same, restricted to `tier2` areas |
+| `flagged_years` | Which years those are, e.g. `2012,2013` — `tier2` only |
+| `frac_flagged_magnitude` | Share of the area's total decade change that falls in the flagged years above — `tier2` only. **Low** (e.g. under ~25%) means the area's dominant year-by-year pattern is actually confident and only a minor year or two is unresolved; **high** means the ambiguity really does run through most of the decade's change |
 | `has_active_year` | Any meaningful annual data at all — `False` ⇒ Tier 3 |
 | `max_rhat`, `min_flagged_corr`, `flagged_concentration` | Technical scores behind the tier classification; not for direct interpretation |
 
