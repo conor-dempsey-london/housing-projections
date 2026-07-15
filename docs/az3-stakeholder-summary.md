@@ -14,20 +14,18 @@ estimate of it.
 For this round of modelling, we have chosen to treat that Census figure — for
 London overall and for every borough and small area within it — as exactly correct.
 This is a deliberate simplifying assumption, not a claim that the Census itself is
-free of error: Censuses are large, careful exercises but are not perfect, and it is
-possible the true figure differs somewhat from the recorded one. We are choosing not
-to model that possibility in this round, because doing so would add real complexity
-for a question (year-by-year timing) where it is unlikely to change the picture much.
-It is a choice we could revisit in future work if there were a specific reason to
-think Census error mattered here — treating the total as uncertain too would let
-that uncertainty flow through to every number below.
+free of error. We are choosing not
+to model census error in this round, because doing so would add complexity
+for a question (year-by-year timing) where it is unlikely to change the picture massively.
+It is a choice we can revisit in future work — treating the census total as uncertain would let
+that uncertainty flow through to every estimate below.
 
 Given that starting assumption, the model adds no further uncertainty of its own to
 the decade total for London or for any borough: it is built so that every area's
 yearly figures always add up, by construction, to that area's Census-recorded
 10-year total.
 
-The genuine modelling question — and the one this whole exercise is about — is
+The modelling question we are trying to answer is
 **how that change was distributed year by year**. That is where the model's own
 uncertainty lives, on top of whatever uncertainty already exists in the Census
 figure itself, and it varies a lot from area to area.
@@ -49,7 +47,7 @@ For example, London's estimated change by year (with a 90% plausible range):
 
 ## Confidence by area
 
-We looked at all 4,987 London LSOAs individually. Each one falls into one of three
+We looked at all 4,987 London LSOAs individually. Each one falls into one of four
 groups:
 
 - **Confident (47% of areas)** — we have a single, reliable year-by-year picture of
@@ -58,11 +56,19 @@ groups:
   which year(s) the change happened in, but the uncertainty narrows down to 2 or 3
   specific, describable possibilities, each with a stated likelihood (e.g. "60%
   likely 2019, 40% likely 2021").
-- **Genuinely unclear (24% of areas)** — the total change for the area is just as
+- **Mostly confident, with a minor loose end (2% of areas)** — the area's dominant
+  year(s) of change are just as reliable as a "confident" area's, but one or two
+  minor years — together accounting for less than a quarter of that area's total
+  change — can't be pinned down. We only added this category after checking a case
+  a reviewer flagged as looking more confident than its label suggested — see
+  "Open questions and next steps" below.
+- **Genuinely unclear (23% of areas)** — the total change for the area is just as
   reliable as anywhere else, but we cannot say with any confidence which year(s) it
-  happened in. This is usually because the underlying planning/OS AddressBase records
-  for that area are too sparse or too inconsistent over the decade to distinguish
-  between years. We report the total only in these cases, rather than guessing.
+  happened in, and unlike the category above, this isn't confined to a minor part of
+  the decade's change. This is usually because the underlying planning/OS AddressBase
+  records for that area are too sparse or too inconsistent over the decade to
+  distinguish between years. We report the total only in these cases, rather than
+  guessing.
 
 We report this last group directly rather than omitting it. It is a real, sizeable
 minority, and it reflects a genuine limit of the underlying records, not a
@@ -76,6 +82,10 @@ shortcoming we expect to fix by refining the model further.
 - **A "small number of stories" area** — an LSOA in Islington grew by about 480
   homes. We can't say for certain which year it happened in, but the possibilities
   narrow to two: roughly 63% likely it was 2021, 37% likely it was 2019.
+- **A "mostly confident" area** — an LSOA in Barnet grew by about 130 homes. We're
+  confident the bulk of that (~38 and ~32 homes) landed in 2018 and 2021
+  respectively; the only open question is a much smaller, roughly 15%-of-total
+  amount split somewhere across 2012 and 2013.
 - **A genuinely unclear area** — an LSOA in Tower Hamlets grew by about 380 homes,
   but the records don't let us say in which year(s) — only that it happened
   sometime across the decade.
@@ -104,11 +114,20 @@ account for.
   would add genuine uncertainty to the total figures above (currently shown as
   fixed) as well as to the year-by-year ones — a bigger piece of work than anything
   in this round, and not something we recommend doing without a specific reason to.
-- **The 24% "genuinely unclear" group is a property of the underlying records for
+- **The 23% "genuinely unclear" group is a property of the underlying records for
   those specific areas, not something we expect further modelling work to resolve.**
   If more granular or more consistent planning or OS AddressBase-derived data
   becomes available for those areas in future, this could improve — but that's a
   data question, not a modelling one.
+- **We caught and fixed a labelling issue in this "unclear" reporting.** A reviewer
+  noticed one area's chart looked confident despite being labelled ambiguous. On
+  investigation, the area's dominant years genuinely were well-pinned-down; the
+  "ambiguous" label was being driven entirely by a much smaller, separate loose end
+  elsewhere in the decade. We checked how common this was — 82 of the 4,987 areas
+  (the new "mostly confident" category above) had the same pattern — and split the
+  reporting so these areas now correctly show as mostly confident with a named minor
+  exception, rather than as generally unclear. The area-by-area dashboard reflects
+  this; this document's headline percentages above have been updated to match.
 - **Both of our two main data sources — planning completions data and the OS
   AddressBase-derived dwelling-change records — likely have their own data-quality
   issues that we have not yet fully characterised.** Investigating both sources

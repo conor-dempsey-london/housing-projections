@@ -576,6 +576,40 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
                 _year_chart,
             ]
         )
+    elif (
+        _tier_row["tier"] == "tier2"
+        and _tier_row["tier_subtype"] == "unresolved"
+        and pd.notna(_tier_row["frac_flagged_magnitude"])
+        and _tier_row["frac_flagged_magnitude"] < 0.25
+    ):
+        _flagged_set = set(_tier_row["flagged_years"].split(","))
+        _dominant = (
+            _year_rows[~_year_rows["year"].astype(str).isin(_flagged_set)]
+            .assign(abs_z=lambda d: d["z_mean"].abs())
+            .sort_values("abs_z", ascending=False)
+            .head(2)
+        )
+        _dominant_desc = ", ".join(
+            f"{{int(row.year)}} (~{{row.z_mean:.0f}})" for row in _dominant.itertuples()
+        )
+        _panel = mo.vstack(
+            [
+                mo.callout(
+                    mo.md(
+                        f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 2, mostly "
+                        f"confident. Decade total: {{_tier_row['D']:.0f}} dwellings. Most of "
+                        f"this area's year-by-year pattern is well pinned down -- the "
+                        f"dominant year(s) are **{{_dominant_desc}}**. The only unresolved "
+                        f"ambiguity is in **{{_tier_row['flagged_years']}}**, which together "
+                        f"account for only ~{{_tier_row['frac_flagged_magnitude']:.0%}} of the "
+                        f"decade's total change -- so treat those specific year(s) as "
+                        f"indicative only, not the rest of the chart."
+                    ),
+                    kind="info",
+                ),
+                _year_chart,
+            ]
+        )
     else:
         _reason = (
             "no active recorded data this decade"
@@ -589,8 +623,7 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
                         f"**{{_area}}** ({{_tier_row['borough_name']}}) -- decade total "
                         f"(Census-recorded, treated as exact this round) is "
                         f"**{{_tier_row['D']:.0f}} dwellings**, but the year-by-year breakdown is "
-                        f"genuinely diffuse ({{_reason}}). Reporting the total only is the honest "
-                        f"answer here, not a single-year guess."
+                        f"genuinely diffuse ({{_reason}})."
                     ),
                     kind="neutral",
                 ),
