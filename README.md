@@ -9,13 +9,13 @@ anything about which years that change happened in. Every model in this repo use
 total to anchor `z`'s sum across years, and the two model families differ in how hard that
 anchor is enforced: the `M0`-`M16` progression treats it as a soft constraint (a likelihood
 term pulling `sum(z)` *close to* the Census total), while the `AZ0`-`AZ5` family builds it into
-the prior so `sum(z)` matches the Census total *exactly*, by construction.
+the prior so `sum(z)` matches the Census total exactly by construction.
 
 ## Results
 
 - [Stakeholder summary](docs/az3-stakeholder-summary.md) — write-up of the AZ3 findings
-- [Output files](results/artifacts/az3_year_estimates/) — the underlying per-area/per-year estimates (CSV/GeoJSON, see the folder's own README)
-- [Live dashboard](https://conor-dempsey-london.github.io/dwelling-change-dashboard/) — interactive map/chart dashboard, hosted on GitHub Pages
+- [Output files](results/artifacts/az3_year_estimates/) — the underlying per-area/per-year estimates (CSVs, see the folder's own README for details)
+- [Dashboard](https://conor-dempsey-london.github.io/dwelling-change-dashboard/) — interactive map/chart dashboard
 
 ## Requirements
 
