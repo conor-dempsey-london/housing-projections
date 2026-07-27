@@ -27,6 +27,10 @@ results/artifacts/*
 !results/artifacts/az3_year_estimates/
 !results/artifacts/az3_stakeholder_examples/
 
+# Embeds this machine's local absolute paths (trace_path/data_path) — not
+# portable, regenerate locally via scripts/az3_year_estimates.py instead.
+results/artifacts/az3_year_estimates/manifest.json
+
 scratch_upars.npy
 notebooks/__marimo__/
 
