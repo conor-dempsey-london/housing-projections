@@ -25,6 +25,7 @@ results/*
 !results/artifacts/
 results/artifacts/*
 !results/artifacts/az3_year_estimates/
+!results/artifacts/az3_stakeholder_examples/
 
 scratch_upars.npy
 notebooks/__marimo__/

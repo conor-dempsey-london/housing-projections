@@ -12,6 +12,7 @@ Usage
 -----
     pixi run python scripts/export_stakeholder_pdf.py
 """
+import re
 import shutil
 import subprocess
 import sys
@@ -40,7 +41,26 @@ th:first-child, td:first-child { text-align: left; }
 th { background: #f0f0f0; }
 code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
 strong { color: #000; }
+img { max-width: 100%; height: auto; }
 """
+
+
+def _resolve_image_paths(body_html):
+    """
+    Rewrite <img src="relative/path.png"> to an absolute file:// URI resolved
+    against SOURCE_MD's own directory. Needed because the scratch HTML this
+    renders from lives in results/scratch/, so a path written to be correct
+    relative to docs/ (the source Markdown's location) would otherwise
+    resolve to the wrong place once headless Edge loads the scratch file.
+    """
+    def _rewrite(match):
+        src = match.group(1)
+        if re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://', src):
+            return match.group(0)  # already absolute (http(s)://, file://, ...)
+        abs_path = (SOURCE_MD.parent / src).resolve()
+        return match.group(0).replace(src, abs_path.as_uri())
+
+    return re.sub(r'<img [^>]*src="([^"]+)"', _rewrite, body_html)
 
 
 def _find_edge():
@@ -57,6 +77,7 @@ def _find_edge():
 def main():
     md_text = SOURCE_MD.read_text(encoding='utf-8')
     body_html = markdown.markdown(md_text, extensions=['tables', 'fenced_code'])
+    body_html = _resolve_image_paths(body_html)
     full_html = f'<!doctype html><html><head><meta charset="utf-8">' \
                 f'<style>{PAGE_CSS}</style></head><body>{body_html}</body></html>'
     _SCRATCH_HTML.parent.mkdir(parents=True, exist_ok=True)

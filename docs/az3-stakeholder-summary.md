@@ -79,16 +79,35 @@ shortcoming we expect to fix by refining the model further.
 - **A confident area** — an LSOA in Newham grew by about 720 homes over the decade,
   and we're confident it happened in four clear bursts (around 2015, 2016, 2018 and
   2020), with next to nothing in the other six years.
+
+  ![Confident example area](../results/artifacts/az3_stakeholder_examples/E01034220_tier1_confident.png)
+
 - **A "small number of stories" area** — an LSOA in Islington grew by about 480
   homes. We can't say for certain which year it happened in, but the possibilities
   narrow to two: roughly 63% likely it was 2021, 37% likely it was 2019.
+
+  ![Small number of stories example area](../results/artifacts/az3_stakeholder_examples/E01002702_tier2_resolved_stories.png)
+
 - **A "mostly confident" area** — an LSOA in Barnet grew by about 130 homes. We're
   confident the bulk of that (~38 and ~32 homes) landed in 2018 and 2021
   respectively; the only open question is a much smaller, roughly 15%-of-total
   amount split somewhere across 2012 and 2013.
+
+  ![Mostly confident example area](../results/artifacts/az3_stakeholder_examples/E01000251_tier2_mostly_confident.png)
+
 - **A genuinely unclear area** — an LSOA in Tower Hamlets grew by about 380 homes,
   but the records don't let us say in which year(s) — only that it happened
   sometime across the decade.
+
+  ![Genuinely unclear example area](../results/artifacts/az3_stakeholder_examples/E01035667_tier3_diffuse.png)
+
+*In each chart, the black line/grey band (or coloured scenario lines) show the model's
+estimate; the blue and orange bars show the two underlying data sources (planning
+completions and OS AddressBase-derived records) the model is reconciling. A faded bar means
+the model judges that observation is more likely a data anomaly than a real change — the
+more faded, the more likely — which is why the estimate sometimes doesn't move to match a
+faded spike (for example, Newham's large 2013 and 2021 bursts above are both strongly faded,
+and Islington's 2016 burst is faded too, while its 2019 burst stays solid).*
 
 ## Variation by borough
 
