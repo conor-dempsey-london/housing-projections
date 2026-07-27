@@ -68,7 +68,7 @@ print(diag.to_string(
         'divergences': '{:d}'.format,
         'min_ess':     '{:d}'.format,
         'plan_cov_90': '{:.3f}'.format,
-        'ben_cov_90':  '{:.3f}'.format,
+        'uprn_cov_90':  '{:.3f}'.format,
     }
 ))
 
@@ -115,7 +115,7 @@ for name, trace in traces.items():
 # variation of P_obs. For each area plots:
 #   - z posterior mean (solid line) with 90% CI (shaded band)
 #   - planning observations P_obs (crosses)
-#   - BEN observations E_obs (circles)
+#   - UPRN observations E_obs (circles)
 
 def _select_diverse_areas(P_obs, n):
     """
@@ -241,13 +241,13 @@ for name, trace in traces.items():
 
 # %% Pair plot for scalar parameters (helpful for spotting funnels)
 SCALAR_VARS = {
-    'M0':  ['sigma_plan', 'sigma_ben'],
-    'M0h': ['sigma_slab', 'sigma_plan', 'sigma_ben'],
-    'M1':  ['sigma_plan', 'sigma_ben', 'lambda_weights'],
-    'M1h': ['sigma_slab', 'sigma_plan', 'sigma_ben', 'lambda_weights'],
-    'M5':  ['sigma_slab', 'sigma_plan', 'sigma_ben', 'alpha_spatial'],
-    'M6':  ['sigma_innov', 'rho', 'sigma_plan', 'sigma_ben'],
-    'M8':  ['sigma_slab', 'sigma_ben', 'sigma_base_plan'],
+    'M0':  ['sigma_plan', 'sigma_uprn'],
+    'M0h': ['sigma_slab', 'sigma_plan', 'sigma_uprn'],
+    'M1':  ['sigma_plan', 'sigma_uprn', 'lambda_weights'],
+    'M1h': ['sigma_slab', 'sigma_plan', 'sigma_uprn', 'lambda_weights'],
+    'M5':  ['sigma_slab', 'sigma_plan', 'sigma_uprn', 'alpha_spatial'],
+    'M6':  ['sigma_innov', 'rho', 'sigma_plan', 'sigma_uprn'],
+    'M8':  ['sigma_slab', 'sigma_uprn', 'sigma_base_plan'],
 }
 
 for name, trace in traces.items():
@@ -266,7 +266,7 @@ for name, trace in traces.items():
     plt.tight_layout()
     plt.show()
 
-# %% Posterior of sigma_plan / sigma_ben across models
+# %% Posterior of sigma_plan / sigma_uprn across models
 sig_models = {
     name: trace for name, trace in traces.items()
     if 'sigma_plan' in trace.posterior
@@ -275,11 +275,11 @@ if sig_models:
     fig, axes = plt.subplots(1, 2, figsize=(10, 3))
     for name, trace in sig_models.items():
         sp = trace.posterior['sigma_plan'].values.ravel()
-        sb = trace.posterior['sigma_ben'].values.ravel()
+        sb = trace.posterior['sigma_uprn'].values.ravel()
         axes[0].hist(sp, bins=60, alpha=0.5, label=name, density=True)
         axes[1].hist(sb, bins=60, alpha=0.5, label=name, density=True)
     axes[0].set_title('sigma_plan posterior')
-    axes[1].set_title('sigma_ben posterior')
+    axes[1].set_title('sigma_uprn posterior')
     for ax in axes:
         ax.set_xlabel('value')
         ax.legend()

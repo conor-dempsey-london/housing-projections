@@ -13,7 +13,7 @@ is a Normal(mu_area, sigma_slab) softly pulled toward D via a Gaussian
 census-constraint potential. Both are simple enough that the CORRECT
 predictive distribution for a held-out area's cells is analytically
 recoverable from (a) the model's own fixed prior formula and (b) the refit's
-posterior draws of shared/global hyperparameters (sigma_plan, sigma_ben, rho,
+posterior draws of shared/global hyperparameters (sigma_plan, sigma_uprn, rho,
 sigma_noise, sigma_slab, lambda_weights, alpha_spatial) — no need to keep the
 held-out area physically inside the refit at all. See
 docs/model-finalization-work-plan.md Task 2 for the fuller design rationale,
@@ -25,7 +25,7 @@ sharing in AZ0a/AZ3; M5's lag kernel is per-area-independent given the shared
 lambda_weights), so a year is never "help" for another year the way an area's
 own observations help infer its neighbours (M5) or the shared noise/signal
 split (AZ3). All three DO share information across areas (global sigma_plan/
-sigma_ben/rho/etc., plus M5's explicit spatial term), which is exactly what
+sigma_uprn/rho/etc., plus M5's explicit spatial term), which is exactly what
 leave-area-out tests.
 
 The log-likelihood scored is the JOINT P+E predictive density per held-out
@@ -200,7 +200,7 @@ class DwellingModelKFoldWrapper(SamplingWrapper):
 # ── AZ0a ────────────────────────────────────────────────────────────────────────
 
 class AZ0aKFoldWrapper(DwellingModelKFoldWrapper):
-    """AZ0a: plain StudentT(z, sigma_plan/sigma_ben) likelihood, z ~ AZ0a's
+    """AZ0a: plain StudentT(z, sigma_plan/sigma_uprn) likelihood, z ~ AZ0a's
     zero-sum prior (fixed floor/k, no fitted dependence)."""
 
     def log_likelihood__i(self, excluded_obs, idata__i):
@@ -210,7 +210,7 @@ class AZ0aKFoldWrapper(DwellingModelKFoldWrapper):
 
         post = idata__i.posterior
         sigma_plan = post['sigma_plan'].values.reshape(-1)
-        sigma_ben = post['sigma_ben'].values.reshape(-1)
+        sigma_uprn = post['sigma_uprn'].values.reshape(-1)
         n_draws = len(sigma_plan)
         rng = np.random.default_rng(self.rng_seed)
 
@@ -221,11 +221,11 @@ class AZ0aKFoldWrapper(DwellingModelKFoldWrapper):
             z_new = zero_sum_z_new_draws(D_a, sigma_delta_a, self.n_years, n_draws, rng)
 
             lp_P = studentt_logpdf(P_full[a][None, :], z_new, sigma_plan[:, None], AZ0a.nu_obs)
-            lp_E = studentt_logpdf(E_full[a][None, :], z_new, sigma_ben[:, None], AZ0a.nu_obs)
+            lp_E = studentt_logpdf(E_full[a][None, :], z_new, sigma_uprn[:, None], AZ0a.nu_obs)
             loglik_rows.append(lp_P + lp_E)  # (n_draws, n_years) joint P+E
 
             pit_P = studentt_cdf(P_full[a], z_new, sigma_plan[:, None], AZ0a.nu_obs).mean(axis=0)
-            pit_E = studentt_cdf(E_full[a], z_new, sigma_ben[:, None], AZ0a.nu_obs).mean(axis=0)
+            pit_E = studentt_cdf(E_full[a], z_new, sigma_uprn[:, None], AZ0a.nu_obs).mean(axis=0)
             self._record_pit([a] * self.n_years, 'P', pit_P)
             self._record_pit([a] * self.n_years, 'E', pit_E)
 
@@ -253,7 +253,7 @@ class AZ3KFoldWrapper(DwellingModelKFoldWrapper):
 
         post = idata__i.posterior
         sigma_plan = post['sigma_plan'].values.reshape(-1)
-        sigma_ben = post['sigma_ben'].values.reshape(-1)
+        sigma_uprn = post['sigma_uprn'].values.reshape(-1)
         rho_P = post['rho_P'].values.reshape(-1)
         rho_E = post['rho_E'].values.reshape(-1)
         sigma_noise_P = post['sigma_noise_P'].values.reshape(-1)
@@ -278,11 +278,11 @@ class AZ3KFoldWrapper(DwellingModelKFoldWrapper):
             z_new = zero_sum_z_new_draws(D_a, sigma_delta_a, self.n_years, n_draws, rng)
 
             lp_P = mixture_logpdf(P_full[a][None, :], z_new, sigma_plan, rho_P, sigma_noise_P)
-            lp_E = mixture_logpdf(E_full[a][None, :], z_new, sigma_ben, rho_E, sigma_noise_E)
+            lp_E = mixture_logpdf(E_full[a][None, :], z_new, sigma_uprn, rho_E, sigma_noise_E)
             loglik_rows.append(lp_P + lp_E)
 
             pit_P = mixture_cdf(P_full[a], z_new, sigma_plan, rho_P, sigma_noise_P).mean(axis=0)
-            pit_E = mixture_cdf(E_full[a], z_new, sigma_ben, rho_E, sigma_noise_E).mean(axis=0)
+            pit_E = mixture_cdf(E_full[a], z_new, sigma_uprn, rho_E, sigma_noise_E).mean(axis=0)
             self._record_pit([a] * self.n_years, 'P', pit_P)
             self._record_pit([a] * self.n_years, 'E', pit_E)
 
@@ -308,7 +308,7 @@ class M5KFoldWrapper(DwellingModelKFoldWrapper):
     subset) — held-out areas' neighbours that happen to be OTHER held-out
     areas in the same fold get their own freshly-drawn z_new too, so the
     smearing step always has a value for every one of a held-out area's
-    geometric neighbours, whether trained or held out. BEN has no lag/spatial
+    geometric neighbours, whether trained or held out. UPRN has no lag/spatial
     term in M5 (plain StudentT on raw z, same as AZ0a).
     """
 
@@ -328,7 +328,7 @@ class M5KFoldWrapper(DwellingModelKFoldWrapper):
         post = idata__i.posterior
         sigma_slab = post['sigma_slab'].values.reshape(-1)
         sigma_plan = post['sigma_plan'].values.reshape(-1)
-        sigma_ben = post['sigma_ben'].values.reshape(-1)
+        sigma_uprn = post['sigma_uprn'].values.reshape(-1)
         alpha = post['alpha_spatial'].values.reshape(-1)
         lambda_weights = post['lambda_weights'].values.reshape(-1, self.n_lags)
         z_train = post['z'].values.reshape(-1, len(train_areas), self.n_years)
@@ -362,13 +362,13 @@ class M5KFoldWrapper(DwellingModelKFoldWrapper):
             lp_P = studentt_logpdf(P_full[a][None, :], P_mean_smeared[:, i, :],
                                     sigma_plan[:, None], M5.nu_obs)
             lp_E = studentt_logpdf(E_full[a][None, :], z_new[:, i, :],
-                                    sigma_ben[:, None], M5.nu_obs)
+                                    sigma_uprn[:, None], M5.nu_obs)
             loglik_rows.append(lp_P + lp_E)
 
             pit_P = studentt_cdf(P_full[a], P_mean_smeared[:, i, :],
                                   sigma_plan[:, None], M5.nu_obs).mean(axis=0)
             pit_E = studentt_cdf(E_full[a], z_new[:, i, :],
-                                  sigma_ben[:, None], M5.nu_obs).mean(axis=0)
+                                  sigma_uprn[:, None], M5.nu_obs).mean(axis=0)
             self._record_pit([a] * self.n_years, 'P', pit_P)
             self._record_pit([a] * self.n_years, 'E', pit_E)
 

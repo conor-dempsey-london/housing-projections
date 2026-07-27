@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
+from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_UPRN, INFER_YEARS
 
 # ── Detection ─────────────────────────────────────────────────────────────────
 
 def _find_outliers(gdf, max_plausible=2000, min_plausible=-500,
                   discrepancy_threshold=500):
     """
-    Find suspicious observations in planning and BEN data.
+    Find suspicious observations in planning and UPRN data.
 
     Two categories with different severity:
 
@@ -22,7 +22,7 @@ def _find_outliers(gdf, max_plausible=2000, min_plausible=-500,
         reasonable interpretation.
 
     SOFT outliers (flagged but retained by default):
-      - Large discrepancy between planning and BEN in a single LSOA-year
+      - Large discrepancy between planning and UPRN in a single LSOA-year
         where one source is near zero. These may reflect genuine temporal
         lags, missing data, or spatial misallocation rather than errors.
 
@@ -42,7 +42,7 @@ def _find_outliers(gdf, max_plausible=2000, min_plausible=-500,
     records = []
 
     P = gdf[INFER_COLS_PLAN].values
-    E = gdf[INFER_COLS_BEN].values
+    E = gdf[INFER_COLS_UPRN].values
 
     id_col = next(
         (c for c in ['LSOA11CD', 'lsoa11cd', 'geo_code', 'code', 'lsoa_code']
@@ -58,7 +58,7 @@ def _find_outliers(gdf, max_plausible=2000, min_plausible=-500,
             e_val = E[i, t]
 
             # Hard: out of plausible range
-            for val, source in [(p_val, 'planning'), (e_val, 'ben')]:
+            for val, source in [(p_val, 'planning'), (e_val, 'uprn')]:
                 if val > max_plausible:
                     records.append({
                         'lsoa_idx': i,
@@ -174,7 +174,7 @@ def plot_soft_outlier_areas(gdf, outlier_df, n_cols=3):
 
 def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
     """
-    Plot planning and BEN time series for flagged areas.
+    Plot planning and UPRN time series for flagged areas.
 
     Parameters
     ----------
@@ -195,7 +195,7 @@ def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
         return None, None
 
     P      = gdf[INFER_COLS_PLAN].values
-    E      = gdf[INFER_COLS_BEN].values
+    E      = gdf[INFER_COLS_UPRN].values
     id_col = next(
         (c for c in ['LSOA11CD', 'lsoa11cd', 'geo_code', 'code', 'lsoa_code']
          if c in gdf.columns),
@@ -214,7 +214,7 @@ def plot_outlier_areas(gdf, outlier_df, severity='both', n_cols=3):
         ax.plot(INFER_YEARS, P[idx], color='steelblue',
                 marker='s', linewidth=1.0, label='Planning')
         ax.plot(INFER_YEARS, E[idx], color='coral',
-                marker='^', linewidth=1.0, label='BEN')
+                marker='^', linewidth=1.0, label='UPRN')
         ax.axhline(0, color='black', linewidth=0.5, linestyle=':')
 
         # Mark flagged years — hard in red, soft in orange

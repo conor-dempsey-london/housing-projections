@@ -12,10 +12,10 @@ import pymc as pm
 import pytensor.tensor as pt
 
 from housing_projections.config import (
-    ALL_COLS_BEN,
     ALL_COLS_PLAN,
-    INFER_COLS_BEN,
+    ALL_COLS_UPRN,
     INFER_COLS_PLAN,
+    INFER_COLS_UPRN,
 )
 
 __all__ = [
@@ -512,7 +512,7 @@ def _build_zero_sum_z_prior_top_boost_smooth(D, n_areas, n_years, floor, k,
 
     AZ2's diagnose-table min ESS (bulk=47) was traced to a small,
     persistent BETWEEN-chain disagreement on sigma_delta_top_boost/
-    sigma_plan/sigma_ben (chain means stable but not converging toward
+    sigma_plan/sigma_uprn (chain means stable but not converging toward
     each other, e.g. top_boost's 4 chain means sitting at 28.5-30.3 for
     the whole run) — ruled out ordinary slow mixing (autocorrelation near
     zero at lag>20) and ruled out a simple 2-3-variable ridge among the
@@ -678,8 +678,8 @@ def _build_pre_inference(data, max_lag, source='P'):
     source years before the inference window.
 
     source: 'P' (planning, default — preserves existing behaviour for all
-            callers that don't pass source) or 'E' (BEN). Both column
-            families (ALL_COLS_PLAN/ALL_COLS_BEN) span 2009-2024 with the
+            callers that don't pass source) or 'E' (UPRN). Both column
+            families (ALL_COLS_PLAN/ALL_COLS_UPRN) span 2009-2024 with the
             inference window starting 2011, so both sources have only 2
             real pre-window years before this pads with the earliest
             available column — a real ceiling on how much lag correction
@@ -692,7 +692,7 @@ def _build_pre_inference(data, max_lag, source='P'):
             data['P_obs_full'], ALL_COLS_PLAN, INFER_COLS_PLAN)
     elif source == 'E':
         obs_full, all_cols, infer_cols = (
-            data['E_obs_full'], ALL_COLS_BEN, INFER_COLS_BEN)
+            data['E_obs_full'], ALL_COLS_UPRN, INFER_COLS_UPRN)
     else:
         raise ValueError(f"source must be 'P' or 'E', got {source!r}")
 
@@ -1192,7 +1192,7 @@ def _build_hierarchical_lag_regularized_horseshoe_v2(z, pre_inference, n_areas, 
     version's two hand-picked deviations from it: a FIXED `slab_scale` constant and a
     `global_tau` prior reused from AZ1d's unrelated `tau_sigma` rather than derived from this
     model's own expected sparsity. AZ1g's own check-multimodality follow-up found its residual
-    bad-r-hat scalars (`global_tau`, `mu_logit`, and via them `sigma_ben`) are `not_multimodal`
+    bad-r-hat scalars (`global_tau`, `mu_logit`, and via them `sigma_uprn`) are `not_multimodal`
     -- a mild "shallow basin" (clean autocorrelation, smooth per-chain rank-histogram tilt, no
     discrete cluster split) -- on BOTH the Islington and Croydon 200-area samples tested. Per
     `docs/ess-rhat-diagnostic-guide.md`'s own decision procedure (step 4: for a shared/
@@ -1284,7 +1284,7 @@ def _build_planning_likelihood_simple(P_mean, P_obs, nu_obs, sigma_obs,
     M1 planning likelihood — StudentT, no missingness.
 
     name: PyMC variable name — override to 'E_like' to reuse this for a
-    lagged BEN likelihood (M9+) without duplicating the function.
+    lagged UPRN likelihood (M9+) without duplicating the function.
 
     Must be called inside a pm.Model() context.
     """
@@ -1439,8 +1439,8 @@ def _build_planning_likelihood_zeroinflated(P_mean, P_obs,
 
 
 def _build_agreement_gated_likelihood(P_mean, E_mean, P_obs, E_obs, mu_area,
-                                      sigma_agree_plan, sigma_agree_ben,
-                                      sigma_disagree_plan, sigma_disagree_ben,
+                                      sigma_agree_plan, sigma_agree_uprn,
+                                      sigma_disagree_plan, sigma_disagree_uprn,
                                       rho, nu_obs):
     """
     Joint agreement-gated mixture likelihood for P_obs and E_obs, sharing
@@ -1449,9 +1449,9 @@ def _build_agreement_gated_likelihood(P_mean, E_mean, P_obs, E_obs, mu_area,
     _build_planning_likelihood_simple called twice).
 
       agree    (prob rho):    P_obs ~ StudentT(P_mean, sigma_agree_plan)
-                               E_obs ~ StudentT(E_mean, sigma_agree_ben)
+                               E_obs ~ StudentT(E_mean, sigma_agree_uprn)
       disagree (prob 1-rho):  P_obs ~ StudentT(mu_area, sigma_disagree_plan)
-                               E_obs ~ StudentT(mu_area, sigma_disagree_ben)
+                               E_obs ~ StudentT(mu_area, sigma_disagree_uprn)
 
     Targets a failure mode per-source robust likelihoods can't reach: P
     and E individually plausible but jointly inconsistent. StudentT tails
@@ -1459,7 +1459,7 @@ def _build_agreement_gated_likelihood(P_mean, E_mean, P_obs, E_obs, mu_area,
     own outliers against a fixed mean; they have no mechanism that reacts
     to the two sources disagreeing with EACH OTHER, which is what left
     sigma_slab collapsed near 0 in M9 (cross-source disagreement dumped
-    into sigma_plan/sigma_ben instead of being explained). In the
+    into sigma_plan/sigma_uprn instead of being explained). In the
     disagree branch, both sources are explained by the area's fixed
     long-run rate (mu_area — the same target used for z's prior mean)
     rather than by z's current lag-weighted mean, so a disagreeing
@@ -1489,13 +1489,13 @@ def _build_agreement_gated_likelihood(P_mean, E_mean, P_obs, E_obs, mu_area,
     """
     log_p_agree = (
         pm.logp(pm.StudentT.dist(nu=nu_obs, mu=P_mean, sigma=sigma_agree_plan), P_obs) +
-        pm.logp(pm.StudentT.dist(nu=nu_obs, mu=E_mean, sigma=sigma_agree_ben), E_obs)
+        pm.logp(pm.StudentT.dist(nu=nu_obs, mu=E_mean, sigma=sigma_agree_uprn), E_obs)
     )
     log_p_disagree = (
         pm.logp(pm.StudentT.dist(nu=nu_obs, mu=mu_area[:, None],
                                  sigma=sigma_disagree_plan), P_obs) +
         pm.logp(pm.StudentT.dist(nu=nu_obs, mu=mu_area[:, None],
-                                 sigma=sigma_disagree_ben), E_obs)
+                                 sigma=sigma_disagree_uprn), E_obs)
     )
 
     log_lik_agree    = pt.log(rho)       + log_p_agree
@@ -1511,8 +1511,8 @@ def _build_agreement_gated_likelihood(P_mean, E_mean, P_obs, E_obs, mu_area,
 
 
 def _build_independent_agreement_gated_likelihood(P_mean, E_mean, P_obs, E_obs, mu_area,
-                                                   sigma_agree_plan, sigma_agree_ben,
-                                                   sigma_disagree_plan, sigma_disagree_ben,
+                                                   sigma_agree_plan, sigma_agree_uprn,
+                                                   sigma_disagree_plan, sigma_disagree_uprn,
                                                    rho_P, rho_E, nu_obs):
     """
     Per-source independent agreement-gated mixture likelihood — replaces
@@ -1563,10 +1563,10 @@ def _build_independent_agreement_gated_likelihood(P_mean, E_mean, P_obs, E_obs, 
     log_lik_P = pt.logaddexp(log_lik_agree_P, log_lik_disagree_P)
 
     log_p_agree_E    = pm.logp(
-        pm.StudentT.dist(nu=nu_obs, mu=E_mean, sigma=sigma_agree_ben), E_obs)
+        pm.StudentT.dist(nu=nu_obs, mu=E_mean, sigma=sigma_agree_uprn), E_obs)
     log_p_disagree_E = pm.logp(
         pm.StudentT.dist(nu=nu_obs, mu=mu_area[:, None],
-                         sigma=sigma_disagree_ben), E_obs)
+                         sigma=sigma_disagree_uprn), E_obs)
     log_lik_agree_E    = pt.log(rho_E)     + log_p_agree_E
     log_lik_disagree_E = pt.log(1 - rho_E) + log_p_disagree_E
     log_lik_E = pt.logaddexp(log_lik_agree_E, log_lik_disagree_E)
@@ -1901,7 +1901,7 @@ def _build_backward_reallocation_likelihood(z, obs, boundary_target,
     exactly analogous to agreement_prob_P/E in M11-M16.
 
     sigma_obs is shared between the same-year and prior-year components
-    (both represent genuine planning/BEN measurement noise around a real
+    (both represent genuine planning/UPRN measurement noise around a real
     z value — only the target year differs, not the measurement
     process). sigma_noise is a separate, wider scale for the noise
     component, which explains a record with no structured relationship
@@ -1959,7 +1959,7 @@ def _build_backward_reallocation_likelihood_2way(z, obs, boundary_target,
     freely-shrinking scale to collapse onto. Both branches here are
     centred on a genuinely MOVING target (z[a,t] or z[a,t-1]), not a
     fixed point, and sigma_obs isn't a new parameter (it's the same
-    sigma_plan/sigma_ben AZ0a already samples cleanly) — so there's no
+    sigma_plan/sigma_uprn AZ0a already samples cleanly) — so there's no
     equivalent degenerate mode available, without needing to re-litigate
     or bound the noise branch that actually broke it.
 
@@ -2036,7 +2036,7 @@ def _build_noise_mixture_likelihood(z, obs, sigma_obs, sigma_noise_floor,
     ever reaching 0.
 
     sigma_noise_floor should sit well above sigma_obs's typical scale
-    (AZ0a's sigma_plan/sigma_ben converge around 7-9) so the noise branch
+    (AZ0a's sigma_plan/sigma_uprn converge around 7-9) so the noise branch
     is unambiguously "much more tolerant", not a near-duplicate of the
     signal branch -- see AZ3's docstring for the calibrated value.
 

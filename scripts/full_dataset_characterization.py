@@ -374,15 +374,15 @@ def main():
         'frac_low_year_confidence': float((~identifiability['confident']).mean()),
         'max_rhat_z': float(np.nanmax(area_df['max_rhat'])),
         'plan_coverage_90': calibration['planning'],
-        'ben_coverage_90': calibration['ben'],
+        'uprn_coverage_90': calibration['uprn'],
         'census_mean_violation': census['mean_violation'],
         'census_max_violation': census['max_violation'],
         'morans_i_planning_residual': morans['planning']['I'],
         'morans_i_planning_p': morans['planning']['p_value'],
-        'morans_i_ben_residual': morans['ben']['I'],
-        'morans_i_ben_p': morans['ben']['p_value'],
+        'morans_i_uprn_residual': morans['uprn']['I'],
+        'morans_i_uprn_p': morans['uprn']['p_value'],
     }
-    for scalar in ['rho_P', 'rho_E', 'sigma_plan', 'sigma_ben',
+    for scalar in ['rho_P', 'rho_E', 'sigma_plan', 'sigma_uprn',
                    'sigma_noise_P', 'sigma_noise_E']:
         if scalar in trace.posterior:
             vals = trace.posterior[scalar].values

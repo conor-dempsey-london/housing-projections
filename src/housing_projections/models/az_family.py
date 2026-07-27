@@ -180,7 +180,7 @@ class AZ0a(DwellingModel):
     throughout this session rather than assuming the diagnosis above is
     the WHOLE story.
 
-    sigma_plan/sigma_ben priors and structure copied directly from M0 (the
+    sigma_plan/sigma_uprn priors and structure copied directly from M0 (the
     repo's own "simplest baseline") rather than AZ0's HalfNormal(3) — the
     point of this model is to be the most boring possible likelihood, not
     a slightly-simplified AZ0.
@@ -195,7 +195,7 @@ class AZ0a(DwellingModel):
     description = ('AZ0\'s anchored zero-sum z prior alone + plain StudentT P/E '
                    'likelihood (no mixture) — isolates the prior from AZ0\'s '
                    'likelihood-collapse pathology')
-    var_names   = ['sigma_plan', 'sigma_ben']
+    var_names   = ['sigma_plan', 'sigma_uprn']
 
     sigma_delta_floor = 3.0  # same as AZ0
     k_sigma_delta     = 0.08  # same as AZ0
@@ -210,10 +210,10 @@ class AZ0a(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_plan,
-                                             sigma_ben=sigma_ben)
+                                             sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -234,7 +234,7 @@ class AZ0b(DwellingModel):
     version drops the noise branch entirely (see
     _build_backward_reallocation_likelihood_2way's docstring for why
     that removes the specific degenerate mode, not just papers over it)
-    and reuses AZ0a's existing sigma_plan/sigma_ben rather than adding
+    and reuses AZ0a's existing sigma_plan/sigma_uprn rather than adding
     any new free scale.
 
     Directly evidenced, not just inherited from earlier design
@@ -303,7 +303,7 @@ class AZ0b(DwellingModel):
     name        = 'AZ0b'
     description = ('AZ0a + 2-way backward-only reallocation (same-year vs '
                    'one-year-prior) per source, no noise branch')
-    var_names   = ['sigma_plan', 'sigma_ben', 'rho_P', 'rho_E']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'rho_P', 'rho_E']
 
     sigma_delta_floor = 3.0  # same as AZ0/AZ0a
     k_sigma_delta     = 0.08  # same as AZ0/AZ0a
@@ -322,14 +322,14 @@ class AZ0b(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             rho_P      = pm.Beta('rho_P', alpha=2, beta=2)
             rho_E      = pm.Beta('rho_E', alpha=2, beta=2)
 
             _build_backward_reallocation_likelihood_2way(
                 z, data['P_obs'], boundary_target, sigma_plan, rho_P, self.nu_obs, name='P')
             _build_backward_reallocation_likelihood_2way(
-                z, data['E_obs'], boundary_target, sigma_ben, rho_E, self.nu_obs, name='E')
+                z, data['E_obs'], boundary_target, sigma_uprn, rho_E, self.nu_obs, name='E')
 
         self.model = model
         return model
@@ -383,7 +383,7 @@ class AZ1a(DwellingModel):
     name        = 'AZ1a'
     description = ('AZ0a + fully-pooled continuous lag convolution '
                    '(P and E each get their own Dirichlet lag weights)')
-    var_names   = ['sigma_plan', 'sigma_ben', 'lambda_weights_P', 'lambda_weights_E']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'lambda_weights_P', 'lambda_weights_E']
 
     sigma_delta_floor = 3.0   # same as AZ0/AZ0a/AZ0b
     k_sigma_delta     = 0.08  # same as AZ0/AZ0a/AZ0b
@@ -413,7 +413,7 @@ class AZ1a(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             _, P_mean = _build_lag(z, pre_inference_P, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag,
@@ -425,7 +425,7 @@ class AZ1a(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(E_mean, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -504,7 +504,7 @@ class AZ1b(DwellingModel):
     name        = 'AZ1b'
     description = ('AZ1a + area-level hierarchically-pooled lag weights '
                    '(replacing the single shared kernel per source)')
-    var_names   = ['sigma_plan', 'sigma_ben',
+    var_names   = ['sigma_plan', 'sigma_uprn',
                    'lag_P_mu_logit', 'lag_P_tau', 'lag_E_mu_logit', 'lag_E_tau']
 
     sigma_delta_floor = 3.0   # same as AZ0/AZ0a/AZ0b/AZ1a
@@ -534,7 +534,7 @@ class AZ1b(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             _, P_mean = _build_hierarchical_lag(
                 z, pre_inference_P, n_areas, n_years, self.n_lags,
@@ -546,7 +546,7 @@ class AZ1b(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(E_mean, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -583,7 +583,7 @@ class AZ1c(DwellingModel):
     checked directly, not assumed -- see docs/az-ess-diagnosis.md for
     whether the spike-tracking win survives.
 
-    Otherwise identical to AZ1b: same z-prior, same sigma_plan/sigma_ben,
+    Otherwise identical to AZ1b: same z-prior, same sigma_plan/sigma_uprn,
     same prior_logit centering, same P_like/E_like construction.
     """
 
@@ -591,7 +591,7 @@ class AZ1c(DwellingModel):
     description = ('AZ1b + a hard ceiling on tau (tau = tau_cap * Beta(2,2)) '
                    'instead of a free HalfNormal, to test whether capping '
                    'per-area divergence suppresses the hard multimodality')
-    var_names   = ['sigma_plan', 'sigma_ben',
+    var_names   = ['sigma_plan', 'sigma_uprn',
                    'lag_P_mu_logit', 'lag_P_tau', 'lag_E_mu_logit', 'lag_E_tau']
 
     sigma_delta_floor = 3.0   # same as AZ0/AZ0a/AZ0b/AZ1a/AZ1b
@@ -618,7 +618,7 @@ class AZ1c(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             _, P_mean = _build_hierarchical_lag_capped(
                 z, pre_inference_P, n_areas, n_years, self.n_lags,
@@ -630,7 +630,7 @@ class AZ1c(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(E_mean, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -666,7 +666,7 @@ class AZ1d(DwellingModel):
     registration recorded a year after the real completion) -- that
     signal either gets absorbed into z's zero-sum flexibility directly
     (same mechanism AZ0a always had) or shows up as a same-year residual
-    tolerated by `sigma_ben`. Whether AZ1b's flagship spike-tracking win
+    tolerated by `sigma_uprn`. Whether AZ1b's flagship spike-tracking win
     (LSOA E01033711) survives this is checked directly on real data, not
     assumed either way.
     """
@@ -676,7 +676,7 @@ class AZ1d(DwellingModel):
                    "keeping P's hierarchical lag -- testing whether E's "
                    "lag ambiguity is disproportionately responsible for "
                    "AZ1b's residual r-hat/ESS problems")
-    var_names   = ['sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_tau']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_tau']
 
     sigma_delta_floor = 3.0   # same as AZ0/AZ0a/AZ0b/AZ1a/AZ1b/AZ1c
     k_sigma_delta     = 0.08  # same as AZ0/AZ0a/AZ0b/AZ1a/AZ1b/AZ1c
@@ -699,7 +699,7 @@ class AZ1d(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             _, P_mean = _build_hierarchical_lag(
                 z, pre_inference_P, n_areas, n_years, self.n_lags,
@@ -708,7 +708,7 @@ class AZ1d(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(z, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -751,7 +751,7 @@ class AZ1e(DwellingModel):
                    "(per-area tau instead of one shared value) -- testing "
                    "whether asymmetric per-area shrinkage succeeds where "
                    "AZ1c's/AZ4b's uniform tau cap failed")
-    var_names   = ['sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau']
 
     sigma_delta_floor = 3.0   # same as AZ0/AZ0a/AZ0b/AZ1a/AZ1b/AZ1c/AZ1d
     k_sigma_delta     = 0.08  # same as AZ0/AZ0a/AZ0b/AZ1a/AZ1b/AZ1c/AZ1d
@@ -775,7 +775,7 @@ class AZ1e(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             _, P_mean = _build_hierarchical_lag_horseshoe(
                 z, pre_inference_P, n_areas, n_years, self.n_lags,
@@ -786,7 +786,7 @@ class AZ1e(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(z, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -835,7 +835,7 @@ class AZ1f(DwellingModel):
                    "mean-mixed -- testing whether this removes the residual "
                    "lag_P_mu_logit/tau r-hat problem that persisted even "
                    "after 16 chains + informed init")
-    var_names   = ['sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_tau']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_tau']
 
     sigma_delta_floor = 3.0   # same as AZ1d
     k_sigma_delta     = 0.08  # same as AZ1d
@@ -858,7 +858,7 @@ class AZ1f(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             lambda_weights, shifted = _build_hierarchical_lag_marginalized(
                 z, pre_inference_P, n_areas, n_years, self.n_lags,
@@ -868,7 +868,7 @@ class AZ1f(DwellingModel):
                 shifted, lambda_weights, data['P_obs'],
                 self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(z, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -903,7 +903,7 @@ class AZ1g(DwellingModel):
                    "per-area lag tau -- AZ1e's fix idea, redone with a slab "
                    "bounding the local multiplier so it can't reproduce "
                    "AZ1e's local_scale blowup to 3.09 million")
-    var_names   = ['sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau']
 
     sigma_delta_floor = 3.0   # same as AZ1d
     k_sigma_delta     = 0.08  # same as AZ1d
@@ -928,7 +928,7 @@ class AZ1g(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             _, P_mean = _build_hierarchical_lag_regularized_horseshoe(
                 z, pre_inference_P, n_areas, n_years, self.n_lags,
@@ -940,7 +940,7 @@ class AZ1g(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(z, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -957,7 +957,7 @@ class AZ1h(DwellingModel):
 
     Motivated directly by AZ1g's own follow-up: `check-multimodality` confirmed AZ1g's
     residual bad-r-hat scalars (`lag_P_global_tau`, `lag_P_mu_logit`, and via them
-    `sigma_ben`/`sigma_plan`) are `not_multimodal` on BOTH the Islington and Croydon 200-area
+    `sigma_uprn`/`sigma_plan`) are `not_multimodal` on BOTH the Islington and Croydon 200-area
     samples tested — a mild, generic "shallow basin" (clean autocorrelation, smooth per-chain
     rank-histogram tilt, no discrete cluster split), not multimodality leaking upward (that
     channel is what AZ1g itself already fixed). Re-reading this codebase's own `pymc-modeling`/
@@ -976,7 +976,7 @@ class AZ1h(DwellingModel):
                    "calibrated global_tau prior (tau0 formula) instead of AZ1d's reused "
                    "tau_sigma -- testing whether the standard recipe closes AZ1g's residual "
                    "not_multimodal shallow-basin r-hat on global_tau/mu_logit")
-    var_names   = ['sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau', 'lag_P_c2']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau', 'lag_P_c2']
 
     sigma_delta_floor = 3.0    # same as AZ1d/AZ1g
     k_sigma_delta     = 0.08   # same as AZ1d/AZ1g
@@ -1001,7 +1001,7 @@ class AZ1h(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             _, P_mean = _build_hierarchical_lag_regularized_horseshoe_v2(
                 z, pre_inference_P, n_areas, n_years, self.n_lags,
@@ -1012,7 +1012,7 @@ class AZ1h(DwellingModel):
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan, name='P_like')
             _build_planning_likelihood_simple(z, data['E_obs'],
-                                             self.nu_obs, sigma_ben, name='E_like')
+                                             self.nu_obs, sigma_uprn, name='E_like')
 
         self.model = model
         return model
@@ -1047,7 +1047,7 @@ class AZ2(DwellingModel):
     name        = 'AZ2'
     description = ('AZ0a + a single top-D-quartile boost to sigma_delta '
                    '(replacing the 4-band hierarchy that over-complicated this)')
-    var_names   = ['sigma_plan', 'sigma_ben', 'sigma_delta_top_boost']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'sigma_delta_top_boost']
 
     sigma_delta_floor = 3.0   # same as AZ0/AZ0a/AZ1a/AZ1b
     k_sigma_delta     = 0.08  # same as AZ0/AZ0a/AZ1a/AZ1b
@@ -1068,10 +1068,10 @@ class AZ2(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta, is_top=is_top)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
-                                            sigma_plan, sigma_ben)
+                                            sigma_plan, sigma_uprn)
 
         self.model = model
         return model
@@ -1099,12 +1099,12 @@ class AZ2b(DwellingModel):
     general, was the source of the bulk-ESS problem.
 
     Otherwise identical to AZ2: same floor/k, same top_quantile,
-    same sigma_plan/sigma_ben, same observation likelihoods.
+    same sigma_plan/sigma_uprn, same observation likelihoods.
 
     Branch verdict (docs/az-ess-diagnosis.md): the smooth ramp fixed
     sigma_delta_top_boost's own ESS (47 -> 800+) as intended, but a full
     whole-model scan (not just this class's own var_names) found the same
-    underlying pathology had resurfaced on sigma_plan/sigma_ben instead of
+    underlying pathology had resurfaced on sigma_plan/sigma_uprn instead of
     being resolved -- confirmed AZ2b-specific (not P_obs/E_obs data
     sparsity: AZ0a converges cleanly, ESS 3000+, on the identical data with
     no top-boost mechanism) via a causal AZ0a-vs-AZ2b comparison, but no
@@ -1112,7 +1112,7 @@ class AZ2b(DwellingModel):
     scalar ridge, or a top-quartile residual split) explains HOW -- all
     three checked directly and came back weak/inconclusive. `sample_kwargs`
     below (8 chains, target_accept=0.97) is the best config found across
-    four sampler-setting permutations tested: it reliably fixes sigma_ben
+    four sampler-setting permutations tested: it reliably fixes sigma_uprn
     (ESS 570, r_hat 1.015) but sigma_plan remains a disclosed, accepted
     limitation of this branch (ESS 234-534 depending on config, never
     reliably >=400) -- not fixable by sampler tuning alone.
@@ -1122,7 +1122,7 @@ class AZ2b(DwellingModel):
     description = ('AZ2 + a smooth sigmoid ramp (over |D| rank percentile) '
                    'replacing the hard top-quartile step, to test whether '
                    'the discontinuity was driving the low bulk ESS')
-    var_names   = ['sigma_plan', 'sigma_ben', 'sigma_delta_top_boost']
+    var_names   = ['sigma_plan', 'sigma_uprn', 'sigma_delta_top_boost']
 
     sigma_delta_floor = 3.0   # same as AZ0/AZ0a/AZ1a/AZ1b/AZ2
     k_sigma_delta     = 0.08  # same as AZ0/AZ0a/AZ1a/AZ1b/AZ2
@@ -1144,10 +1144,10 @@ class AZ2b(DwellingModel):
                 transition_width=self.transition_width)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
 
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
-                                            sigma_plan, sigma_ben)
+                                            sigma_plan, sigma_uprn)
 
         self.model = model
         return model
@@ -1166,7 +1166,7 @@ class AZ3(DwellingModel):
     currently look "impossible to reconcile" might actually be lag or
     scale problems that Phases 1b/2 would have explained away, and the
     noise flag should be reserved for cells nothing else can fix. Purpose
-    is explicitly dual: (1) let sigma_plan/sigma_ben stop being dragged
+    is explicitly dual: (1) let sigma_plan/sigma_uprn stop being dragged
     loose by genuinely irreconcilable cells (AZ0a's sigma_plan=7.45 has to
     be loose enough, via StudentT's heavy tails, to "tolerate" even
     impossible cells like E01001774's -- a residual of 762 only costs
@@ -1177,7 +1177,7 @@ class AZ3(DwellingModel):
     accounts for what z can and can't explain.
 
     sigma_noise_floor=25.0: well above AZ0a's converged sigma_plan/
-    sigma_ben (~7-9), so the noise branch is unambiguously more tolerant
+    sigma_uprn (~7-9), so the noise branch is unambiguously more tolerant
     than the signal branch rather than a near-duplicate of it. This is a
     first-pass value (same status as sigma_delta's floor/k in
     _build_zero_sum_z_prior) -- revisit if diagnostics show the noise
@@ -1187,7 +1187,7 @@ class AZ3(DwellingModel):
 
     sigma_obs_floor=2.0 -- ADDED after diagnosing the root cause of AZ3's
     ESS problem (see docs/az-family-work-plan.md Phase 3). Without a
-    floor, sigma_plan/sigma_ben (originally plain HalfNormal(2), same as
+    floor, sigma_plan/sigma_uprn (originally plain HalfNormal(2), same as
     AZ0a) collapsed to ~0.58/0.99 -- an order of magnitude below every
     other AZ0a-family model's ~7-9 -- because the noise-mixture lets
     outliers escape via the noise branch instead of inflating the signal
@@ -1210,15 +1210,15 @@ class AZ3(DwellingModel):
     name        = 'AZ3'
     description = ('AZ0a + floored noise/outlier mixture on P and E, '
                    'with automatic per-cell outlier flagging')
-    var_names   = ['sigma_plan', 'sigma_ben', 'rho_P', 'rho_E',
+    var_names   = ['sigma_plan', 'sigma_uprn', 'rho_P', 'rho_E',
                    'sigma_noise_P', 'sigma_noise_E']
 
     sigma_delta_floor = 3.0    # same as AZ0/AZ0a/AZ1a/AZ1b/AZ2
     k_sigma_delta     = 0.08   # same as AZ0/AZ0a/AZ1a/AZ1b/AZ2
-    sigma_noise_floor = 25.0   # see docstring -- well above sigma_plan/ben's
+    sigma_noise_floor = 25.0   # see docstring -- well above sigma_plan/uprn's
                                # converged ~7-9, so the noise branch is
                                # unambiguously more tolerant, not a near-duplicate
-    sigma_obs_floor   = 2.0    # see docstring -- fixes sigma_plan/ben's
+    sigma_obs_floor   = 2.0    # see docstring -- fixes sigma_plan/uprn's
                                # collapse-to-near-zero funnel
 
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
@@ -1233,14 +1233,14 @@ class AZ3(DwellingModel):
                 floor=self.sigma_delta_floor, k=self.k_sigma_delta)
 
             sigma_plan_excess = pm.HalfNormal('sigma_plan_excess', sigma=3)
-            sigma_ben_excess  = pm.HalfNormal('sigma_ben_excess',  sigma=3)
+            sigma_uprn_excess  = pm.HalfNormal('sigma_uprn_excess',  sigma=3)
             sigma_plan = pm.Deterministic('sigma_plan', self.sigma_obs_floor + sigma_plan_excess)
-            sigma_ben  = pm.Deterministic('sigma_ben',  self.sigma_obs_floor + sigma_ben_excess)
+            sigma_uprn  = pm.Deterministic('sigma_uprn',  self.sigma_obs_floor + sigma_uprn_excess)
 
             _build_noise_mixture_likelihood(
                 z, data['P_obs'], sigma_plan, self.sigma_noise_floor, self.nu_obs, name='P')
             _build_noise_mixture_likelihood(
-                z, data['E_obs'], sigma_ben, self.sigma_noise_floor, self.nu_obs, name='E')
+                z, data['E_obs'], sigma_uprn, self.sigma_noise_floor, self.nu_obs, name='E')
 
         self.model = model
         return model
@@ -1274,7 +1274,7 @@ class AZ4(DwellingModel):
        existed in the first place).
     3. **Likelihood**: AZ3's floored noise-mixture
        (`_build_noise_mixture_likelihood`) with the floored
-       `sigma_plan`/`sigma_ben` fix (`sigma_obs_floor=2.0 +
+       `sigma_plan`/`sigma_uprn` fix (`sigma_obs_floor=2.0 +
        HalfNormal(3)` excess) validated in the `az3-floor-followup`
        artifact -- applied to the LAG-CONVOLVED `P_mean`/`E_mean` (this
        model's per-cell "genuine signal" mean), not to raw `z` directly,
@@ -1306,7 +1306,7 @@ class AZ4(DwellingModel):
     description = ('AZ0a + AZ2b\'s smooth top-boost z-prior + AZ1b\'s '
                    'area-hierarchical lag (P and E) + AZ3\'s floored '
                    'noise-mixture likelihood on the lag-convolved means')
-    var_names   = ['sigma_plan', 'sigma_ben', 'sigma_delta_top_boost',
+    var_names   = ['sigma_plan', 'sigma_uprn', 'sigma_delta_top_boost',
                    'lag_P_mu_logit', 'lag_P_tau', 'lag_E_mu_logit', 'lag_E_tau',
                    'rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E']
 
@@ -1317,7 +1317,7 @@ class AZ4(DwellingModel):
     max_lag           = 2      # same as AZ1a/AZ1b/AZ1c
     tau_sigma         = 1.5    # AZ1b's value (NOT AZ1c's rejected hard cap)
     sigma_noise_floor = 25.0   # same as AZ3
-    sigma_obs_floor   = 2.0    # same as AZ3 (floored sigma_plan/sigma_ben fix)
+    sigma_obs_floor   = 2.0    # same as AZ3 (floored sigma_plan/sigma_uprn fix)
 
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95,
                      'chains': 8, 'cores': 8}
@@ -1345,14 +1345,14 @@ class AZ4(DwellingModel):
                 self.max_lag, prior_logit, tau_sigma=self.tau_sigma, name='lag_E')
 
             sigma_plan_excess = pm.HalfNormal('sigma_plan_excess', sigma=3)
-            sigma_ben_excess  = pm.HalfNormal('sigma_ben_excess',  sigma=3)
+            sigma_uprn_excess  = pm.HalfNormal('sigma_uprn_excess',  sigma=3)
             sigma_plan = pm.Deterministic('sigma_plan', self.sigma_obs_floor + sigma_plan_excess)
-            sigma_ben  = pm.Deterministic('sigma_ben',  self.sigma_obs_floor + sigma_ben_excess)
+            sigma_uprn  = pm.Deterministic('sigma_uprn',  self.sigma_obs_floor + sigma_uprn_excess)
 
             _build_noise_mixture_likelihood(
                 P_mean, data['P_obs'], sigma_plan, self.sigma_noise_floor, self.nu_obs, name='P')
             _build_noise_mixture_likelihood(
-                E_mean, data['E_obs'], sigma_ben, self.sigma_noise_floor, self.nu_obs, name='E')
+                E_mean, data['E_obs'], sigma_uprn, self.sigma_noise_floor, self.nu_obs, name='E')
 
         self.model = model
         return model
@@ -1385,7 +1385,7 @@ class AZ5(DwellingModel):
     directly for E, since E has no lag-convolved mean here to use instead -- the same
     "signal branch should still benefit from lag-awareness where lag-awareness exists"
     principle AZ4 established, just asymmetric because only one source has that structure
-    this time. `sigma_plan`/`sigma_ben` use AZ3's floored construction
+    this time. `sigma_plan`/`sigma_uprn` use AZ3's floored construction
     (`sigma_obs_floor=2.0 + HalfNormal(3)` excess), not AZ1g's plain `HalfNormal(2)` --
     AZ1g never carried the floor fix because it predates AZ3's own diagnosis of the
     collapse-to-near-zero funnel; skipping it here would just reintroduce a known,
@@ -1414,7 +1414,7 @@ class AZ5(DwellingModel):
                    "floored noise-mixture likelihood -- a deliberate two-piece "
                    "combination (not three, unlike AZ4/AZ4b), isolating the "
                    "AZ1g/AZ3 interaction specifically")
-    var_names   = ['sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau',
+    var_names   = ['sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau',
                    'rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E']
 
     sigma_delta_floor = 3.0    # same as AZ0/AZ0a/.../AZ1g/AZ3
@@ -1424,7 +1424,7 @@ class AZ5(DwellingModel):
     local_scale_beta  = 1.0    # same as AZ1g
     slab_scale        = 10.0   # same as AZ1g
     sigma_noise_floor = 25.0   # same as AZ3
-    sigma_obs_floor   = 2.0    # same as AZ3 (floored sigma_plan/sigma_ben fix)
+    sigma_obs_floor   = 2.0    # same as AZ3 (floored sigma_plan/sigma_uprn fix)
 
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.98,
                      'chains': 8, 'cores': 8}
@@ -1449,14 +1449,14 @@ class AZ5(DwellingModel):
                 slab_scale=self.slab_scale, name='lag_P')
 
             sigma_plan_excess = pm.HalfNormal('sigma_plan_excess', sigma=3)
-            sigma_ben_excess  = pm.HalfNormal('sigma_ben_excess',  sigma=3)
+            sigma_uprn_excess  = pm.HalfNormal('sigma_uprn_excess',  sigma=3)
             sigma_plan = pm.Deterministic('sigma_plan', self.sigma_obs_floor + sigma_plan_excess)
-            sigma_ben  = pm.Deterministic('sigma_ben',  self.sigma_obs_floor + sigma_ben_excess)
+            sigma_uprn  = pm.Deterministic('sigma_uprn',  self.sigma_obs_floor + sigma_uprn_excess)
 
             _build_noise_mixture_likelihood(
                 P_mean, data['P_obs'], sigma_plan, self.sigma_noise_floor, self.nu_obs, name='P')
             _build_noise_mixture_likelihood(
-                z, data['E_obs'], sigma_ben, self.sigma_noise_floor, self.nu_obs, name='E')
+                z, data['E_obs'], sigma_uprn, self.sigma_noise_floor, self.nu_obs, name='E')
 
         self.model = model
         return model
@@ -1535,14 +1535,14 @@ class AZ4b(DwellingModel):
                 self.max_lag, prior_logit, tau_cap=self.tau_cap, name='lag_E')
 
             sigma_plan_excess = pm.HalfNormal('sigma_plan_excess', sigma=3)
-            sigma_ben_excess  = pm.HalfNormal('sigma_ben_excess',  sigma=3)
+            sigma_uprn_excess  = pm.HalfNormal('sigma_uprn_excess',  sigma=3)
             sigma_plan = pm.Deterministic('sigma_plan', self.sigma_obs_floor + sigma_plan_excess)
-            sigma_ben  = pm.Deterministic('sigma_ben',  self.sigma_obs_floor + sigma_ben_excess)
+            sigma_uprn  = pm.Deterministic('sigma_uprn',  self.sigma_obs_floor + sigma_uprn_excess)
 
             _build_noise_mixture_likelihood(
                 P_mean, data['P_obs'], sigma_plan, self.sigma_noise_floor, self.nu_obs, name='P')
             _build_noise_mixture_likelihood(
-                E_mean, data['E_obs'], sigma_ben, self.sigma_noise_floor, self.nu_obs, name='E')
+                E_mean, data['E_obs'], sigma_uprn, self.sigma_noise_floor, self.nu_obs, name='E')
 
         self.model = model
         return model

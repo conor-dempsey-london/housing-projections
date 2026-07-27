@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
+from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_UPRN, INFER_YEARS
 
 
 def _safe_pearsonr(x, y):
@@ -166,7 +166,7 @@ def plot_cumulative_vs_intercensal(gdf, cols, labels,
 
 def compute_overall_correlation(gdf, verbose=True):
     """
-    Compute overall correlation between planning and BEN across all
+    Compute overall correlation between planning and UPRN across all
     areas and years simultaneously, plus per-area correlation distribution.
 
     Returns
@@ -174,7 +174,7 @@ def compute_overall_correlation(gdf, verbose=True):
     dict with keys 'overall_r', 'overall_p', 'per_area_corr'
     """
     P = gdf[INFER_COLS_PLAN].values
-    E = gdf[INFER_COLS_BEN].values
+    E = gdf[INFER_COLS_UPRN].values
 
     overall_r, overall_p = stats.pearsonr(P.ravel(), E.ravel())
 
@@ -190,7 +190,7 @@ def compute_overall_correlation(gdf, verbose=True):
     }
 
     if verbose:
-        print("\n── Overall planning vs BEN correlation ──────────────────────")
+        print("\n── Overall planning vs UPRN correlation ──────────────────────")
         print(f"  Overall (flattened):    r={overall_r:.3f} (p={overall_p:.1e})")
         print(f"  Mean per-area:          r={per_area_corr.mean():.3f}")
         print(f"  Median per-area:        r={per_area_corr.median():.3f}")
@@ -203,10 +203,10 @@ def compute_overall_correlation(gdf, verbose=True):
 
 def plot_per_area_correlation(gdf):
     """
-    Histogram of per-area correlations between planning and BEN.
+    Histogram of per-area correlations between planning and UPRN.
     """
     P = gdf[INFER_COLS_PLAN].values
-    E = gdf[INFER_COLS_BEN].values
+    E = gdf[INFER_COLS_UPRN].values
 
     per_area_corr = pd.Series([
         _safe_pearsonr(P[i], E[i])
@@ -221,10 +221,10 @@ def plot_per_area_correlation(gdf):
                linestyle='--', label=f'mean={per_area_corr.mean():.3f}')
     ax.axvline(per_area_corr.median(), color='darkred', linewidth=0.8,
                linestyle=':',  label=f'median={per_area_corr.median():.3f}')
-    ax.set_xlabel('Per-area Pearson r (planning vs BEN)')
+    ax.set_xlabel('Per-area Pearson r (planning vs UPRN)')
     ax.set_ylabel('Density')
     ax.set_title('Distribution of per-area annual correlations between '
-                 'planning and BEN')
+                 'planning and UPRN')
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend(fontsize=8)
     plt.tight_layout()
@@ -233,7 +233,7 @@ def plot_per_area_correlation(gdf):
 
 def plot_annual_p_vs_e(gdf, n_cols=5):
     """
-    Year-by-year scatter of planning vs BEN with 1:1 line and correlation.
+    Year-by-year scatter of planning vs UPRN with 1:1 line and correlation.
     """
     n_years = len(INFER_YEARS)
     n_rows  = int(np.ceil(n_years / n_cols))
@@ -243,7 +243,7 @@ def plot_annual_p_vs_e(gdf, n_cols=5):
     axes = np.array(axes).ravel()
 
     for ax, yr, col_p, col_e in zip(
-        axes, INFER_YEARS, INFER_COLS_PLAN, INFER_COLS_BEN
+        axes, INFER_YEARS, INFER_COLS_PLAN, INFER_COLS_UPRN
     ):
         p = gdf[col_p].values
         e = gdf[col_e].values
@@ -263,12 +263,12 @@ def plot_annual_p_vs_e(gdf, n_cols=5):
         ax.set_ylim(-clip, clip)
         ax.set_title(f'{yr}  (r={r:.2f})', fontsize=8)
         ax.set_xlabel('Planning', fontsize=7)
-        ax.set_ylabel('BEN',      fontsize=7)
+        ax.set_ylabel('UPRN',      fontsize=7)
         ax.spines[['top', 'right']].set_visible(False)
 
     for ax in axes[n_years:]:
         ax.set_visible(False)
 
-    plt.suptitle('Annual planning vs BEN by year')
+    plt.suptitle('Annual planning vs UPRN by year')
     plt.tight_layout()
     return fig, axes

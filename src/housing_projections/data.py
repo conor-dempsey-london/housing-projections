@@ -8,16 +8,16 @@ import pandas as pd
 from shapely.geometry import Point
 
 from housing_projections.config import (
-    ALL_COLS_BEN,
     ALL_COLS_PLAN,
-    INFER_COLS_BEN,
+    ALL_COLS_UPRN,
     INFER_COLS_PLAN,
+    INFER_COLS_UPRN,
 )
 
 # Default centre: Islington, north central London
 DEFAULT_CENTER_LATLON = (51.544, -0.103)
 
-_BEN_FILENAME = 'final_residential_uprn_net_changes_by_oa_fy (1).csv'
+_UPRN_FILENAME = 'final_residential_uprn_net_changes_by_oa_fy (1).csv'
 _PLD_FILENAME = 'lsoa_completions_time_series_pivot.csv'
 
 
@@ -33,7 +33,7 @@ def validate_data_path(data_path):
     """
     required = {
         'PLD completions': os.path.join(data_path, 'pld', _PLD_FILENAME),
-        'BEN estimates':   os.path.join(data_path, 'ben', _BEN_FILENAME),
+        'UPRN estimates':  os.path.join(data_path, 'uprn', _UPRN_FILENAME),
     }
     missing = {label: path for label, path in required.items() if not os.path.exists(path)}
     if missing:
@@ -57,7 +57,7 @@ def _build_gdf(
     completions: pd.DataFrame,
     dwellings_2011_xw: pd.DataFrame,
     dwellings_2021: pd.DataFrame,
-    df_ben: pd.DataFrame,
+    df_uprn: pd.DataFrame,
     lsoa_gdf: gpd.GeoDataFrame,
 ) -> gpd.GeoDataFrame:
     """
@@ -69,7 +69,7 @@ def _build_gdf(
     completions      : PLD completions with LSOA21CD and planning columns
     dwellings_2011_xw: 2011 census dwellings crosswalked to 2021 boundaries
     dwellings_2021   : 2021 census dwellings
-    df_ben           : BEN estimates aggregated to LSOA level (wide format)
+    df_uprn          : UPRN (OS AddressBase net change) estimates aggregated to LSOA level (wide format)
     lsoa_gdf         : GeoDataFrame with LSOA21CD and geometry
 
     Returns
@@ -85,10 +85,10 @@ def _build_gdf(
     )
 
     dwellings = pd.merge(total_dwellings_census, completions, on='LSOA21CD', how='left')
-    dwellings = dwellings.merge(df_ben, on='LSOA21CD', how='left').fillna(0)
+    dwellings = dwellings.merge(df_uprn, on='LSOA21CD', how='left').fillna(0)
 
-    dwellings.insert(4, 'total_change_2011_to_2021_ben',
-                     dwellings.pop('total_change_2011_to_2021_ben'))
+    dwellings.insert(4, 'total_change_2011_to_2021_uprn',
+                     dwellings.pop('total_change_2011_to_2021_uprn'))
     dwellings.insert(5, 'intercensal_completions',
                      dwellings.pop('intercensal_completions'))
 
@@ -99,7 +99,7 @@ def load_data(data_path):
     """
     Load, merge, and return a GeoDataFrame of London LSOAs with all data
     needed for modelling: census dwelling counts (2011 and 2021), planning
-    completions (PLD), and BEN current estimates.
+    completions (PLD), and UPRN (OS AddressBase net change) current estimates.
 
     Parameters
     ----------
@@ -107,7 +107,7 @@ def load_data(data_path):
         Root directory containing the raw data subdirectories:
 
         - ``pld/lsoa_completions_time_series_pivot.csv``
-        - ``ben/final_residential_uprn_net_changes_by_oa_fy (1).csv``
+        - ``uprn/final_residential_uprn_net_changes_by_oa_fy (1).csv``
 
     Returns
     -------
@@ -115,7 +115,7 @@ def load_data(data_path):
         One row per LSOA (2021 boundaries). Key columns:
         ``LSOA21CD``, ``dwellings_2011``, ``dwellings_2021``,
         ``intercensal_change``, planning columns (INFER_COLS_PLAN),
-        BEN columns (INFER_COLS_BEN), plus ``geometry``.
+        UPRN columns (INFER_COLS_UPRN), plus ``geometry``.
     """
     validate_data_path(data_path)
 
@@ -136,25 +136,25 @@ def load_data(data_path):
         dwellings_2011, from_year=2011, to_year=2021, value_cols=['dwellings']
     ).rename(columns={'dwellings': 'dwellings_2011'})
 
-    df_ben_raw = pd.read_csv(
-        os.path.join(data_path, 'ben', _BEN_FILENAME),
+    df_uprn_raw = pd.read_csv(
+        os.path.join(data_path, 'uprn', _UPRN_FILENAME),
     )
-    df_ben = gla_data.aggregate(
-        df_ben_raw[['OA21CD', 'financial_year', 'uprn_net_change']],
+    df_uprn = gla_data.aggregate(
+        df_uprn_raw[['OA21CD', 'financial_year', 'uprn_net_change']],
         from_geography='oa',
         to_geography='lsoa',
         value_cols=['uprn_net_change'],
         year=2021,
     ).set_index(['LSOA21CD', 'financial_year'])
-    df_ben = df_ben.unstack().fillna(0).droplevel(0, axis=1)
-    df_ben.columns = [f'{x}_ben' for x in df_ben.columns]
-    df_ben = df_ben.reset_index()
-    df_ben['total_change_2011_to_2021_ben'] = df_ben[INFER_COLS_BEN].sum(axis=1)
+    df_uprn = df_uprn.unstack().fillna(0).droplevel(0, axis=1)
+    df_uprn.columns = [f'{x}_uprn' for x in df_uprn.columns]
+    df_uprn = df_uprn.reset_index()
+    df_uprn['total_change_2011_to_2021_uprn'] = df_uprn[INFER_COLS_UPRN].sum(axis=1)
 
     lsoa_gdf = gla_data.load_boundaries(geography='lsoa', year=2021)[['LSOA21CD', 'geometry']]
 
     # ── Pure transform ────────────────────────────────────────────────────────
-    return _build_gdf(completions, dwellings_2011_xw, dwellings_2021, df_ben, lsoa_gdf)
+    return _build_gdf(completions, dwellings_2011_xw, dwellings_2021, df_uprn, lsoa_gdf)
 
 
 def select_spatial_sample(gdf, n_areas=200, center_latlon=DEFAULT_CENTER_LATLON):
@@ -205,9 +205,9 @@ def make_data_dict(gdf, n_areas=None):
     dict with keys:
         ``D``            — census intercensal change (n_areas,)
         ``P_obs``        — planning completions (n_areas, n_years)
-        ``E_obs``        — BEN estimates (n_areas, n_years)
+        ``E_obs``        — UPRN (OS AddressBase net change) estimates (n_areas, n_years)
         ``P_obs_full``   — planning over full time window (n_areas, n_years_full)
-        ``E_obs_full``   — BEN over full time window (n_areas, n_years_full)
+        ``E_obs_full``   — UPRN over full time window (n_areas, n_years_full)
         ``n_years``      — number of inference years
         ``n_years_full`` — number of years in full time window
         ``n_areas``      — number of LSOAs
@@ -223,7 +223,7 @@ def make_data_dict(gdf, n_areas=None):
 
     D     = (gdf['dwellings_2021'] - gdf['dwellings_2011']).values.astype(float)
     P_obs = gdf[INFER_COLS_PLAN].values.astype(float)
-    E_obs = gdf[INFER_COLS_BEN].values.astype(float)
+    E_obs = gdf[INFER_COLS_UPRN].values.astype(float)
 
     # Snap erroneous P records to zero: cells where P is non-zero but records
     # less than 10% of E are likely PLD data errors (e.g. geocoding or batch
@@ -232,7 +232,7 @@ def make_data_dict(gdf, n_areas=None):
     P_obs[erroneous] = 0.0
 
     P_obs_full = gdf[ALL_COLS_PLAN].values.astype(float)
-    E_obs_full = gdf[ALL_COLS_BEN].values.astype(float)
+    E_obs_full = gdf[ALL_COLS_UPRN].values.astype(float)
 
     # Empirical P-missingness rate per area, conditioned on E being active.
     # P=0 when E=0 reflects no completions, not a recording gap.

@@ -328,7 +328,7 @@ def cmd_diagnose(args):
         col_fmts['best_case_min_ess']  = lambda x: 'n/a' if pd.isna(x) else f'{x:.0f}'
     if 'plan_cov_90' in diag.columns:
         col_fmts['plan_cov_90'] = '{:.3f}'.format
-        col_fmts['ben_cov_90']  = '{:.3f}'.format
+        col_fmts['uprn_cov_90']  = '{:.3f}'.format
     if 'frac_flat_despite_active' in diag.columns:
         col_fmts['frac_flat_despite_active'] = '{:.1%}'.format
 
@@ -452,7 +452,7 @@ def cmd_check_multimodality(args):
     model that has at least one `*_lambda_weights` variable OR a registered `var_names` list
     — see docs/multimodality-diagnostic-pipeline.md for the full walkthrough and category
     definitions. By default checks EVERY `*_lambda_weights` variable a model's trace has
-    (planning and BEN independently, if both exist) PLUS every scalar in that model's own
+    (planning and UPRN independently, if both exist) PLUS every scalar in that model's own
     `var_names` (same convention `diagnose` itself uses), and combines them into ONE report —
     so raw/adjusted/best_case r-hat/ESS reflect the model's FULL diagnostic scope, the exact
     same scope `diagnose --adjust-for-multimodality` uses, not just whichever one lag var
@@ -756,7 +756,7 @@ def _build_parser():
                       help='Comma-separated hierarchical lag-category simplex variable(s) '
                            'to check, e.g. lag_P_lambda_weights,lag_E_lambda_weights '
                            '(default: every *_lambda_weights variable found in each trace — '
-                           'checking only one, when a model has both a planning and a BEN '
+                           'checking only one, when a model has both a planning and a UPRN '
                            'lag hierarchy, silently misses the other\'s flagged areas). The '
                            'matching log-likelihood variable is derived automatically by '
                            'naming convention (derive_loglik_var) — lag_P_lambda_weights -> '

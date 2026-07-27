@@ -24,10 +24,10 @@ INFER_YEARS      = list(range(2012, 2022))
 
 # ── Column naming conventions ─────────────────────────────────────────────────
 INFER_COLS_PLAN  = [f'{y}/{str(y+1)[-2:]}' for y in range(2011, 2021)]
-INFER_COLS_BEN   = [f'{y}_ben'              for y in range(2011, 2021)]
+INFER_COLS_UPRN  = [f'{y}_uprn'             for y in range(2011, 2021)]
 
 ALL_COLS_PLAN    = [f'{y}/{str(y+1)[-2:]}' for y in range(2009, 2025)]
-ALL_COLS_BEN     = [f'{y}_ben'              for y in range(2009, 2025)]
+ALL_COLS_UPRN    = [f'{y}_uprn'             for y in range(2009, 2025)]
 
 # ── Census constraint ─────────────────────────────────────────────────────────
 CENSUS_REL_ERROR = 0.02
@@ -47,7 +47,7 @@ DEFAULT_SAMPLE_KWARGS = dict(
 COLOURS = {
     'z':         'black',
     'planning':  'steelblue',
-    'ben':       'coral',
+    'uprn':      'coral',
     'baseline':  'green',
     'posterior': 'purple',
 }

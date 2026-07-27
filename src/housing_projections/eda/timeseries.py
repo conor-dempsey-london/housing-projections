@@ -2,13 +2,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
+from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_UPRN, INFER_YEARS
 
 # ── Distribution over time ────────────────────────────────────────────────────
 
 def plot_distributions_by_year(gdf):
     """
-    Boxplots of planning and BEN distributions by year.
+    Boxplots of planning and UPRN distributions by year.
     """
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
@@ -17,8 +17,8 @@ def plot_distributions_by_year(gdf):
     axes[0].set_ylabel('Net dwelling change')
     axes[0].spines[['top', 'right']].set_visible(False)
 
-    gdf[INFER_COLS_BEN].boxplot(ax=axes[1], showfliers=False)
-    axes[1].set_title('BEN estimates distribution by year')
+    gdf[INFER_COLS_UPRN].boxplot(ax=axes[1], showfliers=False)
+    axes[1].set_title('UPRN estimates distribution by year')
     axes[1].set_ylabel('Net dwelling change')
     axes[1].spines[['top', 'right']].set_visible(False)
 
@@ -28,14 +28,14 @@ def plot_distributions_by_year(gdf):
 
 def plot_mean_trends(gdf):
     """
-    Mean ± 1 SD trends for planning and BEN over time.
+    Mean ± 1 SD trends for planning and UPRN over time.
     """
     years = INFER_YEARS
 
     comp_mean = gdf[INFER_COLS_PLAN].mean()
     comp_std  = gdf[INFER_COLS_PLAN].std()
-    ben_mean  = gdf[INFER_COLS_BEN].mean()
-    ben_std   = gdf[INFER_COLS_BEN].std()
+    uprn_mean  = gdf[INFER_COLS_UPRN].mean()
+    uprn_std   = gdf[INFER_COLS_UPRN].std()
 
     fig, ax = plt.subplots(figsize=(10, 5))
 
@@ -43,8 +43,8 @@ def plot_mean_trends(gdf):
     ax.fill_between(years, comp_mean - comp_std, comp_mean + comp_std,
                     alpha=0.2, color='steelblue')
 
-    ax.plot(years, ben_mean, color='coral', marker='o', label='BEN mean')
-    ax.fill_between(years, ben_mean - ben_std, ben_mean + ben_std,
+    ax.plot(years, uprn_mean, color='coral', marker='o', label='UPRN mean')
+    ax.fill_between(years, uprn_mean - uprn_std, uprn_mean + uprn_std,
                     alpha=0.2, color='coral')
 
     ax.axhline(0, color='black', linewidth=0.5)
@@ -60,11 +60,11 @@ def plot_mean_trends(gdf):
 
 def plot_year_correlation(gdf):
     """
-    Year-by-year cross-sectional correlation between planning and BEN.
+    Year-by-year cross-sectional correlation between planning and UPRN.
     """
     correlations = pd.Series({
         yr: gdf[pc].corr(gdf[bc])
-        for yr, pc, bc in zip(INFER_YEARS, INFER_COLS_PLAN, INFER_COLS_BEN)
+        for yr, pc, bc in zip(INFER_YEARS, INFER_COLS_PLAN, INFER_COLS_UPRN)
     })
 
     fig, ax = plt.subplots(figsize=(10, 4))
@@ -73,7 +73,7 @@ def plot_year_correlation(gdf):
     ax.set_xticks(INFER_YEARS)
     ax.set_xlabel('Year')
     ax.set_ylabel('Pearson r')
-    ax.set_title('Cross-sectional correlation between planning and BEN by year')
+    ax.set_title('Cross-sectional correlation between planning and UPRN by year')
     ax.set_ylim(-1, 1)
     ax.spines[['top', 'right']].set_visible(False)
     plt.tight_layout()

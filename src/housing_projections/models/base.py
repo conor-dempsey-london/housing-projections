@@ -319,25 +319,25 @@ class DwellingModel(ABC):
         ], axis=-1)
 
     def add_observation_likelihoods(self, z, P_obs, E_obs,
-                                     sigma_plan=None, sigma_ben=None):
+                                     sigma_plan=None, sigma_uprn=None):
         """
         Shared observation model with fixed or provided sigma.
         If sigmas not provided, uses self.sigma_obs for both.
         """
         sigma_plan = sigma_plan if sigma_plan is not None else self.sigma_obs
-        sigma_ben  = sigma_ben  if sigma_ben  is not None else self.sigma_obs
+        sigma_uprn  = sigma_uprn  if sigma_uprn  is not None else self.sigma_obs
 
         pm.StudentT('P_like', nu=self.nu_obs, mu=z,
                     sigma=sigma_plan, observed=P_obs)
         pm.StudentT('E_like', nu=self.nu_obs, mu=z,
-                    sigma=sigma_ben,  observed=E_obs)
+                    sigma=sigma_uprn,  observed=E_obs)
 
-    def add_ben_likelihood(self, z, E_obs, sigma_ben=None):
+    def add_uprn_likelihood(self, z, E_obs, sigma_uprn=None):
         """
-        Add BEN likelihood only — for models where planning has a custom
+        Add UPRN likelihood only — for models where planning has a custom
         likelihood (M4+) and can't use add_observation_likelihoods.
         """
-        sigma = sigma_ben if sigma_ben is not None else self.sigma_obs
+        sigma = sigma_uprn if sigma_uprn is not None else self.sigma_obs
         pm.StudentT('E_like', nu=self.nu_obs, mu=z,
                     sigma=sigma, observed=E_obs)
 

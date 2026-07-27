@@ -6,34 +6,34 @@ import numpy as np
 import pandas as pd
 from esda.moran import Moran, Moran_Local
 
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
+from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_UPRN, INFER_YEARS
 from housing_projections.spatial import build_weights_libpysal, compute_morans_i
 
 # ── Moran's I ─────────────────────────────────────────────────────────────────
 
 def plot_morans_i_by_year(gdf):
     """
-    Compute and plot Moran's I for planning and BEN separately for each year.
+    Compute and plot Moran's I for planning and UPRN separately for each year.
     """
 
     w = build_weights_libpysal(gdf)
 
     results_plan = []
-    results_ben  = []
+    results_uprn  = []
 
-    for col_p, col_b, yr in zip(INFER_COLS_PLAN, INFER_COLS_BEN, INFER_YEARS):
+    for col_p, col_b, yr in zip(INFER_COLS_PLAN, INFER_COLS_UPRN, INFER_YEARS):
         results_plan.append(compute_morans_i(gdf[col_p].values, w))
-        results_ben.append(compute_morans_i(gdf[col_b].values,  w))
+        results_uprn.append(compute_morans_i(gdf[col_b].values,  w))
 
     df_plan = pd.DataFrame(results_plan, index=INFER_YEARS)
-    df_ben  = pd.DataFrame(results_ben,  index=INFER_YEARS)
+    df_uprn  = pd.DataFrame(results_uprn,  index=INFER_YEARS)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     for ax, df, label, color in zip(
         axes,
-        [df_plan, df_ben],
-        ['Planning', 'BEN'],
+        [df_plan, df_uprn],
+        ['Planning', 'UPRN'],
         ['steelblue', 'coral']
     ):
         ax.plot(INFER_YEARS, df['I'], marker='o', color=color)
@@ -54,7 +54,7 @@ def plot_morans_i_by_year(gdf):
     plt.suptitle("Moran's I — spatial autocorrelation by year")
     plt.tight_layout()
 
-    return df_plan, df_ben
+    return df_plan, df_uprn
 
 def plot_spatial_distribution(gdf, col, title='', cmap='RdBu',
                                symmetric=True, quantile_clip=0.95):
@@ -96,11 +96,11 @@ def plot_spatial_distribution(gdf, col, title='', cmap='RdBu',
 def plot_mean_change_maps(gdf):
     gdf_plot              = gdf.copy()
     gdf_plot['mean_plan'] = gdf[INFER_COLS_PLAN].mean(axis=1)
-    gdf_plot['mean_ben']  = gdf[INFER_COLS_BEN].mean(axis=1)
+    gdf_plot['mean_uprn']  = gdf[INFER_COLS_UPRN].mean(axis=1)
 
     all_vals = np.concatenate([
         gdf_plot['mean_plan'].values,
-        gdf_plot['mean_ben'].values
+        gdf_plot['mean_uprn'].values
     ])
     clip     = np.quantile(np.abs(all_vals), 0.95)
 
@@ -111,8 +111,8 @@ def plot_mean_change_maps(gdf):
 
     for ax, col, label in zip(
         axes,
-        ['mean_plan', 'mean_ben'],
-        ['Planning',  'BEN']
+        ['mean_plan', 'mean_uprn'],
+        ['Planning',  'UPRN']
     ):
         gdf_plot.assign(**{col: np.clip(gdf_plot[col].values, -clip, clip)}).plot(
             column=col, cmap='RdBu', legend=False,
@@ -132,7 +132,7 @@ def plot_mean_change_maps(gdf):
 
 def plot_source_disagreement_map(gdf, quantile_clip=0.95):
     P = gdf[INFER_COLS_PLAN].values
-    E = gdf[INFER_COLS_BEN].values
+    E = gdf[INFER_COLS_UPRN].values
 
     gdf_plot                      = gdf.copy()
     gdf_plot['mean_abs_disagree'] = np.abs(P - E).mean(axis=1)
@@ -162,7 +162,7 @@ def plot_source_disagreement_map(gdf, quantile_clip=0.95):
     cbar.set_label('Mean absolute disagreement')
 
     ax.set_axis_off()
-    ax.set_title('Mean absolute disagreement between planning and BEN')
+    ax.set_title('Mean absolute disagreement between planning and UPRN')
     plt.tight_layout()
     return fig, ax
 

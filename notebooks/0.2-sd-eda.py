@@ -9,7 +9,7 @@ import housing_projections.eda.comparison as comparison
 import housing_projections.eda.timeseries as timeseries
 import housing_projections.eda.agreement as agreement
 import housing_projections.eda.spatial_plots as spatial
-from housing_projections.config import DATA_PATH, INFER_COLS_BEN, INFER_COLS_PLAN
+from housing_projections.config import DATA_PATH, INFER_COLS_UPRN, INFER_COLS_PLAN
 
 # %% Load data
 gdf = data_utils.load_data(DATA_PATH)
@@ -36,8 +36,8 @@ comparison.plot_annual_p_vs_e(gdf_clean)
 # %% Cumulative flow vs intercensal change
 comparison.plot_cumulative_vs_intercensal(
     gdf_clean,
-    cols=['total_change_2011_to_2021_ben', 'intercensal_completions'],
-    labels=['BEN', 'Completions'],
+    cols=['total_change_2011_to_2021_uprn', 'intercensal_completions'],
+    labels=['UPRN', 'Completions'],
 )
 
 # %% Overall P vs E correlation
@@ -51,20 +51,20 @@ timeseries.plot_year_correlation(gdf_clean)
 
 # %% Autocorrelation
 ac_results = timeseries.compute_autocorrelations(
-    gdf_clean, INFER_COLS_PLAN, INFER_COLS_BEN)
-timeseries.plot_autocorrelations(ac_results, labels=('Planning', 'BEN'))
+    gdf_clean, INFER_COLS_PLAN, INFER_COLS_UPRN)
+timeseries.plot_autocorrelations(ac_results, labels=('Planning', 'UPRN'))
 
 # %% Cross-correlation (raw)
 xc_raw = timeseries.compute_crosscorrelations(
-    gdf_clean, INFER_COLS_PLAN, INFER_COLS_BEN)
-timeseries.plot_crosscorrelations(xc_raw, labels=('Planning', 'BEN'))
+    gdf_clean, INFER_COLS_PLAN, INFER_COLS_UPRN)
+timeseries.plot_crosscorrelations(xc_raw, labels=('Planning', 'UPRN'))
 
 # %% Cross-correlation (prewhitened)
 xc_prewhitened = timeseries.compute_crosscorrelations_prewhitened(
-    gdf_clean, INFER_COLS_PLAN, INFER_COLS_BEN, method='difference')
+    gdf_clean, INFER_COLS_PLAN, INFER_COLS_UPRN, method='difference')
 timeseries.plot_crosscorrelations(
     xc_prewhitened,
-    labels=('Planning (differenced)', 'BEN (differenced)'),
+    labels=('Planning (differenced)', 'UPRN (differenced)'),
 )
 
 # %% Agreement analysis

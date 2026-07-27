@@ -53,13 +53,13 @@ class M0(DwellingModel):
     """
     Baseline: Normal prior on z, learned observation noise per source.
 
-    sigma_plan and sigma_ben are inferred from the data rather than fixed,
+    sigma_plan and sigma_uprn are inferred from the data rather than fixed,
     allowing the model to adapt to the actual noise level of each source.
     """
 
     name             = 'M0'
     description      = 'Baseline: Normal prior on z, learned observation noise'
-    var_names        = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben']
+    var_names        = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_uprn']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
 
@@ -70,10 +70,10 @@ class M0(DwellingModel):
             _, _, z    = _build_z_prior(data, n_areas, n_years)
             _build_census_constraint(z, D, sigma_census)
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_plan,
-                                             sigma_ben=sigma_ben)
+                                             sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -98,7 +98,7 @@ class M0h(DwellingModel):
 
     name             = 'M0h'
     description      = 'M0 + area-level mean pinned to census, sigma_slab hierarchy'
-    var_names        = ['sigma_slab', 'sigma_plan', 'sigma_ben']
+    var_names        = ['sigma_slab', 'sigma_plan', 'sigma_uprn']
     census_rel_error = CENSUS_REL_ERROR
     census_abs_floor = CENSUS_ABS_FLOOR
 
@@ -118,10 +118,10 @@ class M0h(DwellingModel):
 
             _build_census_constraint(z, D, sigma_census)
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             self.add_observation_likelihoods(z, data['P_obs'], data['E_obs'],
                                              sigma_plan=sigma_plan,
-                                             sigma_ben=sigma_ben)
+                                             sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -132,12 +132,12 @@ class M1(DwellingModel):
     Adds temporal lag in planning data.
     A true change in year t may be recorded in planning in year t+k,
     with lag weights lambda_k ~ Dirichlet(alpha).
-    BEN is assumed to have no lag.
+    UPRN is assumed to have no lag.
     """
 
     name        = 'M1'
     description = 'M0 + temporal lag in planning completions'
-    var_names   = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben', 'lambda_weights']
+    var_names   = ['mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_uprn', 'lambda_weights']
     max_lag     = 3
 
     def build(self):
@@ -150,10 +150,10 @@ class M1(DwellingModel):
             _, P_mean = _build_lag(z, pre_inference, n_areas, n_years,
                                   self.n_lags, self.lag_alpha, self.max_lag)
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=2)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                              self.nu_obs, sigma_plan)
-            self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
+            self.add_uprn_likelihood(z, data['E_obs'], sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -169,12 +169,12 @@ class M1h(DwellingModel):
     (lambda_weights), giving sigma_plan a structural explanation for why
     P_obs != z.
 
-    BEN is assumed lag-free.
+    UPRN is assumed lag-free.
     """
 
     name        = 'M1h'
     description = 'Census-pinned area means + M1 temporal lag in planning'
-    var_names   = ['sigma_slab', 'sigma_plan', 'sigma_ben', 'lambda_weights']
+    var_names   = ['sigma_slab', 'sigma_plan', 'sigma_uprn', 'lambda_weights']
     max_lag     = 3
 
     def build(self):
@@ -196,10 +196,10 @@ class M1h(DwellingModel):
                                    self.n_lags, self.lag_alpha, self.max_lag)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                               self.nu_obs, sigma_plan)
-            self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
+            self.add_uprn_likelihood(z, data['E_obs'], sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -211,7 +211,7 @@ class M5(DwellingModel):
     A fraction alpha of planning completions are recorded in a
     neighbouring LSOA rather than the true one, modelled via a
     row-stochastic spatial weights matrix derived from queen contiguity.
-    BEN is assumed to have no spatial misallocation.
+    UPRN is assumed to have no spatial misallocation.
 
     Rebuilt on M1h's plain StudentT planning likelihood (fixed mu_area,
     centred z) rather than an earlier zero-inflated version. The
@@ -238,7 +238,7 @@ class M5(DwellingModel):
 
     @property
     def var_names(self):
-        names = ['sigma_slab', 'sigma_plan', 'sigma_ben', 'alpha_spatial']
+        names = ['sigma_slab', 'sigma_plan', 'sigma_uprn', 'alpha_spatial']
         if self.lambda_weights_fixed is None:
             names.insert(1, 'lambda_weights')
         return names
@@ -267,10 +267,10 @@ class M5(DwellingModel):
                 P_mean_temporal, W, n_areas, n_years)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                               self.nu_obs, sigma_plan)
-            self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
+            self.add_uprn_likelihood(z, data['E_obs'], sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -295,12 +295,12 @@ class M6(DwellingModel):
     Rebuilt on M1h's plain StudentT planning likelihood — see M5's
     docstring for why the zero-inflated version was dropped.
 
-    BEN is assumed lag-free.
+    UPRN is assumed lag-free.
     """
 
     name        = 'M6'
     description = 'M1h + AR(1) temporal prior with pre-window warm-start'
-    var_names   = ['sigma_innov', 'rho', 'sigma_plan', 'sigma_ben', 'lambda_weights']
+    var_names   = ['sigma_innov', 'rho', 'sigma_plan', 'sigma_uprn', 'lambda_weights']
     max_lag     = 3
 
     def build(self):
@@ -345,10 +345,10 @@ class M6(DwellingModel):
                                    self.n_lags, self.lag_alpha, self.max_lag)
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=2)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=2)
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                               self.nu_obs, sigma_plan)
-            self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
+            self.add_uprn_likelihood(z, data['E_obs'], sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -424,7 +424,7 @@ class M7(DwellingModel):
             _build_planning_likelihood_zeroinflated(
                 P_mean, data['P_obs'], pi_miss, self.nu_obs, self.sigma_obs)
 
-            self.add_ben_likelihood(z, data['E_obs'])
+            self.add_uprn_likelihood(z, data['E_obs'])
 
         self.model = model
         return model
@@ -444,7 +444,7 @@ class M8(DwellingModel):
     This captures the hypothesis that planning data quality varies over the
     intercensal window — e.g. system changes in 2013-2016, COVID in 2020-21.
     Inspecting the posterior of sigma_obs_plan by year is a diagnostic in its
-    own right.  BEN noise remains fixed.
+    own right.  UPRN noise remains fixed.
 
     Rebuilt on M1h's plain StudentT planning likelihood — see M5's
     docstring for why the zero-inflated version was dropped.
@@ -452,7 +452,7 @@ class M8(DwellingModel):
 
     name        = 'M8'
     description = 'M1h + time-varying planning observation noise'
-    var_names   = ['sigma_slab', 'sigma_ben', 'lambda_weights',
+    var_names   = ['sigma_slab', 'sigma_uprn', 'lambda_weights',
                    'sigma_base_plan', 'sigma_year_offset']
     max_lag     = 3
 
@@ -483,8 +483,8 @@ class M8(DwellingModel):
             pm.StudentT('P_like', nu=self.nu_obs, mu=P_mean,
                        sigma=sigma_obs_plan[None, :], observed=data['P_obs'])
 
-            sigma_ben = pm.HalfNormal('sigma_ben', sigma=2)
-            self.add_ben_likelihood(z, data['E_obs'], sigma_ben=sigma_ben)
+            sigma_uprn = pm.HalfNormal('sigma_uprn', sigma=2)
+            self.add_uprn_likelihood(z, data['E_obs'], sigma_uprn=sigma_uprn)
 
         self.model = model
         return model
@@ -495,13 +495,13 @@ class M8(DwellingModel):
 class M9(DwellingModel):
     """
     Per-area hierarchical sigma_slab + independently-lagged temporal
-    misallocation for BOTH planning and BEN.
+    misallocation for BOTH planning and UPRN.
 
     M0h/M1h/M5/M6/M8 all pin z's prior mean to a fixed mu_area = D[a]/n_years
     and share a SINGLE GLOBAL sigma_slab scalar across every area and year.
     Empirically, sigma_slab collapses to ~0.04-0.11 (vs a Gamma(2,1/12)
     prior mean of 24) in every one of those models, while sigma_plan/
-    sigma_ben inflate to ~8.6-12.6 to compensate — z ends up flat and
+    sigma_uprn inflate to ~8.6-12.6 to compensate — z ends up flat and
     overconfident. The reason: de-meaning each area's P_obs/E_obs series
     and correlating their year-to-year deviations gives a mean correlation
     of ~+0.01 across areas (near zero) even though each source individually
@@ -509,7 +509,7 @@ class M9(DwellingModel):
     mean feeding both P_like and E_like, only the part P and E agree on
     rewards growing sigma_slab — which is ~0 on average — so a single
     global scalar shrinks to ~0 and the disagreement gets dumped into
-    sigma_plan/sigma_ben instead, which pay no penalty for cross-source
+    sigma_plan/sigma_uprn instead, which pay no penalty for cross-source
     disagreement. (M0/M1/M7, which don't pin a fixed per-area mean, don't
     show this collapse — their sigma_slab is forced wide to cover
     cross-area heterogeneity in census rates, and that width incidentally
@@ -531,15 +531,15 @@ class M9(DwellingModel):
        _build_z_prior_hierarchical) instead of one global scalar — lets
        each area's z-temporal-freedom be data-driven rather than crushed
        by a population-wide shared scalar.
-    2. BEN gets its own learned lag distribution (lambda_weights_E),
+    2. UPRN gets its own learned lag distribution (lambda_weights_E),
        mirroring planning's (lambda_weights_P), via _build_lag called
-       twice with independent pre-inference arrays. Previously BEN was
-       assumed perfectly synchronous with z (add_ben_likelihood, mu=z
+       twice with independent pre-inference arrays. Previously UPRN was
+       assumed perfectly synchronous with z (add_uprn_likelihood, mu=z
        directly) — notebook 4.0 section 4's cross-correlation analysis
        found a real, structured, non-zero peak lag between P and E,
        contradicting that assumption.
 
-    sigma_ben's prior widens to HalfNormal(5) (matching sigma_plan, not
+    sigma_uprn's prior widens to HalfNormal(5) (matching sigma_plan, not
     the HalfNormal(2) used in M1h/M5/M6/M8) — that tighter prior predates
     both giving E its own lag mechanism and the finding that E's raw
     year-to-year std is empirically larger than P's (~26.8 vs ~15.6
@@ -565,7 +565,7 @@ class M9(DwellingModel):
     name        = 'M9'
     description = 'Per-area hierarchical sigma_slab + independent P/E temporal lag'
     var_names   = ['mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-                   'sigma_plan', 'sigma_ben',
+                   'sigma_plan', 'sigma_uprn',
                    'lambda_weights_P', 'lambda_weights_E']
     max_lag       = 3
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
@@ -590,12 +590,12 @@ class M9(DwellingModel):
                                    name='lambda_weights_E')
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=5)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=5)
 
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                               self.nu_obs, sigma_plan)
             _build_planning_likelihood_simple(E_mean, data['E_obs'],
-                                              self.nu_obs, sigma_ben,
+                                              self.nu_obs, sigma_uprn,
                                               name='E_like')
 
         self.model = model
@@ -612,7 +612,7 @@ class M10(DwellingModel):
     lag (unchanged) + new per-area capture-rate scaling of both P and E
     likelihoods.
 
-    Motivation: M9's own diagnostics showed sigma_plan/sigma_ben
+    Motivation: M9's own diagnostics showed sigma_plan/sigma_uprn
     essentially UNCHANGED from M1h (8.6/12.9 vs 8.6/12.65) despite the
     per-area sigma_slab hierarchy — cross-source disagreement was still
     being dumped into observation noise rather than explained, and
@@ -679,7 +679,7 @@ class M10(DwellingModel):
     description       = ('Per-borough sigma_slab + independent P/E lag '
                           '+ per-area capture-rate scaling')
     var_names         = ['mu_log_sigma', 'tau_log_sigma', 'sigma_slab_borough',
-                          'sigma_kappa', 'sigma_plan', 'sigma_ben',
+                          'sigma_kappa', 'sigma_plan', 'sigma_uprn',
                           'lambda_weights_P', 'lambda_weights_E']
     max_lag           = 3
     sigma_kappa_prior = 0.68  # calibrated — see docstring
@@ -721,12 +721,12 @@ class M10(DwellingModel):
             E_mean = kappa_E[:, None] * E_mean_lagged
 
             sigma_plan = pm.HalfNormal('sigma_plan', sigma=5)
-            sigma_ben  = pm.HalfNormal('sigma_ben',  sigma=5)
+            sigma_uprn  = pm.HalfNormal('sigma_uprn',  sigma=5)
 
             _build_planning_likelihood_simple(P_mean, data['P_obs'],
                                               self.nu_obs, sigma_plan)
             _build_planning_likelihood_simple(E_mean, data['E_obs'],
-                                              self.nu_obs, sigma_ben,
+                                              self.nu_obs, sigma_uprn,
                                               name='E_like')
 
         self.model = model
@@ -745,16 +745,16 @@ class M11(DwellingModel):
 
     Motivating gap: M9's own diagnostics (and M10's docstring) found that
     cross-source disagreement gets dumped whole-cloth into sigma_plan/
-    sigma_ben regardless of per-area sigma_slab — nothing in M0h..M10
+    sigma_uprn regardless of per-area sigma_slab — nothing in M0h..M10
     reacts specifically to P and E disagreeing with EACH OTHER in a given
     area-year, only to either source individually sitting far from z
     (already handled, weakly, by StudentT's tails). This model gives each
     area-year a mixture over:
 
       agree    (prob rho):    P_obs ~ St(P_mean, sigma_agree_plan)
-                               E_obs ~ St(E_mean, sigma_agree_ben)
+                               E_obs ~ St(E_mean, sigma_agree_uprn)
       disagree (prob 1-rho):  P_obs ~ St(mu_area, sigma_disagree_plan)
-                               E_obs ~ St(mu_area, sigma_disagree_ben)
+                               E_obs ~ St(mu_area, sigma_disagree_uprn)
 
     In the disagree branch both sources are explained by the area's fixed
     long-run rate rather than z's current lag-weighted mean, so a
@@ -766,11 +766,11 @@ class M11(DwellingModel):
     going per-area) — revisit only if diagnostics show a single global
     agreement rate is too coarse across boroughs/areas.
 
-    sigma_agree_plan/ben get a tighter HalfNormal(3) prior than M9's
-    sigma_plan/sigma_ben HalfNormal(5) — the agree branch only has to
+    sigma_agree_plan/uprn get a tighter HalfNormal(3) prior than M9's
+    sigma_plan/sigma_uprn HalfNormal(5) — the agree branch only has to
     explain observation noise in already-agreeing years, not the whole
     mixed population M9's single likelihood had to absorb.
-    sigma_disagree_plan/ben get a wide HalfNormal(20) prior — this branch
+    sigma_disagree_plan/uprn get a wide HalfNormal(20) prior — this branch
     must explain a full idiosyncratic, z-independent realisation, so it
     should be free to land well above M9's fitted 8.6/12.65.
 
@@ -785,7 +785,7 @@ class M11(DwellingModel):
     check it shows real structure (doesn't collapse to ~0 or ~1
     everywhere) and correlates with -|P_obs - E_obs| as a sanity check.
 
-    Convergence risk: rho trades off against sigma_disagree_plan/ben —
+    Convergence risk: rho trades off against sigma_disagree_plan/uprn —
     a small rho with tight disagree-sigma can mimic a large rho with wide
     disagree-sigma over most of the data, so check rho's posterior isn't
     glued to a prior-driven boundary before trusting agreement_prob.
@@ -815,8 +815,8 @@ class M11(DwellingModel):
     description = ('M9 + joint agreement-gated mixture likelihood '
                    '(explicit P/E disagreement gating)')
     var_names   = ['mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-                   'sigma_agree_plan', 'sigma_agree_ben',
-                   'sigma_disagree_plan', 'sigma_disagree_ben',
+                   'sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
                    'rho_agree', 'lambda_weights_P', 'lambda_weights_E']
     max_lag       = 3
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
@@ -841,15 +841,15 @@ class M11(DwellingModel):
                                    name='lambda_weights_E')
 
             sigma_agree_plan    = pm.HalfNormal('sigma_agree_plan', sigma=3)
-            sigma_agree_ben     = pm.HalfNormal('sigma_agree_ben', sigma=3)
+            sigma_agree_uprn     = pm.HalfNormal('sigma_agree_uprn', sigma=3)
             sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
-            sigma_disagree_ben  = pm.HalfNormal('sigma_disagree_ben', sigma=20)
+            sigma_disagree_uprn  = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
             rho_agree           = pm.Beta('rho_agree', alpha=2, beta=2)
 
             _build_agreement_gated_likelihood(
                 P_mean, E_mean, data['P_obs'], data['E_obs'], mu_area,
-                sigma_agree_plan, sigma_agree_ben,
-                sigma_disagree_plan, sigma_disagree_ben,
+                sigma_agree_plan, sigma_agree_uprn,
+                sigma_disagree_plan, sigma_disagree_uprn,
                 rho_agree, self.nu_obs)
 
         self.model = model
@@ -901,8 +901,8 @@ class M12(DwellingModel):
     description = ('M11 + independent per-source agreement gating '
                    '(replaces joint P/E mixture with two independent ones)')
     var_names   = ['mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-                   'sigma_agree_plan', 'sigma_agree_ben',
-                   'sigma_disagree_plan', 'sigma_disagree_ben',
+                   'sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
                    'rho_P', 'rho_E', 'lambda_weights_P', 'lambda_weights_E']
     max_lag       = 3
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
@@ -927,16 +927,16 @@ class M12(DwellingModel):
                                    name='lambda_weights_E')
 
             sigma_agree_plan    = pm.HalfNormal('sigma_agree_plan', sigma=3)
-            sigma_agree_ben     = pm.HalfNormal('sigma_agree_ben', sigma=3)
+            sigma_agree_uprn     = pm.HalfNormal('sigma_agree_uprn', sigma=3)
             sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
-            sigma_disagree_ben  = pm.HalfNormal('sigma_disagree_ben', sigma=20)
+            sigma_disagree_uprn  = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
             rho_P               = pm.Beta('rho_P', alpha=2, beta=2)
             rho_E               = pm.Beta('rho_E', alpha=2, beta=2)
 
             _build_independent_agreement_gated_likelihood(
                 P_mean, E_mean, data['P_obs'], data['E_obs'], mu_area,
-                sigma_agree_plan, sigma_agree_ben,
-                sigma_disagree_plan, sigma_disagree_ben,
+                sigma_agree_plan, sigma_agree_uprn,
+                sigma_disagree_plan, sigma_disagree_uprn,
                 rho_P, rho_E, self.nu_obs)
 
         self.model = model
@@ -997,8 +997,8 @@ class M13(DwellingModel):
     description = ('M12 + per-record temporal reallocation '
                    '(replaces the lag convolution with a per-active-record offset)')
     var_names   = ['mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-                   'sigma_agree_plan', 'sigma_agree_ben',
-                   'sigma_disagree_plan', 'sigma_disagree_ben',
+                   'sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
                    'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E']
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
     active_threshold = 3.0
@@ -1015,9 +1015,9 @@ class M13(DwellingModel):
             _build_census_constraint(z, D, sigma_census)
 
             sigma_agree_plan    = pm.HalfNormal('sigma_agree_plan', sigma=3)
-            sigma_agree_ben     = pm.HalfNormal('sigma_agree_ben', sigma=3)
+            sigma_agree_uprn     = pm.HalfNormal('sigma_agree_uprn', sigma=3)
             sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
-            sigma_disagree_ben  = pm.HalfNormal('sigma_disagree_ben', sigma=20)
+            sigma_disagree_uprn  = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
             rho_P               = pm.Beta('rho_P', alpha=2, beta=2)
             rho_E               = pm.Beta('rho_E', alpha=2, beta=2)
 
@@ -1026,7 +1026,7 @@ class M13(DwellingModel):
                 rho_P, self.nu_obs, name='P',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
             _build_temporal_reallocation_likelihood(
-                z, data['E_obs'], mu_area, sigma_agree_ben, sigma_disagree_ben,
+                z, data['E_obs'], mu_area, sigma_agree_uprn, sigma_disagree_uprn,
                 rho_E, self.nu_obs, name='E',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
 
@@ -1096,8 +1096,8 @@ class M14(DwellingModel):
                    'per-cell hierarchical z prior)')
     var_names   = ['mu_log_sigma', 'tau_log_sigma', 'sigma_slab', 'amplitude',
                    'pi_profile',
-                   'sigma_agree_plan', 'sigma_agree_ben',
-                   'sigma_disagree_plan', 'sigma_disagree_ben',
+                   'sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
                    'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E']
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
     active_threshold = 3.0
@@ -1120,9 +1120,9 @@ class M14(DwellingModel):
                 D, n_areas, n_years)
 
             sigma_agree_plan    = pm.HalfNormal('sigma_agree_plan', sigma=3)
-            sigma_agree_ben     = pm.HalfNormal('sigma_agree_ben', sigma=3)
+            sigma_agree_uprn     = pm.HalfNormal('sigma_agree_uprn', sigma=3)
             sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
-            sigma_disagree_ben  = pm.HalfNormal('sigma_disagree_ben', sigma=20)
+            sigma_disagree_uprn  = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
             rho_P               = pm.Beta('rho_P', alpha=2, beta=2)
             rho_E               = pm.Beta('rho_E', alpha=2, beta=2)
 
@@ -1131,7 +1131,7 @@ class M14(DwellingModel):
                 rho_P, self.nu_obs, name='P',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
             _build_temporal_reallocation_likelihood(
-                z, data['E_obs'], mu_area, sigma_agree_ben, sigma_disagree_ben,
+                z, data['E_obs'], mu_area, sigma_agree_uprn, sigma_disagree_uprn,
                 rho_E, self.nu_obs, name='E',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
 
@@ -1183,8 +1183,8 @@ class M15(DwellingModel):
     description = ('M14 + regularised horseshoe prior on amplitude, no null '
                    'library row (fixes the null-row redundancy found in M14)')
     var_names   = ['tau_amplitude', 'c2_amplitude', 'amplitude', 'pi_profile',
-                   'sigma_agree_plan', 'sigma_agree_ben',
-                   'sigma_disagree_plan', 'sigma_disagree_ben',
+                   'sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
                    'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E']
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
     active_threshold = 3.0
@@ -1210,9 +1210,9 @@ class M15(DwellingModel):
                 p0=self.p0 or n_areas // 4, slab_scale=self.slab_scale)
 
             sigma_agree_plan    = pm.HalfNormal('sigma_agree_plan', sigma=3)
-            sigma_agree_ben     = pm.HalfNormal('sigma_agree_ben', sigma=3)
+            sigma_agree_uprn     = pm.HalfNormal('sigma_agree_uprn', sigma=3)
             sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
-            sigma_disagree_ben  = pm.HalfNormal('sigma_disagree_ben', sigma=20)
+            sigma_disagree_uprn  = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
             rho_P               = pm.Beta('rho_P', alpha=2, beta=2)
             rho_E               = pm.Beta('rho_E', alpha=2, beta=2)
 
@@ -1221,7 +1221,7 @@ class M15(DwellingModel):
                 rho_P, self.nu_obs, name='P',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
             _build_temporal_reallocation_likelihood(
-                z, data['E_obs'], mu_area, sigma_agree_ben, sigma_disagree_ben,
+                z, data['E_obs'], mu_area, sigma_agree_uprn, sigma_disagree_uprn,
                 rho_E, self.nu_obs, name='E',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
 
@@ -1309,8 +1309,8 @@ class M16(DwellingModel):
     description = ('M15 with profile_k marginalised via pymc_extras.marginalize() '
                    'instead of sampled via CategoricalGibbsMetropolis')
     var_names   = ['tau_amplitude', 'c2_amplitude', 'amplitude', 'pi_profile',
-                   'sigma_agree_plan', 'sigma_agree_ben',
-                   'sigma_disagree_plan', 'sigma_disagree_ben',
+                   'sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
                    'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E']
     sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
     active_threshold = 3.0
@@ -1329,9 +1329,9 @@ class M16(DwellingModel):
                 wrap_z_as_deterministic=False)
 
             sigma_agree_plan    = pm.HalfNormal('sigma_agree_plan', sigma=3)
-            sigma_agree_ben     = pm.HalfNormal('sigma_agree_ben', sigma=3)
+            sigma_agree_uprn     = pm.HalfNormal('sigma_agree_uprn', sigma=3)
             sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
-            sigma_disagree_ben  = pm.HalfNormal('sigma_disagree_ben', sigma=20)
+            sigma_disagree_uprn  = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
             rho_P               = pm.Beta('rho_P', alpha=2, beta=2)
             rho_E               = pm.Beta('rho_E', alpha=2, beta=2)
 
@@ -1340,7 +1340,7 @@ class M16(DwellingModel):
                 rho_P, self.nu_obs, name='P',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
             _build_temporal_reallocation_likelihood_marginalizable(
-                z, data['E_obs'], mu_area, sigma_agree_ben, sigma_disagree_ben,
+                z, data['E_obs'], mu_area, sigma_agree_uprn, sigma_disagree_uprn,
                 rho_E, self.nu_obs, name='E',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
 
@@ -1434,7 +1434,7 @@ class M16(DwellingModel):
 
         for name, obs, sigma_agree_name, sigma_disagree_name, rho_name, pi_offset_name in [
             ('P', data['P_obs'], 'sigma_agree_plan', 'sigma_disagree_plan', 'rho_P', 'pi_offset_P'),
-            ('E', data['E_obs'], 'sigma_agree_ben',  'sigma_disagree_ben',  'rho_E', 'pi_offset_E'),
+            ('E', data['E_obs'], 'sigma_agree_uprn',  'sigma_disagree_uprn',  'rho_E', 'pi_offset_E'),
         ]:
             sigma_agree    = trace.posterior[sigma_agree_name].values     # (chain, draw)
             sigma_disagree = trace.posterior[sigma_disagree_name].values  # (chain, draw)

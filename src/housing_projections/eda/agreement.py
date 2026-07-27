@@ -4,7 +4,7 @@ import pandas as pd
 from scipy import stats
 from scipy.signal import correlate
 
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
+from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_UPRN, INFER_YEARS
 
 
 def _safe_pearsonr(x, y):
@@ -18,22 +18,22 @@ def _safe_pearsonr(x, y):
 
 def compute_agreement_stats(gdf, verbose=True):
     """
-    Compute summary statistics on agreement between planning and BEN
+    Compute summary statistics on agreement between planning and UPRN
     at the total and annual level.
 
     Returns
     -------
     dict with keys:
         total_corr       : Pearson r between cumulative sums
-        total_bias       : mean(sum_plan - sum_ben)
-        total_mae        : mean |sum_plan - sum_ben|
+        total_bias       : mean(sum_plan - sum_uprn)
+        total_mae        : mean |sum_plan - sum_uprn|
         pct_same_sign    : % LSOAs where both sources agree on net direction
-        pct_close_total  : % LSOAs where |sum_plan - sum_ben| < threshold
+        pct_close_total  : % LSOAs where |sum_plan - sum_uprn| < threshold
         annual_corr_mean : mean per-LSOA correlation of annual series
         annual_corr_dist : pd.Series of per-LSOA annual correlations
     """
     P     = gdf[INFER_COLS_PLAN].values   # (n_areas, n_years)
-    E     = gdf[INFER_COLS_BEN].values
+    E     = gdf[INFER_COLS_UPRN].values
 
     sum_p = P.sum(axis=1)
     sum_e = E.sum(axis=1)
@@ -63,7 +63,7 @@ def compute_agreement_stats(gdf, verbose=True):
     }
 
     if verbose:
-        print("\n── Planning vs BEN agreement ─────────────────────────────────")
+        print("\n── Planning vs UPRN agreement ─────────────────────────────────")
         print("\n  Cumulative totals:")
         print(f"    Pearson r:          {total_corr:.3f}")
         print(f"    Mean bias (P - E):  {total_bias:.2f}")
@@ -86,7 +86,7 @@ def classify_lsoas(gdf, close_threshold=20):
     and annual correlation.
     """
     P     = gdf[INFER_COLS_PLAN].values
-    E     = gdf[INFER_COLS_BEN].values
+    E     = gdf[INFER_COLS_UPRN].values
 
     sum_p = P.sum(axis=1)
     sum_e = E.sum(axis=1)
@@ -118,7 +118,7 @@ def classify_lsoas(gdf, close_threshold=20):
     return pd.DataFrame({
         'lsoa_idx':    np.arange(len(gdf)),
         'sum_plan':    sum_p,
-        'sum_ben':     sum_e,
+        'sum_uprn':     sum_e,
         'diff':        diff,
         'annual_corr': annual_corrs,
         'category':    categories,
@@ -129,10 +129,10 @@ def classify_lsoas(gdf, close_threshold=20):
 
 def plot_total_agreement(gdf, stats_dict=None):
     """
-    Four-panel overview of total agreement between planning and BEN.
+    Four-panel overview of total agreement between planning and UPRN.
     """
     P     = gdf[INFER_COLS_PLAN].values
-    E     = gdf[INFER_COLS_BEN].values
+    E     = gdf[INFER_COLS_UPRN].values
     D     = (gdf['dwellings_2021'] - gdf['dwellings_2011']).values
 
     sum_p = P.sum(axis=1)
@@ -141,15 +141,15 @@ def plot_total_agreement(gdf, stats_dict=None):
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 
-    # ── 1. Scatter: sum_plan vs sum_ben ────────────────────────────────────
+    # ── 1. Scatter: sum_plan vs sum_uprn ────────────────────────────────────
     ax = axes[0, 0]
     ax.scatter(sum_p, sum_e, alpha=0.2, s=5, color='steelblue')
     lims = [min(sum_p.min(), sum_e.min()), max(sum_p.max(), sum_e.max())]
     ax.plot(lims, lims, color='black', linestyle='--', linewidth=0.8)
     r, _ = stats.pearsonr(sum_p, sum_e)
     ax.set_xlabel('Cumulative planning')
-    ax.set_ylabel('Cumulative BEN')
-    ax.set_title(f'Cumulative totals: planning vs BEN (r={r:.3f})')
+    ax.set_ylabel('Cumulative UPRN')
+    ax.set_title(f'Cumulative totals: planning vs UPRN (r={r:.3f})')
     ax.spines[['top', 'right']].set_visible(False)
 
     # ── 2. Distribution of diff ────────────────────────────────────────────
@@ -162,7 +162,7 @@ def plot_total_agreement(gdf, stats_dict=None):
                label=f'mean={diff.mean():.1f}')
     ax.axvline(np.median(diff), color='darkred', linewidth=0.8, linestyle=':',
                label=f'median={np.median(diff):.1f}')
-    ax.set_xlabel('sum_plan - sum_ben')
+    ax.set_xlabel('sum_plan - sum_uprn')
     ax.set_title('Distribution of cumulative difference')
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend(fontsize=8)
@@ -171,14 +171,14 @@ def plot_total_agreement(gdf, stats_dict=None):
     ax = axes[1, 0]
     clip = np.percentile(np.abs(np.concatenate([sum_p, sum_e, D])), 99)
     ax.scatter(D, sum_p, alpha=0.2, s=5, color='steelblue', label='Planning')
-    ax.scatter(D, sum_e, alpha=0.2, s=5, color='coral',     label='BEN')
+    ax.scatter(D, sum_e, alpha=0.2, s=5, color='coral',     label='UPRN')
     ax.plot([-clip, clip], [-clip, clip], color='black',
             linestyle='--', linewidth=0.8)
     ax.set_xlim(-clip, clip)
     ax.set_ylim(-clip, clip)
     ax.set_xlabel('Census diff (D)')
     ax.set_ylabel('Cumulative estimate')
-    ax.set_title('Planning and BEN vs census diff')
+    ax.set_title('Planning and UPRN vs census diff')
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend(fontsize=8)
 
@@ -200,7 +200,7 @@ def plot_total_agreement(gdf, stats_dict=None):
     ax.spines[['top', 'right']].set_visible(False)
     ax.legend(fontsize=8)
 
-    plt.suptitle('Planning vs BEN agreement overview')
+    plt.suptitle('Planning vs UPRN agreement overview')
     plt.tight_layout()
     return fig, axes
 
@@ -229,7 +229,7 @@ def plot_category_breakdown(gdf, classification_df):
     ax.set_xticks(range(len(counts)))
     ax.set_xticklabels([c.replace('_', '\n') for c in counts.index], fontsize=8)
     ax.set_ylabel('Count')
-    ax.set_title('LSOA classification by planning/BEN agreement')
+    ax.set_title('LSOA classification by planning/UPRN agreement')
     ax.spines[['top', 'right']].set_visible(False)
 
     for bar, pct in zip(bars, pcts.values):
@@ -243,10 +243,10 @@ def plot_category_breakdown(gdf, classification_df):
 
 def plot_category_examples(gdf, classification_df, n_per_category=3):
     """
-    Plot planning and BEN time series for example LSOAs from each category.
+    Plot planning and UPRN time series for example LSOAs from each category.
     """
     P      = gdf[INFER_COLS_PLAN].values
-    E      = gdf[INFER_COLS_BEN].values
+    E      = gdf[INFER_COLS_UPRN].values
     D      = (gdf['dwellings_2021'] - gdf['dwellings_2011']).values
 
     categories = classification_df['category'].unique()
@@ -269,13 +269,13 @@ def plot_category_examples(gdf, classification_df, n_per_category=3):
             ax.plot(INFER_YEARS, P[idx], color='steelblue',
                     marker='s', linewidth=1.0, alpha=0.8, label='Planning')
             ax.plot(INFER_YEARS, E[idx], color='coral',
-                    marker='^', linewidth=1.0, alpha=0.8, label='BEN')
+                    marker='^', linewidth=1.0, alpha=0.8, label='UPRN')
             ax.axhline(0, color='black', linewidth=0.5, linestyle=':')
 
             ax.set_title(
                 f'{cat.replace("_", " ")}\n'
                 f'sum_P={row_data["sum_plan"]:.0f}  '
-                f'sum_E={row_data["sum_ben"]:.0f}  '
+                f'sum_E={row_data["sum_uprn"]:.0f}  '
                 f'D={D[idx]:.0f}  '
                 f'r={row_data["annual_corr"]:.2f}',
                 fontsize=7
@@ -295,7 +295,7 @@ def plot_category_examples(gdf, classification_df, n_per_category=3):
 def plot_lag_candidates(gdf, classification_df, n_examples=6):
 
     P      = gdf[INFER_COLS_PLAN].values
-    E      = gdf[INFER_COLS_BEN].values
+    E      = gdf[INFER_COLS_UPRN].values
     D      = (gdf['dwellings_2021'] - gdf['dwellings_2011']).values
 
     lag_df = classification_df[
@@ -340,14 +340,14 @@ def plot_lag_candidates(gdf, classification_df, n_examples=6):
         ax_ts.plot(INFER_YEARS, p, color='steelblue', marker='s',
                    linewidth=1.0, alpha=0.8, label='Planning')
         ax_ts.plot(INFER_YEARS, e, color='coral', marker='^',
-                   linewidth=1.0, alpha=0.8, label='BEN')
+                   linewidth=1.0, alpha=0.8, label='UPRN')
         ax_ts.axhline(0, color='black', linewidth=0.5, linestyle=':')
         ax_ts.set_ylabel('Net change')
         ax_ts.set_xticks(INFER_YEARS)
         ax_ts.set_title(
             f'LSOA {idx}  D={D[idx]:.0f}  '
             f'sum_P={row_data["sum_plan"]:.0f}  '
-            f'sum_E={row_data["sum_ben"]:.0f}  '
+            f'sum_E={row_data["sum_uprn"]:.0f}  '
             f'peak lag={peak_lag} yrs',
             fontsize=8
         )
@@ -361,7 +361,7 @@ def plot_lag_candidates(gdf, classification_df, n_examples=6):
         ax_xcorr.axhline(0, color='black', linewidth=0.5)
         ax_xcorr.set_xlim(-(n_years - 1) - 0.5, (n_years - 1) + 0.5)
         ax_xcorr.set_xticks(lag_years)
-        ax_xcorr.set_xlabel('Lag (years, positive = planning leads BEN)')
+        ax_xcorr.set_xlabel('Lag (years, positive = planning leads UPRN)')
         ax_xcorr.set_ylabel('Cross-corr')
         ax_xcorr.spines[['top', 'right']].set_visible(False)
 
@@ -372,11 +372,11 @@ def plot_lag_candidates(gdf, classification_df, n_examples=6):
 
 def plot_sign_disagreements(gdf, classification_df, n_examples=6):
     """
-    Plot LSOAs where planning and BEN disagree on net direction.
+    Plot LSOAs where planning and UPRN disagree on net direction.
     These are the most problematic cases for modelling.
     """
     P   = gdf[INFER_COLS_PLAN].values
-    E   = gdf[INFER_COLS_BEN].values
+    E   = gdf[INFER_COLS_UPRN].values
     D   = (gdf['dwellings_2021'] - gdf['dwellings_2011']).values
 
     sign_df = classification_df[
@@ -404,7 +404,7 @@ def plot_sign_disagreements(gdf, classification_df, n_examples=6):
         ax.plot(INFER_YEARS, P[idx], color='steelblue', marker='s',
                 linewidth=1.0, alpha=0.8, label='Planning')
         ax.plot(INFER_YEARS, E[idx], color='coral', marker='^',
-                linewidth=1.0, alpha=0.8, label='BEN')
+                linewidth=1.0, alpha=0.8, label='UPRN')
         ax.axhline(0, color='black', linewidth=0.5, linestyle=':')
         ax.axhline(D[idx] / len(INFER_YEARS), color='green',
                    linewidth=0.8, linestyle='--', alpha=0.5,
@@ -413,7 +413,7 @@ def plot_sign_disagreements(gdf, classification_df, n_examples=6):
         ax.set_title(
             f'LSOA {idx}  D={D[idx]:.0f}\n'
             f'sum_P={row_data["sum_plan"]:.0f}  '
-            f'sum_E={row_data["sum_ben"]:.0f}',
+            f'sum_E={row_data["sum_uprn"]:.0f}',
             fontsize=8
         )
         ax.set_xlabel('Year')
@@ -426,7 +426,7 @@ def plot_sign_disagreements(gdf, classification_df, n_examples=6):
     for ax in axes[len(sign_df):]:
         ax.set_visible(False)
 
-    plt.suptitle('Sign disagreements — planning and BEN disagree on net direction')
+    plt.suptitle('Sign disagreements — planning and UPRN disagree on net direction')
     plt.tight_layout()
     return fig, axes
 

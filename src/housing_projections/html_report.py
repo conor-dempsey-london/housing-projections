@@ -27,7 +27,7 @@ from housing_projections.analysis import (
     compute_model_comparison,
     compute_spatial_misallocation_stats,
 )
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN, INFER_YEARS
+from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_UPRN, INFER_YEARS
 from housing_projections.diagnostics import diagnostics_summary, full_diagnostics
 from housing_projections.eda import (
     compute_agreement_stats,
@@ -273,7 +273,7 @@ def _build_eda(data):
     html += _stat_row([
         ('LSOAs', f'{data["n_areas"]:,}'),
         ('Inference years', str(data['n_years'])),
-        ('PLD–BEN Pearson r (annual, per-LSOA)', f'{r:.3f}'),
+        ('PLD–UPRN Pearson r (annual, per-LSOA)', f'{r:.3f}'),
     ])
 
     # Cumulative vs intercensal
@@ -289,7 +289,7 @@ def _build_eda(data):
     # Annual mean trends
     try:
         fig = plot_mean_trends(gdf)
-        html += _html_fig(fig, 'Mean annual completions: PLD vs BEN')
+        html += _html_fig(fig, 'Mean annual completions: PLD vs UPRN')
     except Exception as e:
         print(f'  [warning] plot_mean_trends failed: {e}')
 
@@ -306,7 +306,7 @@ def _build_eda(data):
 
     try:
         fig = plot_total_agreement(gdf)
-        html += _html_fig(fig, 'PLD vs BEN total completions per LSOA')
+        html += _html_fig(fig, 'PLD vs UPRN total completions per LSOA')
     except Exception as e:
         print(f'  [warning] plot_total_agreement failed: {e}')
 
@@ -314,7 +314,7 @@ def _build_eda(data):
     try:
         fig = plt.figure(figsize=(12, 4))
         plot_annual_p_vs_e(gdf)
-        html += _html_fig(plt.gcf(), 'Annual PLD vs BEN mean by year')
+        html += _html_fig(plt.gcf(), 'Annual PLD vs UPRN mean by year')
     except Exception as e:
         print(f'  [warning] plot_annual_p_vs_e failed: {e}')
         plt.close(fig)
@@ -322,7 +322,7 @@ def _build_eda(data):
     # Lag candidates
     try:
         fig = plot_lag_candidates(gdf)
-        html += _html_fig(fig, 'Cross-correlation by lag: PLD leading BEN suggests recording delay')
+        html += _html_fig(fig, 'Cross-correlation by lag: PLD leading UPRN suggests recording delay')
     except Exception as e:
         print(f'  [warning] plot_lag_candidates failed: {e}')
 
@@ -346,9 +346,9 @@ def _build_problem_statement():
       <li><strong>PLD (Planning London Datahub)</strong> — records completions when a
           planning permission closes. Subject to registration delays and geographic
           misallocation.</li>
-      <li><strong>BEN (DELTA/BEN estimates)</strong> — derived from Address Base
-          updates; independent of planning data but picks up demolitions and
-          conversions differently.</li>
+      <li><strong>UPRN (OS AddressBase net UPRN-change estimates)</strong> — derived
+          from Address Base updates; independent of planning data but picks up
+          demolitions and conversions differently.</li>
     </ul>
     <p>
     Neither source perfectly measures the true number of new dwellings in each LSOA
@@ -402,13 +402,13 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
 
         # ── Universal: sample areas (z posterior vs observations) ─────────────
         card_html += _safe_fig(
-            plot_sample_areas, 'Posterior z vs planning and BEN observations for 6 example LSOAs',
+            plot_sample_areas, 'Posterior z vs planning and UPRN observations for 6 example LSOAs',
             trace, data, title=name, random_state=42,
         )
 
         # ── Universal: residual analysis ──────────────────────────────────────
         card_html += _safe_fig(
-            plot_residual_analysis, 'Residual analysis — planning and BEN residuals by year and census change',
+            plot_residual_analysis, 'Residual analysis — planning and UPRN residuals by year and census change',
             trace, data, title=name,
         )
 
@@ -495,7 +495,7 @@ def _build_model_walk_through(traces, data, model_classes, diag_df=None):
             if 'M0' in traces:
                 card_html += _safe_fig(
                     plot_missingness_effect_on_z,
-                    'Effect on z estimates for LSOAs where planning shows zero but BEN shows non-zero activity',
+                    'Effect on z estimates for LSOAs where planning shows zero but UPRN shows non-zero activity',
                     traces['M0'], trace, data,
                     title=name, label_before='M0', label_after=name,
                 )
@@ -627,10 +627,10 @@ def _build_sensitivity_summary(sensitivity_summary, data, traces, comparison_df=
             sensitivity_summary,
             gdf.iloc[:len(sensitivity_summary)].copy(),
             INFER_COLS_PLAN,
-            INFER_COLS_BEN,
+            INFER_COLS_UPRN,
         )
         html += _html_fig(fig, 'Source disagreement vs model sensitivity — '
-                          'areas where PLD and BEN diverge most also show higher '
+                          'areas where PLD and UPRN diverge most also show higher '
                           'model-to-model z variation')
     except Exception:
         pass
@@ -732,7 +732,7 @@ def _build_conclusions(comparison_df, sensitivity_summary):
           source disagreement, where additional data (e.g. address base validation) would
           reduce uncertainty most.</li>
       <li><strong>Lag structure</strong> (M1+) is supported by cross-correlations in
-          the EDA: PLD completions lead BEN estimates by 1–2 years in many LSOAs.</li>
+          the EDA: PLD completions lead UPRN estimates by 1–2 years in many LSOAs.</li>
       <li><strong>Zero-inflation</strong> (M2/M3) materially improves the negative tail
           of planning residuals, consistent with systematic under-recording in the PLD.</li>
     </ul>
@@ -754,7 +754,7 @@ def _build_sample_traces(traces, data, comparison_df=None, n_sample=9,
 
     Selects areas spanning the full range of census differences (low, mid, high
     growth) and plots, for each one, the posterior z mean + credible interval
-    from the best model alongside PLD and BEN observations.  A coloured header
+    from the best model alongside PLD and UPRN observations.  A coloured header
     records the LSOA's confidence tier from the ensemble uncertainty analysis.
     """
     if not traces:
@@ -852,7 +852,7 @@ def _build_sample_traces(traces, data, comparison_df=None, n_sample=9,
     Each panel shows the posterior z timeseries for one example LSOA from the
     <strong>{best_name}</strong> model (the best-performing model by LOO-CV).
     The shaded band is the 90% credible interval; markers show PLD (planning)
-    and BEN observations.  Areas are selected to span the full range of
+    and UPRN observations.  Areas are selected to span the full range of
     intercensal change — from net loss through to high growth.
     </p>
     <p>

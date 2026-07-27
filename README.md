@@ -53,7 +53,7 @@ repo** and must be sourced separately:
 <DATA_PATH>/
 ├── pld/
 │   └── lsoa_completions_time_series_pivot.csv        # LSOA-level planning completions
-└── ben/
+└── uprn/
     └── final_residential_uprn_net_changes_by_oa_fy (1).csv   # OA-level OS Address Base net uprn changes
 ```
 

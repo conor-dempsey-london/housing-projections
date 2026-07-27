@@ -12,7 +12,7 @@ import numpy as np
 import arviz as az
 import pandas as pd
 
-dwellings_all, year_cols_ben, year_cols_completion = get_dwellings()
+dwellings_all, year_cols_uprn, year_cols_completion = get_dwellings()
 
 dwellings_all = dwellings_all[dwellings_all['intercensal_completions'] < 2000]
 
@@ -23,20 +23,20 @@ n_areas = len(dwellings_all)
 n_years = 10
 
 year_cols_planning = [f'{y}/{str(y+1)[-2:]}' for y in range(2009, 2025)]
-year_cols_ben      = [f'{y}_ben'              for y in range(2009, 2025)]
+year_cols_uprn      = [f'{y}_uprn'              for y in range(2009, 2025)]
 
 # Years we want to infer: 2012 to 2021 inclusive (10 years)
 # These correspond to net change in year ending in that year
 infer_years        = list(range(2012, 2022))
 infer_cols_plan    = [f'{y}/{str(y+1)[-2:]}' for y in range(2011, 2021)]
-infer_cols_ben     = [f'{y}_ben'              for y in range(2011, 2021)]
+infer_cols_uprn     = [f'{y}_uprn'              for y in range(2011, 2021)]
 
 C_2011  = dwellings_all['dwellings_2011'].values.astype(float)
 C_2021  = dwellings_all['dwellings_2021'].values.astype(float)
 D       = (C_2021 - C_2011).astype(float)
 
 P_obs   = dwellings_all[infer_cols_plan].values.astype(float)
-E_obs   = dwellings_all[infer_cols_ben].values.astype(float)
+E_obs   = dwellings_all[infer_cols_uprn].values.astype(float)
 
 # ── Helper: marginalised spike-and-slab log probability ───────────────────────
 def spike_slab_logp(z, pi, mu_slab, sigma_spike, sigma_slab, nu):
@@ -165,7 +165,7 @@ graph
 # ax.set_title('Prior predictive vs observed: planning')
 # ax.legend()
 
-# # ── 3. Prior predictive vs observed: BEN ──────────────────────────────────────
+# # ── 3. Prior predictive vs observed: UPRN ──────────────────────────────────────
 # ax = axes[0, 2]
 # ax.hist(E_prior.reshape(-1), bins=200, density=True,
 #         alpha=0.5, color='steelblue', label='Prior predictive')
@@ -173,7 +173,7 @@ graph
 #         alpha=0.5, color='coral', label='Observed')
 # ax.set_xlim(-150, 150)
 # ax.set_xlabel('Net dwelling change')
-# ax.set_title('Prior predictive vs observed: BEN')
+# ax.set_title('Prior predictive vs observed: UPRN')
 # ax.legend()
 
 # # ── 4. pi ─────────────────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ graph
 # ax.axvline(P_obs.std(), color='steelblue', linestyle='--',
 #            linewidth=0.8, label='observed SD (planning)')
 # ax.axvline(E_obs.std(), color='coral',     linestyle='--',
-#            linewidth=0.8, label='observed SD (BEN)')
+#            linewidth=0.8, label='observed SD (UPRN)')
 # ax.set_xlabel('Value')
 # ax.set_title('Prior: scale parameters vs empirical SD')
 # ax.legend(fontsize=7)
@@ -301,7 +301,7 @@ ax.set_xlabel('Net dwelling change')
 ax.set_title('Posterior predictive vs observed: planning')
 ax.legend()
 
-# ── 2. Posterior predictive vs observed: BEN ──────────────────────────────────
+# ── 2. Posterior predictive vs observed: UPRN ──────────────────────────────────
 ax = axes[0, 1]
 ax.hist(E_post.reshape(-1), bins=200, density=True,
         alpha=0.5, color='steelblue', label='Posterior predictive')
@@ -309,7 +309,7 @@ ax.hist(E_sub.ravel(), bins=200, density=True,
         alpha=0.5, color='coral', label='Observed')
 ax.set_xlim(-150, 150)
 ax.set_xlabel('Net dwelling change')
-ax.set_title('Posterior predictive vs observed: BEN')
+ax.set_title('Posterior predictive vs observed: UPRN')
 ax.legend()
 
 # ── 3. Posterior mean z vs observed means by year ─────────────────────────────
@@ -325,7 +325,7 @@ ax.fill_between(infer_years, z_year_lower, z_year_upper,
 ax.plot(infer_years, P_sub.mean(axis=0), marker='s',
         color='steelblue', label='Planning mean')
 ax.plot(infer_years, E_sub.mean(axis=0), marker='^',
-        color='coral', label='BEN mean')
+        color='coral', label='UPRN mean')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.set_xlabel('Year')
 ax.set_ylabel('Mean net dwelling change')
@@ -406,7 +406,7 @@ for ax, idx in zip(axes.ravel(), sample_idx):
     ax.plot(infer_years, P_sub[idx], color='steelblue', marker='s',
             alpha=0.7, linewidth=1.0, label='Planning')
     ax.plot(infer_years, E_sub[idx], color='coral', marker='^',
-            alpha=0.7, linewidth=1.0, label='BEN')
+            alpha=0.7, linewidth=1.0, label='UPRN')
     ax.axhline(0, color='black', linewidth=0.5, linestyle=':')
 
     ax.set_xlabel('Year')
@@ -426,10 +426,10 @@ plt.show()
 z_mean_post = z_post.mean(axis=(0, 1))   # (N_AREAS, n_years)
 
 resid_plan = P_sub - z_mean_post
-resid_ben  = E_sub - z_mean_post
+resid_uprn  = E_sub - z_mean_post
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-for ax, resid, label in zip(axes, [resid_plan, resid_ben], ['Planning', 'BEN']):
+for ax, resid, label in zip(axes, [resid_plan, resid_uprn], ['Planning', 'UPRN']):
     ax.hist(resid.ravel(), bins=100, density=True, color='steelblue', alpha=0.7)
     ax.axvline(0, color='black', linewidth=0.8)
     ax.axvline(resid.mean(), color='red', linestyle='--',
@@ -443,8 +443,8 @@ plt.show()
 fig, ax = plt.subplots(figsize=(10, 4))
 ax.plot(infer_years, resid_plan.mean(axis=0), marker='o',
         color='steelblue', label='Planning')
-ax.plot(infer_years, resid_ben.mean(axis=0),  marker='^',
-        color='coral',     label='BEN')
+ax.plot(infer_years, resid_uprn.mean(axis=0),  marker='^',
+        color='coral',     label='UPRN')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.set_xlabel('Year')
 ax.set_ylabel('Mean residual')
@@ -455,7 +455,7 @@ plt.tight_layout()
 plt.show()
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-for ax, resid, label in zip(axes, [resid_plan, resid_ben], ['Planning', 'BEN']):
+for ax, resid, label in zip(axes, [resid_plan, resid_uprn], ['Planning', 'UPRN']):
     ax.scatter(D_sub, resid.mean(axis=1), alpha=0.3, s=5, color='steelblue')
     ax.axhline(0, color='black', linewidth=0.8)
     ax.set_xlabel('Census diff (D)')
@@ -467,7 +467,7 @@ plt.show()
 
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-for ax, resid, label in zip(axes, [resid_plan, resid_ben], ['Planning', 'BEN']):
+for ax, resid, label in zip(axes, [resid_plan, resid_uprn], ['Planning', 'UPRN']):
     ax.scatter(D_sub, resid.mean(axis=1), alpha=0.3, s=5, color='steelblue')
     ax.axhline(0, color='black', linewidth=0.8)
     ax.set_xlabel('Census diff (D)')
@@ -478,7 +478,7 @@ plt.tight_layout()
 plt.show()
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-for ax, obs, label in zip(axes, [P_sub, E_sub], ['Planning', 'BEN']):
+for ax, obs, label in zip(axes, [P_sub, E_sub], ['Planning', 'UPRN']):
     ax.scatter(z_mean_post.ravel(), obs.ravel(),
                alpha=0.1, s=3, color='steelblue')
     lims = [min(z_mean_post.min(), obs.min()),
@@ -502,7 +502,7 @@ posterior_ci_width  = (np.percentile(z_post, 95, axis=(0, 1)) -
 fig, ax = plt.subplots(figsize=(8, 5))
 ax.scatter(source_disagreement[mask], posterior_ci_width[mask],
            alpha=0.2, s=5, color='steelblue')
-ax.set_xlabel('|Planning - BEN| (source disagreement)')
+ax.set_xlabel('|Planning - UPRN| (source disagreement)')
 ax.set_ylabel('Posterior 90% CI width')
 ax.set_title(f'Posterior uncertainty vs source disagreement (|obs|>{threshold})')
 ax.spines[['top', 'right']].set_visible(False)
@@ -514,22 +514,22 @@ from esda.moran import Moran
 from libpysal.weights import Queen
 
 mean_resid_plan = resid_plan.mean(axis=1)   # (N_AREAS,)
-mean_resid_ben  = resid_ben.mean(axis=1)
+mean_resid_uprn  = resid_uprn.mean(axis=1)
 
 w = Queen.from_dataframe(dwellings_all.iloc[:N_AREAS], use_index=False)
 w.transform = 'r'
 
 moran_plan = Moran(mean_resid_plan, w)
-moran_ben  = Moran(mean_resid_ben,  w)
+moran_uprn  = Moran(mean_resid_uprn,  w)
 
 print(f"Moran's I (planning residuals): {moran_plan.I:.4f}  p={moran_plan.p_sim:.4f}")
-print(f"Moran's I (BEN residuals):      {moran_ben.I:.4f}  p={moran_ben.p_sim:.4f}")
+print(f"Moran's I (UPRN residuals):      {moran_uprn.I:.4f}  p={moran_uprn.p_sim:.4f}")
 
 
 z_lo = np.percentile(z_post, 5,  axis=(0, 1))
 z_hi = np.percentile(z_post, 95, axis=(0, 1))
 
-for obs, label in zip([P_sub, E_sub], ['Planning', 'BEN']):
+for obs, label in zip([P_sub, E_sub], ['Planning', 'UPRN']):
     coverage = np.mean((obs >= z_lo) & (obs <= z_hi))
     print(f'{label} coverage of 90% CI: {coverage:.3f}')
 
@@ -538,7 +538,7 @@ for obs, label in zip([P_sub, E_sub], ['Planning', 'BEN']):
 z_lo = np.percentile(z_post, 5,  axis=(0, 1))
 z_hi = np.percentile(z_post, 95, axis=(0, 1))
 
-for obs, label in zip([P_sub, E_sub], ['Planning', 'BEN']):
+for obs, label in zip([P_sub, E_sub], ['Planning', 'UPRN']):
     coverage = np.mean((obs >= z_lo) & (obs <= z_hi))
     print(f'{label} coverage of 90% CI: {coverage:.3f}')
 

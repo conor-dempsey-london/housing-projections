@@ -323,10 +323,10 @@ def plot_z_range_distribution(sensitivity_df, title=''):
 
 
 def plot_sensitivity_vs_disagreement(sensitivity_df, gdf,
-                                      plan_cols, ben_cols, title=''):
+                                      plan_cols, uprn_cols, title=''):
     """
     Scatter: mean absolute source disagreement vs z model sensitivity.
-    Reveals whether areas where PLD and BEN disagree are also areas
+    Reveals whether areas where PLD and UPRN disagree are also areas
     where model choice matters most.
 
     Parameters
@@ -334,10 +334,10 @@ def plot_sensitivity_vs_disagreement(sensitivity_df, gdf,
     sensitivity_df : pd.DataFrame  — output of compute_z_model_sensitivity()[0]
     gdf            : GeoDataFrame  — same length/order as sensitivity_df
     plan_cols      : list[str]     — planning data columns
-    ben_cols       : list[str]     — BEN data columns
+    uprn_cols       : list[str]     — UPRN data columns
     title          : str
     """
-    disagreement = (gdf[plan_cols].values - gdf[ben_cols].values)
+    disagreement = (gdf[plan_cols].values - gdf[uprn_cols].values)
     mean_abs_disagree = np.abs(disagreement).mean(axis=1)
 
     sens = sensitivity_df['z_std_across_models'].values
@@ -355,7 +355,7 @@ def plot_sensitivity_vs_disagreement(sensitivity_df, gdf,
     bin_centers = [bin_centers[i] for i in range(len(bins) - 1) if (bin_idx == i).any()]
     ax.plot(bin_centers, bin_means, color='red', linewidth=2, label='bin mean')
 
-    ax.set_xlabel('Mean |PLD − BEN| per LSOA (dwellings / year)')
+    ax.set_xlabel('Mean |PLD − UPRN| per LSOA (dwellings / year)')
     ax.set_ylabel('z std across model posteriors (dwellings / year)')
     ax.set_title(title or 'Source disagreement vs model sensitivity')
     ax.legend(fontsize=9)

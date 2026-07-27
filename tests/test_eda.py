@@ -4,7 +4,7 @@ Plot functions are excluded (side-effects only, require display).
 """
 import pandas as pd
 
-from housing_projections.config import INFER_COLS_BEN, INFER_COLS_PLAN
+from housing_projections.config import INFER_COLS_PLAN, INFER_COLS_UPRN
 from housing_projections.eda import (
     classify_lsoas,
     compute_agreement_stats,
@@ -72,14 +72,14 @@ class TestComputeOverallCorrelation:
 class TestComputeAutocorrelations:
     def test_returns_dict(self, synthetic_gdf):
         result = compute_autocorrelations(
-            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_BEN,
+            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_UPRN,
             max_lag=3, n_permutations=5,
         )
         assert isinstance(result, dict)
 
     def test_has_obs_keys(self, synthetic_gdf):
         result = compute_autocorrelations(
-            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_BEN,
+            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_UPRN,
             max_lag=3, n_permutations=5,
         )
         assert 'obs_a' in result and 'obs_b' in result
@@ -88,14 +88,14 @@ class TestComputeAutocorrelations:
 class TestComputeCrosscorrelations:
     def test_returns_dict(self, synthetic_gdf):
         result = compute_crosscorrelations(
-            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_BEN,
+            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_UPRN,
             max_lag=3, n_permutations=5,
         )
         assert isinstance(result, dict)
 
     def test_observed_key_present(self, synthetic_gdf):
         result = compute_crosscorrelations(
-            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_BEN,
+            synthetic_gdf, INFER_COLS_PLAN, INFER_COLS_UPRN,
             max_lag=3, n_permutations=5,
         )
         assert 'observed' in result

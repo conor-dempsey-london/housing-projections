@@ -83,7 +83,7 @@ class TestModelBuild:
 
 class TestM0Structure:
     def test_var_names(self):
-        assert set(M0.var_names) == {'mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_ben'}
+        assert set(M0.var_names) == {'mu_slab', 'sigma_slab', 'sigma_plan', 'sigma_uprn'}
 
     def test_snap_zeros_false(self):
         assert M0.snap_zeros is False
@@ -117,7 +117,7 @@ class TestM1hStructure:
         assert 'sigma_slab' in m.model.named_vars
 
     def test_var_names(self):
-        assert set(M1h.var_names) == {'sigma_slab', 'sigma_plan', 'sigma_ben', 'lambda_weights'}
+        assert set(M1h.var_names) == {'sigma_slab', 'sigma_plan', 'sigma_uprn', 'lambda_weights'}
 
     def test_max_lag(self):
         assert M1h.max_lag == 3
@@ -250,7 +250,7 @@ class TestM9Structure:
     def test_var_names(self):
         assert set(M9.var_names) == {
             'mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-            'sigma_plan', 'sigma_ben',
+            'sigma_plan', 'sigma_uprn',
             'lambda_weights_P', 'lambda_weights_E',
         }
 
@@ -315,7 +315,7 @@ class TestM10Structure:
     def test_var_names(self):
         assert set(M10.var_names) == {
             'mu_log_sigma', 'tau_log_sigma', 'sigma_slab_borough',
-            'sigma_kappa', 'sigma_plan', 'sigma_ben',
+            'sigma_kappa', 'sigma_plan', 'sigma_uprn',
             'lambda_weights_P', 'lambda_weights_E',
         }
 
@@ -379,8 +379,8 @@ class TestM11Structure:
     def test_var_names(self):
         assert set(M11.var_names) == {
             'mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-            'sigma_agree_plan', 'sigma_agree_ben',
-            'sigma_disagree_plan', 'sigma_disagree_ben',
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
             'rho_agree', 'lambda_weights_P', 'lambda_weights_E',
         }
 
@@ -451,8 +451,8 @@ class TestM12Structure:
     def test_var_names(self):
         assert set(M12.var_names) == {
             'mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-            'sigma_agree_plan', 'sigma_agree_ben',
-            'sigma_disagree_plan', 'sigma_disagree_ben',
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
             'rho_P', 'rho_E', 'lambda_weights_P', 'lambda_weights_E',
         }
 
@@ -518,8 +518,8 @@ class TestM13Structure:
     def test_var_names(self):
         assert set(M13.var_names) == {
             'mu_log_sigma', 'tau_log_sigma', 'sigma_slab',
-            'sigma_agree_plan', 'sigma_agree_ben',
-            'sigma_disagree_plan', 'sigma_disagree_ben',
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
             'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E',
         }
 
@@ -580,8 +580,8 @@ class TestM14Structure:
     def test_var_names(self):
         assert set(M14.var_names) == {
             'mu_log_sigma', 'tau_log_sigma', 'sigma_slab', 'amplitude', 'pi_profile',
-            'sigma_agree_plan', 'sigma_agree_ben',
-            'sigma_disagree_plan', 'sigma_disagree_ben',
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
             'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E',
         }
 
@@ -664,8 +664,8 @@ class TestM15Structure:
     def test_var_names(self):
         assert set(M15.var_names) == {
             'tau_amplitude', 'c2_amplitude', 'amplitude', 'pi_profile',
-            'sigma_agree_plan', 'sigma_agree_ben',
-            'sigma_disagree_plan', 'sigma_disagree_ben',
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
             'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E',
         }
 
@@ -717,8 +717,8 @@ class TestM16Structure:
     def test_var_names(self):
         assert set(M16.var_names) == {
             'tau_amplitude', 'c2_amplitude', 'amplitude', 'pi_profile',
-            'sigma_agree_plan', 'sigma_agree_ben',
-            'sigma_disagree_plan', 'sigma_disagree_ben',
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
             'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E',
         }
 
@@ -874,10 +874,10 @@ class TestAZ0aStructure:
         assert 'P_like' in m.model.named_vars
         assert 'E_like' in m.model.named_vars
         assert 'sigma_plan' in m.model.named_vars
-        assert 'sigma_ben' in m.model.named_vars
+        assert 'sigma_uprn' in m.model.named_vars
 
     def test_var_names(self):
-        assert set(AZ0a.var_names) == {'sigma_plan', 'sigma_ben'}
+        assert set(AZ0a.var_names) == {'sigma_plan', 'sigma_uprn'}
 
 
 @pytest.mark.slow
@@ -933,12 +933,12 @@ class TestAZ0bStructure:
         m = AZ0b(data_dict)
         m.build()
         for name in ('rho_P', 'rho_E', 'resp_same_P', 'resp_same_E',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['rho_P'].eval().shape == ()
 
     def test_var_names(self):
-        assert set(AZ0b.var_names) == {'sigma_plan', 'sigma_ben', 'rho_P', 'rho_E'}
+        assert set(AZ0b.var_names) == {'sigma_plan', 'sigma_uprn', 'rho_P', 'rho_E'}
 
 
 @pytest.mark.slow
@@ -997,7 +997,7 @@ class TestAZ1aStructure:
         m = AZ1a(data_dict)
         m.build()
         for name in ('lambda_weights_P', 'lambda_weights_E',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         n_lags = AZ1a.max_lag + 1
         assert m.model.named_vars['lambda_weights_P'].eval().shape == (n_lags,)
@@ -1005,7 +1005,7 @@ class TestAZ1aStructure:
 
     def test_var_names(self):
         assert set(AZ1a.var_names) == {
-            'sigma_plan', 'sigma_ben', 'lambda_weights_P', 'lambda_weights_E'}
+            'sigma_plan', 'sigma_uprn', 'lambda_weights_P', 'lambda_weights_E'}
 
 
 @pytest.mark.slow
@@ -1068,7 +1068,7 @@ class TestAZ1bStructure:
         for name in ('lag_P_mu_logit', 'lag_P_tau', 'lag_P_raw_offset',
                      'lag_P_lambda_weights', 'lag_E_mu_logit', 'lag_E_tau',
                      'lag_E_raw_offset', 'lag_E_lambda_weights',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['lag_P_lambda_weights'].eval().shape == (n_areas, n_lags)
         assert m.model.named_vars['lag_P_mu_logit'].eval().shape == (n_lags - 1,)
@@ -1098,7 +1098,7 @@ class TestAZ1bStructure:
 
     def test_var_names(self):
         assert set(AZ1b.var_names) == {
-            'sigma_plan', 'sigma_ben',
+            'sigma_plan', 'sigma_uprn',
             'lag_P_mu_logit', 'lag_P_tau', 'lag_E_mu_logit', 'lag_E_tau'}
 
 
@@ -1295,7 +1295,7 @@ class TestAZ1cStructure:
                      'lag_P_raw_offset', 'lag_P_lambda_weights',
                      'lag_E_mu_logit', 'lag_E_tau_frac', 'lag_E_tau',
                      'lag_E_raw_offset', 'lag_E_lambda_weights',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['lag_P_lambda_weights'].eval().shape == (n_areas, n_lags)
 
@@ -1331,7 +1331,7 @@ class TestAZ1cStructure:
 
     def test_var_names(self):
         assert set(AZ1c.var_names) == {
-            'sigma_plan', 'sigma_ben',
+            'sigma_plan', 'sigma_uprn',
             'lag_P_mu_logit', 'lag_P_tau', 'lag_E_mu_logit', 'lag_E_tau'}
 
 
@@ -1376,13 +1376,13 @@ class TestAZ1dStructure:
                      'lag_E_lambda_weights'):
             assert name not in m.model.named_vars
         for name in ('lag_P_mu_logit', 'lag_P_tau', 'lag_P_raw_offset',
-                     'lag_P_lambda_weights', 'sigma_plan', 'sigma_ben',
+                     'lag_P_lambda_weights', 'sigma_plan', 'sigma_uprn',
                      'P_like', 'E_like'):
             assert name in m.model.named_vars
 
     def test_var_names(self):
         assert set(AZ1d.var_names) == {
-            'sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_tau'}
+            'sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_tau'}
 
 
 @pytest.mark.slow
@@ -1423,7 +1423,7 @@ class TestAZ1eStructure:
         n_lags = AZ1e.max_lag + 1
         for name in ('lag_P_mu_logit', 'lag_P_global_tau', 'lag_P_local_scale',
                      'lag_P_tau', 'lag_P_raw_offset', 'lag_P_lambda_weights',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['lag_P_local_scale'].eval().shape == (n_areas, n_lags - 1)
         assert m.model.named_vars['lag_P_global_tau'].eval().shape == (n_lags - 1,)
@@ -1455,7 +1455,7 @@ class TestAZ1eStructure:
 
     def test_var_names(self):
         assert set(AZ1e.var_names) == {
-            'sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau'}
+            'sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau'}
 
 
 @pytest.mark.slow
@@ -1494,7 +1494,7 @@ class TestAZ1fStructure:
         n_years = data_dict['n_years']
         n_lags = AZ1f.max_lag + 1
         for name in ('lag_P_mu_logit', 'lag_P_tau', 'lag_P_raw_offset',
-                     'lag_P_lambda_weights', 'sigma_plan', 'sigma_ben',
+                     'lag_P_lambda_weights', 'sigma_plan', 'sigma_uprn',
                      'P_like', 'P_like_pointwise', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['P_like_pointwise'].eval().shape == (n_areas, n_years)
@@ -1524,7 +1524,7 @@ class TestAZ1fStructure:
 
     def test_var_names(self):
         assert set(AZ1f.var_names) == {
-            'sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_tau'}
+            'sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_tau'}
 
 
 @pytest.mark.slow
@@ -1563,7 +1563,7 @@ class TestAZ1gStructure:
         n_lags = AZ1g.max_lag + 1
         for name in ('lag_P_mu_logit', 'lag_P_global_tau', 'lag_P_local_lambda',
                      'lag_P_tau', 'lag_P_raw_offset', 'lag_P_lambda_weights',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['lag_P_local_lambda'].eval().shape == (n_areas, n_lags - 1)
         assert m.model.named_vars['lag_P_global_tau'].eval().shape == (n_lags - 1,)
@@ -1607,7 +1607,7 @@ class TestAZ1gStructure:
 
     def test_var_names(self):
         assert set(AZ1g.var_names) == {
-            'sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau'}
+            'sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau'}
 
 
 @pytest.mark.slow
@@ -1646,7 +1646,7 @@ class TestAZ1hStructure:
         n_lags = AZ1h.max_lag + 1
         for name in ('lag_P_mu_logit', 'lag_P_global_tau', 'lag_P_local_lambda',
                      'lag_P_c2', 'lag_P_tau', 'lag_P_raw_offset', 'lag_P_lambda_weights',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['lag_P_local_lambda'].eval().shape == (n_areas, n_lags - 1)
         assert m.model.named_vars['lag_P_c2'].eval().shape == (n_lags - 1,)
@@ -1691,7 +1691,7 @@ class TestAZ1hStructure:
 
     def test_var_names(self):
         assert set(AZ1h.var_names) == {
-            'sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau', 'lag_P_c2'}
+            'sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau', 'lag_P_c2'}
 
 
 @pytest.mark.slow
@@ -1758,7 +1758,7 @@ class TestAZ2Structure:
         m = AZ2(data_dict)
         m.build()
         for name in ('sigma_delta_top_boost', 'sigma_delta',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['sigma_delta_top_boost'].eval().shape == ()
         n_areas = data_dict['n_areas']
@@ -1802,7 +1802,7 @@ class TestAZ2Structure:
 
     def test_var_names(self):
         assert set(AZ2.var_names) == {
-            'sigma_plan', 'sigma_ben', 'sigma_delta_top_boost'}
+            'sigma_plan', 'sigma_uprn', 'sigma_delta_top_boost'}
 
 
 @pytest.mark.slow
@@ -1841,7 +1841,7 @@ class TestAZ2bStructure:
         m = AZ2b(data_dict)
         m.build()
         for name in ('sigma_delta_top_boost', 'sigma_delta',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['sigma_delta_top_boost'].eval().shape == ()
 
@@ -1874,7 +1874,7 @@ class TestAZ2bStructure:
 
     def test_var_names(self):
         assert set(AZ2b.var_names) == {
-            'sigma_plan', 'sigma_ben', 'sigma_delta_top_boost'}
+            'sigma_plan', 'sigma_uprn', 'sigma_delta_top_boost'}
 
 
 @pytest.mark.slow
@@ -1922,7 +1922,7 @@ class TestAZ3Structure:
         m.build()
         for name in ('rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E',
                      'resp_noise_P', 'resp_noise_E',
-                     'sigma_plan', 'sigma_ben', 'P_like', 'E_like'):
+                     'sigma_plan', 'sigma_uprn', 'P_like', 'E_like'):
             assert name in m.model.named_vars
         assert m.model.named_vars['rho_P'].eval().shape == ()
 
@@ -1949,9 +1949,9 @@ class TestAZ3Structure:
         assert resp.min() >= 0.0
         assert resp.max() <= 1.0
 
-    def test_sigma_plan_ben_never_below_floor(self, data_dict):
+    def test_sigma_plan_uprn_never_below_floor(self, data_dict):
         # Regression test for the ESS problem diagnosed on AZ3's real-data
-        # run: an unfloored sigma_plan/sigma_ben collapsed to ~0.58/0.99,
+        # run: an unfloored sigma_plan/sigma_uprn collapsed to ~0.58/0.99,
         # an order of magnitude below every other AZ0a-family model's
         # ~7-9, creating small-scale funnel geometry. floor + HalfNormal
         # mirrors the already-proven sigma_noise_floor fix.
@@ -1959,14 +1959,14 @@ class TestAZ3Structure:
         m.build()
         with m.model:
             draws = pm.draw(
-                [m.model['sigma_plan'], m.model['sigma_ben']],
+                [m.model['sigma_plan'], m.model['sigma_uprn']],
                 draws=50, random_seed=0)
         for d in draws:
             assert d.min() >= AZ3.sigma_obs_floor
 
     def test_var_names(self):
         assert set(AZ3.var_names) == {
-            'sigma_plan', 'sigma_ben', 'rho_P', 'rho_E',
+            'sigma_plan', 'sigma_uprn', 'rho_P', 'rho_E',
             'sigma_noise_P', 'sigma_noise_E'}
 
 
@@ -2022,16 +2022,16 @@ class TestAZ4Structure:
             'lag_E_mu_logit', 'lag_E_tau', 'lag_E_lambda_weights',
             'rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E',           # AZ3 piece
             'resp_noise_P', 'resp_noise_E',
-            'sigma_plan', 'sigma_ben', 'P_like', 'E_like',
+            'sigma_plan', 'sigma_uprn', 'P_like', 'E_like',
         ):
             assert name in m.model.named_vars
 
-    def test_sigma_plan_ben_never_below_floor(self, data_dict):
+    def test_sigma_plan_uprn_never_below_floor(self, data_dict):
         m = AZ4(data_dict)
         m.build()
         with m.model:
             draws = pm.draw(
-                [m.model['sigma_plan'], m.model['sigma_ben']],
+                [m.model['sigma_plan'], m.model['sigma_uprn']],
                 draws=50, random_seed=0)
         for d in draws:
             assert d.min() >= AZ4.sigma_obs_floor
@@ -2071,7 +2071,7 @@ class TestAZ4Structure:
 
     def test_var_names(self):
         assert set(AZ4.var_names) == {
-            'sigma_plan', 'sigma_ben', 'sigma_delta_top_boost',
+            'sigma_plan', 'sigma_uprn', 'sigma_delta_top_boost',
             'lag_P_mu_logit', 'lag_P_tau', 'lag_E_mu_logit', 'lag_E_tau',
             'rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E'}
 
@@ -2131,7 +2131,7 @@ class TestAZ4bStructure:
             'lag_E_mu_logit', 'lag_E_tau_frac', 'lag_E_tau', 'lag_E_lambda_weights',
             'rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E',
             'resp_noise_P', 'resp_noise_E',
-            'sigma_plan', 'sigma_ben', 'P_like', 'E_like',
+            'sigma_plan', 'sigma_uprn', 'P_like', 'E_like',
         ):
             assert name in m.model.named_vars
 
@@ -2187,7 +2187,7 @@ class TestAZ5Structure:
             'lag_P_tau', 'lag_P_raw_offset', 'lag_P_lambda_weights',
             'rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E',           # AZ3 piece
             'resp_noise_P', 'resp_noise_E',
-            'sigma_plan', 'sigma_ben', 'P_like', 'E_like',
+            'sigma_plan', 'sigma_uprn', 'P_like', 'E_like',
         ):
             assert name in m.model.named_vars
 
@@ -2198,12 +2198,12 @@ class TestAZ5Structure:
         for name in ('lag_E_mu_logit', 'lag_E_tau', 'lag_E_lambda_weights'):
             assert name not in m.model.named_vars
 
-    def test_sigma_plan_ben_never_below_floor(self, data_dict):
+    def test_sigma_plan_uprn_never_below_floor(self, data_dict):
         m = AZ5(data_dict)
         m.build()
         with m.model:
             draws = pm.draw(
-                [m.model['sigma_plan'], m.model['sigma_ben']],
+                [m.model['sigma_plan'], m.model['sigma_uprn']],
                 draws=50, random_seed=0)
         for d in draws:
             assert d.min() >= AZ5.sigma_obs_floor
@@ -2237,7 +2237,7 @@ class TestAZ5Structure:
 
     def test_var_names(self):
         assert set(AZ5.var_names) == {
-            'sigma_plan', 'sigma_ben', 'lag_P_mu_logit', 'lag_P_global_tau',
+            'sigma_plan', 'sigma_uprn', 'lag_P_mu_logit', 'lag_P_global_tau',
             'rho_P', 'rho_E', 'sigma_noise_P', 'sigma_noise_E'}
 
 

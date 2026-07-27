@@ -204,19 +204,19 @@ def full_report(trace, data, post_pred, prior=None,
     # Residuals by year
     z_mean_post = z_post.mean(axis=(0, 1))
     resid_plan  = data['P_obs'] - z_mean_post
-    resid_ben   = data['E_obs'] - z_mean_post
+    resid_uprn   = data['E_obs'] - z_mean_post
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    for ax, resid, label in zip(axes, [resid_plan, resid_ben],
-                                 ['Planning', 'BEN']):
+    for ax, resid, label in zip(axes, [resid_plan, resid_uprn],
+                                 ['Planning', 'UPRN']):
         plot_residuals_by_year(ax, resid, label)
     plt.suptitle(f'{t} — mean residuals by year')
     plt.tight_layout()
 
     # Residuals vs census diff
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    for ax, resid, label in zip(axes, [resid_plan, resid_ben],
-                                 ['Planning', 'BEN']):
+    for ax, resid, label in zip(axes, [resid_plan, resid_uprn],
+                                 ['Planning', 'UPRN']):
         plot_residuals_vs_D(ax, resid, data['D'], label)
     plt.suptitle(f'{t} — residuals vs census diff')
     plt.tight_layout()

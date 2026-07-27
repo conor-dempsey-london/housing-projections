@@ -57,7 +57,7 @@ ax.plot(years, p_zero_by_year * 100, 'o-', color='darkorange', label='P_obs zero
 ax.plot(years, e_zero_by_year * 100, 's-', color='forestgreen', label='E_obs zero rate')
 ax.set_ylabel('% of areas with zero observation')
 ax.set_xlabel('Year')
-ax.set_title('Zero rate by year: P (planning) vs E (BEN)')
+ax.set_title('Zero rate by year: P (planning) vs E (UPRN)')
 ax.legend()
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
@@ -274,7 +274,7 @@ p75_xcorr  = np.nanpercentile(xcorr_matrix, 75, axis=0)
 peak_lag   = lags[np.argmax(mean_xcorr)]
 
 print(f'  Mean cross-correlation peaks at lag = {peak_lag} year(s)')
-print(f'  (positive lag: E leads P, i.e. BEN records completions earlier than planning does)')
+print(f'  (positive lag: E leads P, i.e. UPRN records completions earlier than planning does)')
 
 fig, ax = plt.subplots(figsize=(8, 3))
 ax.fill_between(lags, p25_xcorr, p75_xcorr, alpha=0.25, color='steelblue', label='IQR across areas')
@@ -282,7 +282,7 @@ ax.plot(lags, mean_xcorr, 'o-', color='steelblue', linewidth=1.5, label='Mean xc
 ax.axvline(0, color='black', linewidth=0.8, linestyle='--')
 ax.axvline(peak_lag, color='red', linewidth=1, linestyle=':', label=f'Peak lag={peak_lag}')
 ax.axhline(0, color='black', linewidth=0.5)
-ax.set_xlabel('Lag (years, positive = E leads P / planning lags behind BEN)')
+ax.set_xlabel('Lag (years, positive = E leads P / planning lags behind UPRN)')
 ax.set_ylabel('Cross-correlation')
 ax.set_title('P–E cross-correlation by lag\n(mean ± IQR across areas)')
 ax.legend(fontsize=8)

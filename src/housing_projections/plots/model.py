@@ -114,7 +114,7 @@ def plot_lag_residuals_by_year(resids, title=''):
 
 def plot_lag_effect(trace, data, n_sample=6, title='M3'):
     """
-    For a sample of areas, plot observed planning/BEN, posterior mean z,
+    For a sample of areas, plot observed planning/UPRN, posterior mean z,
     and the posterior mean lagged planning prediction (P_mean).
     """
     z_post      = trace.posterior['z'].values
@@ -339,16 +339,16 @@ def plot_missingness_effect_on_z(
         label_before='Before',
         label_after='After'):
     """
-    For areas where planning shows zeros but BEN shows non-zero,
+    For areas where planning shows zeros but UPRN shows non-zero,
     compare posterior z between two models.
     """
     P_obs = data['P_obs']
     E_obs = data['E_obs']
 
-    plan_zero_ben_nonzero = (
+    plan_zero_uprn_nonzero = (
         (np.abs(P_obs) < 1e-6) & (np.abs(E_obs) > 5)
     )
-    area_mask = plan_zero_ben_nonzero.any(axis=1)
+    area_mask = plan_zero_uprn_nonzero.any(axis=1)
 
     z_before = trace_before.posterior['z'].values.mean(axis=(0, 1))
     z_after  = trace_after.posterior['z'].values.mean(axis=(0, 1))
@@ -364,7 +364,7 @@ def plot_missingness_effect_on_z(
     ax.plot(lims, lims, color='black', linestyle='--', linewidth=0.8)
     ax.set_xlabel(f'Posterior mean z ({label_before})')
     ax.set_ylabel(f'Posterior mean z ({label_after})')
-    ax.set_title('z comparison: planning=0, BEN≠0 areas')
+    ax.set_title('z comparison: planning=0, UPRN≠0 areas')
     ax.spines[['top', 'right']].set_visible(False)
 
     ax   = axes[1]

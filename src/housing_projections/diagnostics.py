@@ -5,10 +5,10 @@ import scipy.stats as stats
 from scipy.signal import find_peaks
 
 from housing_projections.config import (
-    ALL_COLS_BEN,
     ALL_COLS_PLAN,
-    INFER_COLS_BEN,
+    ALL_COLS_UPRN,
     INFER_COLS_PLAN,
+    INFER_COLS_UPRN,
     INFER_YEARS,
 )
 from housing_projections.spatial import build_weights_libpysal, compute_morans_i
@@ -60,7 +60,7 @@ def _check_divergences(trace, verbose=False):
 
 def _check_calibration(trace, data, alpha=0.1, nu=4.0, verbose=False):
     """
-    Check posterior predictive calibration coverage against planning and BEN
+    Check posterior predictive calibration coverage against planning and UPRN
     observations.
 
     For each posterior draw of (z, sigma), samples from the StudentT likelihood
@@ -72,7 +72,7 @@ def _check_calibration(trace, data, alpha=0.1, nu=4.0, verbose=False):
 
     Returns
     -------
-    dict with keys 'planning', 'ben'
+    dict with keys 'planning', 'uprn'
     """
     z_post = trace.posterior['z'].values          # (chains, draws, n_areas, n_years)
     n_samples = z_post.shape[0] * z_post.shape[1]
@@ -96,14 +96,14 @@ def _check_calibration(trace, data, alpha=0.1, nu=4.0, verbose=False):
 
     coverage = {
         'planning': _predictive_coverage(P_obs, 'sigma_plan'),
-        'ben':      _predictive_coverage(E_obs, 'sigma_ben'),
+        'uprn':      _predictive_coverage(E_obs, 'sigma_uprn'),
     }
 
     if verbose:
         print(f"\n── Posterior predictive calibration ({int((1-alpha)*100)}% CI) ──")
         print(f"  Planning coverage: {coverage['planning']:.3f}  "
               f"(nominal {1-alpha:.2f})")
-        print(f"  BEN coverage:      {coverage['ben']:.3f}  "
+        print(f"  UPRN coverage:      {coverage['uprn']:.3f}  "
               f"(nominal {1-alpha:.2f})")
 
     return coverage
@@ -136,24 +136,24 @@ def _check_census_constraint(trace, data, verbose=False):
 
 def _check_morans_i(trace, data, verbose=False):
     """
-    Compute Moran's I on mean posterior residuals for planning and BEN.
+    Compute Moran's I on mean posterior residuals for planning and UPRN.
 
     Returns
     -------
-    dict with keys 'planning' and 'ben', each containing
+    dict with keys 'planning' and 'uprn', each containing
     {'I': float, 'p_value': float, 'z_score': float}
     """
     z_post      = trace.posterior['z'].values
     z_mean_post = z_post.mean(axis=(0, 1))
 
     resid_plan  = (data['P_obs'] - z_mean_post).mean(axis=1)
-    resid_ben   = (data['E_obs'] - z_mean_post).mean(axis=1)
+    resid_uprn   = (data['E_obs'] - z_mean_post).mean(axis=1)
 
     w = build_weights_libpysal(data['gdf'])
 
     result = {
         'planning': compute_morans_i(resid_plan, w),
-        'ben':      compute_morans_i(resid_ben,  w),
+        'uprn':      compute_morans_i(resid_uprn,  w),
     }
 
     if verbose:
@@ -228,7 +228,7 @@ def _check_sigma_slab_vs_disagreement(trace, data, verbose=False):
     P_aligned = _shift_source_series(
         data['P_obs_full'], ALL_COLS_PLAN, INFER_COLS_PLAN, mean_lag_P)
     E_aligned = _shift_source_series(
-        data['E_obs_full'], ALL_COLS_BEN, INFER_COLS_BEN, mean_lag_E)
+        data['E_obs_full'], ALL_COLS_UPRN, INFER_COLS_UPRN, mean_lag_E)
 
     P_dm = P_aligned - P_aligned.mean(axis=1, keepdims=True)
     E_dm = E_aligned - E_aligned.mean(axis=1, keepdims=True)
@@ -280,7 +280,7 @@ def _check_kappa_vs_recording_rate(trace, data, verbose=False):
     M10-specific diagnostic: does per-area capture-rate kappa track the
     systematic per-area log(P/E) recording-rate bias found in notebook
     4.0 section 10 (persistent per-area effect, distinct from any year
-    effect), rather than leaving it unexplained in sigma_plan/sigma_ben
+    effect), rather than leaving it unexplained in sigma_plan/sigma_uprn
     the way M9 did?
 
     Method: posterior-mean kappa_P[a]/kappa_E[a] -> log_kappa_ratio[a].
@@ -339,18 +339,18 @@ def _check_kappa_vs_recording_rate(trace, data, verbose=False):
 
 def _check_residuals(trace, data, verbose=False):
     """
-    Compute residual statistics for planning and BEN.
+    Compute residual statistics for planning and UPRN.
 
     Returns
     -------
-    dict with keys 'planning' and 'ben', each containing
+    dict with keys 'planning' and 'uprn', each containing
     {'mean': float, 'std': float, 'mae': float}
     """
     z_post      = trace.posterior['z'].values
     z_mean_post = z_post.mean(axis=(0, 1))
 
     result = {}
-    for obs, key in [(data['P_obs'], 'planning'), (data['E_obs'], 'ben')]:
+    for obs, key in [(data['P_obs'], 'planning'), (data['E_obs'], 'uprn')]:
         resid = obs - z_mean_post
         result[key] = {
             'mean': float(resid.mean()),
@@ -467,7 +467,7 @@ def z_identifiability_summary(trace, rhat_threshold=1.01):
 
     Some models (e.g. M2h) pin an area's total change tightly via the census
     constraint, but for areas with weak per-year signal (little informative
-    planning/BEN data relative to the size of the change) there can be
+    planning/UPRN data relative to the size of the change) there can be
     several roughly-equally-good ways to distribute that total across years
     — the sampler settles on different allocations across chains/draws even
     though the total is well identified. This shows up as elevated r-hat on
@@ -838,7 +838,7 @@ def diagnostics_summary(traces, data=None, rhat_threshold=1.01, var_names=None):
     -------
     pd.DataFrame with index = model name and columns:
         frac_flat_despite_active [if data given], max_rhat, mean_rhat,
-        n_bad_rhat, divergences, min_ess_bulk [, plan_cov_90, ben_cov_90]
+        n_bad_rhat, divergences, min_ess_bulk [, plan_cov_90, uprn_cov_90]
 
     frac_flat_despite_active (see z_flatness_summary) is a MODEL-BEHAVIOUR
     check, not a sampling-quality check — it answers "does z actually move
@@ -882,7 +882,7 @@ def diagnostics_summary(traces, data=None, rhat_threshold=1.01, var_names=None):
         if data is not None:
             cov = _check_calibration(trace, data, alpha=0.10, verbose=False)
             row['plan_cov_90'] = cov['planning']
-            row['ben_cov_90']  = cov['ben']
+            row['uprn_cov_90']  = cov['uprn']
 
         rows[name] = row
 
@@ -896,7 +896,7 @@ def diagnostics_summary(traces, data=None, rhat_threshold=1.01, var_names=None):
 
 def observation_summary(data, burst_threshold=30):
     """
-    Summarise the empirical distribution of planning (P_obs) and BEN (E_obs)
+    Summarise the empirical distribution of planning (P_obs) and UPRN (E_obs)
     observations in the data dict.
 
     Useful for calibrating priors on z — the prior should broadly cover the
@@ -909,11 +909,11 @@ def observation_summary(data, burst_threshold=30):
 
     Returns
     -------
-    pd.DataFrame with one row per source (planning, ben) and columns:
+    pd.DataFrame with one row per source (planning, uprn) and columns:
         p05, p25, p50, p75, p95, p99, mean, std, pct_negative, pct_burst, n_obs
     """
     rows = {}
-    for label, obs in [('planning', data['P_obs']), ('ben', data['E_obs'])]:
+    for label, obs in [('planning', data['P_obs']), ('uprn', data['E_obs'])]:
         flat = obs.ravel()
         rows[label] = {
             'p05':          float(np.percentile(flat, 5)),

@@ -920,7 +920,7 @@ def adjusted_diagnostics_report(trace, lag_var_name, loglik_var_name,
 
 def lag_vars_in_trace(trace):
     """Every `*_lambda_weights` variable in trace.posterior — a model may have one
-    (planning only), two (planning + BEN), or none."""
+    (planning only), two (planning + UPRN), or none."""
     return [v for v in trace.posterior.data_vars if v.endswith("_lambda_weights")]
 
 
@@ -1128,7 +1128,7 @@ def multimodality_report(trace, lag_vars=None, var_names=None, rhat_threshold=1.
 
     classification_df is tagged by lag_var specifically because the SAME area code can
     independently appear under more than one lag var — e.g. flagged round_tripping for
-    planning but perfectly healthy for BEN — and collapsing that into one row would silently
+    planning but perfectly healthy for UPRN — and collapsing that into one row would silently
     lose which source the finding is actually about.
     """
     lag_vars = list(lag_vars) if lag_vars is not None else lag_vars_in_trace(trace)

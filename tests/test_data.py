@@ -6,8 +6,8 @@ import pytest
 
 from housing_projections.config import (
     ALL_COLS_PLAN,
-    INFER_COLS_BEN,
     INFER_COLS_PLAN,
+    INFER_COLS_UPRN,
 )
 from housing_projections.data import (
     make_borough_idx,
@@ -82,13 +82,13 @@ class TestMakeDataDict:
         errors, see the comment in make_data_dict).
         """
         expected = synthetic_gdf[INFER_COLS_PLAN].values.astype(float)
-        e_obs = synthetic_gdf[INFER_COLS_BEN].values.astype(float)
+        e_obs = synthetic_gdf[INFER_COLS_UPRN].values.astype(float)
         erroneous = (expected > 0) & (e_obs > 0) & (expected < 0.1 * e_obs)
         expected[erroneous] = 0.0
         np.testing.assert_array_equal(data_dict['P_obs'], expected)
 
     def test_e_obs_matches_gdf_columns(self, data_dict, synthetic_gdf):
-        expected = synthetic_gdf[INFER_COLS_BEN].values.astype(float)
+        expected = synthetic_gdf[INFER_COLS_UPRN].values.astype(float)
         np.testing.assert_array_equal(data_dict['E_obs'], expected)
 
 
@@ -156,15 +156,15 @@ class TestValidateDataPath:
             validate_data_path(str(tmp_path))
         msg = str(exc.value)
         assert 'PLD completions' in msg
-        assert 'BEN estimates' in msg
+        assert 'UPRN estimates' in msg
 
     def test_passes_when_files_exist(self, tmp_path):
         pld = tmp_path / 'pld'
         pld.mkdir()
         (pld / 'lsoa_completions_time_series_pivot.csv').write_text('x')
-        ben = tmp_path / 'ben'
-        ben.mkdir()
-        (ben / 'final_residential_uprn_net_changes_by_oa_fy (1).csv').write_text('x')
+        uprn = tmp_path / 'uprn'
+        uprn.mkdir()
+        (uprn / 'final_residential_uprn_net_changes_by_oa_fy (1).csv').write_text('x')
         validate_data_path(str(tmp_path))  # should not raise
 
 

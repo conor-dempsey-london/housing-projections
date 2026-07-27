@@ -10,10 +10,10 @@ import pytest
 from shapely.geometry import box
 
 from housing_projections.config import (
-    ALL_COLS_BEN,
     ALL_COLS_PLAN,
-    INFER_COLS_BEN,
+    ALL_COLS_UPRN,
     INFER_COLS_PLAN,
+    INFER_COLS_UPRN,
 )
 from housing_projections.data import make_data_dict
 
@@ -104,7 +104,7 @@ def rng():
 def synthetic_gdf(rng):
     """
     3×3 grid of 1-unit square LSOAs in EPSG:27700.
-    Includes all planning, BEN, and census columns needed by the package.
+    Includes all planning, UPRN, and census columns needed by the package.
     Adjacent squares share borders, so Queen contiguity is well-defined.
     """
     rows, geometries = [], []
@@ -119,7 +119,7 @@ def synthetic_gdf(rng):
             }
             for col in ALL_COLS_PLAN:
                 row[col] = float(rng.integers(-5, 15))
-            for col in ALL_COLS_BEN:
+            for col in ALL_COLS_UPRN:
                 row[col] = float(rng.integers(-5, 15))
             rows.append(row)
 
@@ -205,7 +205,7 @@ def mock_trace_m9(data_dict, rng):
             'lambda_weights_P': _dirichlet_weights(),
             'lambda_weights_E': _dirichlet_weights(),
             'sigma_plan':       np.abs(rng.normal(5.0, 1.0, size=(N_CHAINS, N_DRAWS))),
-            'sigma_ben':        np.abs(rng.normal(5.0, 1.0, size=(N_CHAINS, N_DRAWS))),
+            'sigma_uprn':        np.abs(rng.normal(5.0, 1.0, size=(N_CHAINS, N_DRAWS))),
         },
         sample_stats={'diverging': np.zeros((N_CHAINS, N_DRAWS), dtype=bool)},
     )
@@ -235,7 +235,7 @@ def outlier_gdf(synthetic_gdf):
     """
     Copy of synthetic_gdf with known hard and soft outliers injected.
     Area 0: hard outlier in planning (value > 2000)
-    Area 1: hard outlier in BEN (value < -500)
+    Area 1: hard outlier in UPRN (value < -500)
     Area 2: soft outlier (large discrepancy, one source near zero)
     Areas 3-8: clean
     """
@@ -244,11 +244,11 @@ def outlier_gdf(synthetic_gdf):
     # Hard outlier in planning, area 0, year 0
     gdf.at[0, INFER_COLS_PLAN[0]] = 2500.0
 
-    # Hard outlier in BEN, area 1, year 1
-    gdf.at[1, INFER_COLS_BEN[1]] = -600.0
+    # Hard outlier in UPRN, area 1, year 1
+    gdf.at[1, INFER_COLS_UPRN[1]] = -600.0
 
     # Soft outlier: large discrepancy with one source near zero, area 2, year 2
     gdf.at[2, INFER_COLS_PLAN[2]] = 0.0
-    gdf.at[2, INFER_COLS_BEN[2]]  = 600.0
+    gdf.at[2, INFER_COLS_UPRN[2]]  = 600.0
 
     return gdf

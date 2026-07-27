@@ -13,7 +13,7 @@ from scipy import stats
 from pld_database.bep import run_bespoke_pipeline
 from housing_projections.data import get_dwellings
 
-dwellings, df_lsoa, year_cols_ben, year_cols_completion = get_dwellings()
+dwellings, df_lsoa, year_cols_uprn, year_cols_completion = get_dwellings()
 
 
 # %%
@@ -39,14 +39,14 @@ def scatter_fit_equal(data=None, x=None, y=None, **kwargs):
 
 # %%
 
-# compare Ben's baseline with the PLD completions cut and the intercensal change
-dwellings_changes = dwellings[[ 'intercensal_change', 'intercensal_completions', 'total_change_2011_to_2021_ben']]
+# compare Uprn's baseline with the PLD completions cut and the intercensal change
+dwellings_changes = dwellings[[ 'intercensal_change', 'intercensal_completions', 'total_change_2011_to_2021_uprn']]
 
 dwellings_changes.rename(columns=
                          {
                              'intercensal_change': 'intercensal dwellings change',
                              'intercensal_completions': 'total planning completions',
-                             'total_change_2011_to_2021_ben': 'current estimate (from Ben)'
+                             'total_change_2011_to_2021_uprn': 'current estimate (from Uprn)'
                          }, inplace=True)
 
 def corrplot(x, y, **kwargs):
@@ -108,11 +108,11 @@ y = dwellings['intercensal_change']
 # train test split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-X_train_ben, X_test_ben = X_train[['total_change_2011_to_2021_ben']], X_test[['total_change_2011_to_2021_ben']]
+X_train_uprn, X_test_uprn = X_train[['total_change_2011_to_2021_uprn']], X_test[['total_change_2011_to_2021_uprn']]
 X_train_pld, X_test_pld = X_train[['intercensal_completions']], X_test[['intercensal_completions']]
-X_train_sums, X_test_sums = X_train[['total_change_2011_to_2021_ben', 'intercensal_completions' ]], X_test[['total_change_2011_to_2021_ben', 'intercensal_completions' ]]
+X_train_sums, X_test_sums = X_train[['total_change_2011_to_2021_uprn', 'intercensal_completions' ]], X_test[['total_change_2011_to_2021_uprn', 'intercensal_completions' ]]
 
-drop_columns = ['LSOA21CD', 'intercensal_change', 'dwellings_2011', 'dwellings_2021', 'intercensal_completions', 'total_change_2011_to_2021_ben']
+drop_columns = ['LSOA21CD', 'intercensal_change', 'dwellings_2011', 'dwellings_2021', 'intercensal_completions', 'total_change_2011_to_2021_uprn']
 
 X_train = X_train.drop(
     columns=drop_columns
@@ -135,8 +135,8 @@ pipeline.fit(X_train_sums, y_train)
 y_pred_sum = pipeline.predict(X_test_sums)
 
 # fit and evaluate
-pipeline.fit(X_train_ben, y_train)
-y_pred_ben = pipeline.predict(X_test_ben)
+pipeline.fit(X_train_uprn, y_train)
+y_pred_uprn = pipeline.predict(X_test_uprn)
 
 # fit and evaluate
 pipeline.fit(X_train_pld, y_train)
@@ -154,13 +154,13 @@ y_pred_full = pipeline.predict(
 
 r2 = r2_score(y_test, y_pred)
 r2_sum = r2_score(y_test, y_pred_sum)
-r2_ben = r2_score(y_test, y_pred_ben)
+r2_uprn = r2_score(y_test, y_pred_uprn)
 r2_pld = r2_score(y_test, y_pred_pld)
 
 score_str = (
     f"R²:            {r2:.3f}\n"
     f"R² totals:     {r2_sum:.3f}\n"
-    f"R² current:    {r2_ben:.3f}\n"
+    f"R² current:    {r2_uprn:.3f}\n"
     f"R² PLD sum:    {r2_pld:.3f}"
 )
 print(score_str)
@@ -302,7 +302,7 @@ plt.savefig('../figures/morans_i_test_on_residuals.png', bbox_inches='tight')
 models = {
     "Linear combination": y_pred,
     "Just the two sums": y_pred_sum,
-    "Current approach": y_pred_ben,
+    "Current approach": y_pred_uprn,
     "PLD completions": y_pred_pld,
 }
 
@@ -337,7 +337,7 @@ dwellings_spatial = gpd.GeoDataFrame(
 ).drop(columns='target_id')
 
 dwellings_min_spatial = dwellings_spatial[['LSOA21CD', 
-                'total_change_2011_to_2021_ben', 
+                'total_change_2011_to_2021_uprn', 
                 'intercensal_completions', 
                 'intercensal_change',
                 'geometry']]
@@ -355,12 +355,12 @@ def add_spatial_lag_features(gdf, feature_cols, use_index=False):
     return gdf_out
 
 lag_cols = (
-    ['total_change_2011_to_2021_ben', 'intercensal_completions'] + 
-    year_cols_ben + 
+    ['total_change_2011_to_2021_uprn', 'intercensal_completions'] + 
+    year_cols_uprn + 
     year_cols_completion
 )
 
-dwellings_min_spatial = add_spatial_lag_features(dwellings_min_spatial, ['total_change_2011_to_2021_ben', 'intercensal_completions'])
+dwellings_min_spatial = add_spatial_lag_features(dwellings_min_spatial, ['total_change_2011_to_2021_uprn', 'intercensal_completions'])
 
 dwellings_spatial = add_spatial_lag_features(dwellings_spatial, lag_cols)
 
@@ -381,9 +381,9 @@ def fit_eval(X, y):
 y = dwellings_min_spatial['intercensal_change']
 X = dwellings_min_spatial[
     [
-        'total_change_2011_to_2021_ben',
+        'total_change_2011_to_2021_uprn',
         'intercensal_completions',
-        'lag_total_change_2011_to_2021_ben',
+        'lag_total_change_2011_to_2021_uprn',
         'lag_intercensal_completions'
     ]
 ]
@@ -404,7 +404,7 @@ r2_spatial_full, pipeline_spatial_full = fit_eval(X_spatial_full, y)
 
 print(f"R²:   {r2:.4f}")
 print(f"R² sum:   {r2_sum:.4f}")
-print(f"R² current:   {r2_ben:.4f}")
+print(f"R² current:   {r2_uprn:.4f}")
 print(f"R² PLD sum:   {r2_pld:.4f}")
 print(f"R² spatial:   {r2_spatial:.4f}")
 print(f"R² spatial full:   {r2_spatial_full:.4f}")
@@ -426,8 +426,8 @@ years = list(range(2012, 2022))
 
 comp_mean = dwellings[year_cols_completion].mean()
 comp_std  = dwellings[year_cols_completion].std()
-ben_mean  = dwellings[year_cols_ben].mean()
-ben_std   = dwellings[year_cols_ben].std()
+uprn_mean  = dwellings[year_cols_uprn].mean()
+uprn_std   = dwellings[year_cols_uprn].std()
 
 fig, ax = plt.subplots(figsize=(10, 5))
 
@@ -437,10 +437,10 @@ ax.fill_between(years,
                 comp_mean + comp_std,
                 alpha=0.2, color='steelblue')
 
-ax.plot(years, ben_mean, label='BEN', color='coral')
+ax.plot(years, uprn_mean, label='UPRN', color='coral')
 ax.fill_between(years,
-                ben_mean - ben_std,
-                ben_mean + ben_std,
+                uprn_mean - uprn_std,
+                uprn_mean + uprn_std,
                 alpha=0.2, color='coral')
 
 ax.set_xticks(years)
@@ -531,7 +531,7 @@ def compare_distributions(
 
 
 fig, _ = compare_distributions(
-    dwellings[year_cols_ben].values, 
+    dwellings[year_cols_uprn].values, 
     dwellings[year_cols_completion].values,
     series_names=['current estimate', 'completions'])
 
@@ -540,8 +540,8 @@ fig.savefig('../figures/compare_current_vs_completions_distros_global.png')
 # %%
 
 correlations = pd.Series({
-    yr: dwellings[comp_col].corr(dwellings[ben_col])
-    for yr, comp_col, ben_col in zip(years, year_cols_completion, year_cols_ben)
+    yr: dwellings[comp_col].corr(dwellings[uprn_col])
+    for yr, comp_col, uprn_col in zip(years, year_cols_completion, year_cols_uprn)
 })
 
 fig, ax = plt.subplots(figsize=(10, 4))
@@ -557,16 +557,16 @@ plt.show()
 ax.figure.savefig('../figures/correlation_across_areas_by_year_current_vs_completions.png')
 
 comp_flat = dwellings[year_cols_completion].values.ravel()
-ben_flat  = dwellings[year_cols_ben].values.ravel()
+uprn_flat  = dwellings[year_cols_uprn].values.ravel()
 
-r = pd.Series(comp_flat).corr(pd.Series(ben_flat))
+r = pd.Series(comp_flat).corr(pd.Series(uprn_flat))
 print(f"overall correlation: {r:.4f}")
 
 per_area_corr = pd.Series([
-    pd.Series(row_comp).corr(pd.Series(row_ben))
-    for row_comp, row_ben in zip(
+    pd.Series(row_comp).corr(pd.Series(row_uprn))
+    for row_comp, row_uprn in zip(
         dwellings[year_cols_completion].values,
-        dwellings[year_cols_ben].values
+        dwellings[year_cols_uprn].values
     )
 ])
 
@@ -591,7 +591,7 @@ with sns.axes_style("white"):
     )
     plt.xlabel('within-area correlation')
     plt.ylabel('# areas')
-    plt.title("correlations between completions and Ben's current estimate across areas")
+    plt.title("correlations between completions and Uprn's current estimate across areas")
     plt.box(False)
     plt.show()
     ax.figure.savefig('../figures/correlations_between_change_series_by_area.png')
@@ -616,11 +616,11 @@ def mean_autocorrelation(df, cols, max_lag=5):
     return pd.Series(results)
 
 ac_comp = mean_autocorrelation(dwellings, year_cols_completion)
-ac_ben  = mean_autocorrelation(dwellings, year_cols_ben)
+ac_uprn  = mean_autocorrelation(dwellings, year_cols_uprn)
 
 fig, ax = plt.subplots(figsize=(8, 4))
 ac_comp.plot(marker='o', label='completions', ax=ax)
-ac_ben.plot(marker='o',  label='current estimate',         ax=ax)
+ac_uprn.plot(marker='o',  label='current estimate',         ax=ax)
 ax.axhline(0, color='black', linewidth=0.5)
 ax.set_title('mean temporal autocorrelation across areas')
 ax.set_xlabel('lag (years)')
@@ -655,7 +655,7 @@ def mean_cross_correlation(df, cols_a, cols_b, max_lag=5):
         results[lag] = np.mean(corrs)
     return pd.Series(results)
 
-xcorr = mean_cross_correlation(dwellings, year_cols_completion, year_cols_ben)
+xcorr = mean_cross_correlation(dwellings, year_cols_completion, year_cols_uprn)
 
 fig, ax = plt.subplots(figsize=(10, 4))
 xcorr.plot(kind='bar', ax=ax, color='steelblue')
@@ -792,8 +792,8 @@ def plot_crosscorrelations(xc_results, labels=('Series A', 'Series B'),
 
 # %%
 
-ac_results = compute_autocorrelations(dwellings, year_cols_completion, year_cols_ben)
-xc_results = compute_crosscorrelations(dwellings, year_cols_completion, year_cols_ben)
+ac_results = compute_autocorrelations(dwellings, year_cols_completion, year_cols_uprn)
+xc_results = compute_crosscorrelations(dwellings, year_cols_completion, year_cols_uprn)
 
 # %%
 fig, _ = plot_autocorrelations(ac_results,  labels=('completions', 'current estimates'), alpha=0.01)
@@ -874,12 +874,12 @@ def compute_crosscorrelations_prewhitened(gdf, cols_a, cols_b, max_lag=5,
 
 
 # Compute and plot both versions for comparison
-xc_raw         = compute_crosscorrelations(dwellings, year_cols_completion, year_cols_ben)
+xc_raw         = compute_crosscorrelations(dwellings, year_cols_completion, year_cols_uprn)
 
 # %%
 xc_prewhitened = compute_crosscorrelations_prewhitened(
     dwellings, year_cols_completion,
-    year_cols_ben, method='ar', max_lag=4)
+    year_cols_uprn, method='ar', max_lag=4)
 
 # %%
 plot_crosscorrelations(xc_raw,         labels=('Completions', 'current estimates'), max_lag=4)

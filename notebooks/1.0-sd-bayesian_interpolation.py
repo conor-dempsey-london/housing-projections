@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from housing_projections.load import get_dwellings
 
-dwellings_all, year_cols_ben, year_cols_completion = get_dwellings()
+dwellings_all, year_cols_uprn, year_cols_completion = get_dwellings()
 
 dwellings_all = dwellings_all[dwellings_all['intercensal_completions'] < 2000]
 
@@ -20,13 +20,13 @@ dwellings_all = dwellings_all[dwellings_all['intercensal_completions'] < 2000]
 # ── Data preparation ──────────────────────────────────────────────────────────
 
 year_cols_planning = [f'{y}/{str(y+1)[-2:]}' for y in range(2009, 2025)]
-year_cols_ben      = [f'{y}_ben'              for y in range(2009, 2025)]
+year_cols_uprn      = [f'{y}_uprn'              for y in range(2009, 2025)]
 
 # Years we want to infer: 2012 to 2021 inclusive (10 years)
 # These correspond to net change in year ending in that year
 infer_years        = list(range(2012, 2022))
 infer_cols_plan    = [f'{y}/{str(y+1)[-2:]}' for y in range(2011, 2021)]
-infer_cols_ben     = [f'{y}_ben'              for y in range(2011, 2021)]
+infer_cols_uprn     = [f'{y}_uprn'              for y in range(2011, 2021)]
 
 n_areas = len(dwellings_all)
 n_years = len(infer_years)   # 10
@@ -38,7 +38,7 @@ D       = C_2021 - C_2011                                        # (n_areas,) kn
 
 # Observed noisy measurements — shape (n_areas, n_years)
 P_obs   = dwellings_all[infer_cols_plan].values.astype(float)
-E_obs   = dwellings_all[infer_cols_ben].values.astype(float)
+E_obs   = dwellings_all[infer_cols_uprn].values.astype(float)
 
 n_test = 80
 dwellings_test = dwellings_all.iloc[:n_test]
@@ -125,7 +125,7 @@ for ax, pred, obs, label in zip(
     axes,
     [P_prior, E_prior],
     [P_obs.ravel(), E_obs.ravel()],
-    ['Planning completions', 'BEN estimates']
+    ['Planning completions', 'UPRN estimates']
 ):
     ax.hist(pred, bins=100, density=True, alpha=0.5,
             color='steelblue', label='Prior predictive')
@@ -147,7 +147,7 @@ sigma_prior = prior.prior['sigma_obs'].values.ravel()
 fig, ax = plt.subplots(figsize=(7, 4))
 ax.hist(sigma_prior, bins=50, color='steelblue', alpha=0.7, density=True)
 ax.axvline(P_obs.std(), color='coral',     linestyle='--', label='Observed SD (planning)')
-ax.axvline(E_obs.std(), color='steelblue', linestyle='--', label='Observed SD (BEN)')
+ax.axvline(E_obs.std(), color='steelblue', linestyle='--', label='Observed SD (UPRN)')
 ax.set_xlabel('sigma_obs')
 ax.set_title('Prior on observation noise vs empirical SD')
 ax.legend()
@@ -162,7 +162,7 @@ E_year_mean  = E_obs.mean(axis=0)
 fig, ax = plt.subplots(figsize=(10, 4))
 ax.plot(infer_years, z_year_mean, marker='o', label='Prior z mean',       color='black')
 ax.plot(infer_years, P_year_mean, marker='s', label='Planning obs mean',  color='steelblue')
-ax.plot(infer_years, E_year_mean, marker='^', label='BEN obs mean',       color='coral')
+ax.plot(infer_years, E_year_mean, marker='^', label='UPRN obs mean',       color='coral')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.set_xlabel('Year')
 ax.set_ylabel('Mean net dwelling change')
@@ -222,7 +222,7 @@ with pm.Model() as M0_test:
 # ── Comparison ────────────────────────────────────────────────────────────────
 
 # print(az.summary(trace_test, var_names=['sigma_obs']))
-# print(az.summary(trace_M1, var_names=['sigma_plan', 'sigma_ben']))
+# print(az.summary(trace_M1, var_names=['sigma_plan', 'sigma_uprn']))
 
 # Model comparison via LOO
 # comparison = az.compare({'M0': trace_M0, 'M1': trace_M1})
@@ -249,7 +249,7 @@ plt.suptitle('M0 — posterior on global parameters')
 plt.tight_layout()
 plt.show()
 
-# ── 4. Posterior predictive vs observed — planning and BEN ────────────────────
+# ── 4. Posterior predictive vs observed — planning and UPRN ────────────────────
 P_post = post_pred.posterior_predictive['P_like'].values   # (chains, draws, n_areas, n_years)
 E_post = post_pred.posterior_predictive['E_like'].values
 
@@ -261,7 +261,7 @@ for ax, pred, obs, label in zip(
     axes,
     [P_post_flat, E_post_flat],
     [P_obs.ravel(), E_obs.ravel()],
-    ['Planning completions', 'BEN estimates']
+    ['Planning completions', 'UPRN estimates']
 ):
     ax.hist(pred, bins=100, density=True, alpha=0.5,
             color='steelblue', label='Posterior predictive')
@@ -290,7 +290,7 @@ ax.fill_between(infer_years, z_year_lower, z_year_upper,
 ax.plot(infer_years, P_obs.mean(axis=0), marker='s',
         color='steelblue', label='Planning obs mean')
 ax.plot(infer_years, E_obs.mean(axis=0), marker='^',
-        color='coral',     label='BEN obs mean')
+        color='coral',     label='UPRN obs mean')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.set_xlabel('Year')
 ax.set_ylabel('Mean net dwelling change')
@@ -315,7 +315,7 @@ for ax, idx in zip(axes.ravel(), sample_idx):
     ax.plot(infer_years, P_obs[idx], color='steelblue',
             marker='s', alpha=0.7, label='Planning')
     ax.plot(infer_years, E_obs[idx], color='coral',
-            marker='^', alpha=0.7, label='BEN')
+            marker='^', alpha=0.7, label='UPRN')
     ax.axhline(0, color='black', linewidth=0.5)
     # Uniform baseline — D[i] / n_years
     ax.axhline(D[idx] / n_years, color='green', linewidth=0.8,
