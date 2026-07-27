@@ -128,38 +128,16 @@ account for.
 
 ## Open questions and next steps
 
-- **Treating the Census counts as exact is a choice for this round, not a settled
-  fact.** If a future need arose to account for possible Census error too, that
-  would add genuine uncertainty to the total figures above (currently shown as
-  fixed) as well as to the year-by-year ones — a bigger piece of work than anything
-  in this round, and not something we recommend doing without a specific reason to.
-- **The 23% "genuinely unclear" group is a property of the underlying records for
-  those specific areas, not something we expect further modelling work to resolve.**
-  If more granular or more consistent planning or OS AddressBase-derived data
-  becomes available for those areas in future, this could improve — but that's a
-  data question, not a modelling one.
-- **We caught and fixed a labelling issue in this "unclear" reporting.** A reviewer
-  noticed one area's chart looked confident despite being labelled ambiguous. On
-  investigation, the area's dominant years genuinely were well-pinned-down; the
-  "ambiguous" label was being driven entirely by a much smaller, separate loose end
-  elsewhere in the decade. We checked how common this was — 82 of the 4,987 areas
-  (the new "mostly confident" category above) had the same pattern — and split the
-  reporting so these areas now correctly show as mostly confident with a named minor
-  exception, rather than as generally unclear. The area-by-area dashboard reflects
-  this; this document's headline percentages above have been updated to match.
 - **Both of our two main data sources — planning completions data and the OS
   AddressBase-derived dwelling-change records — likely have their own data-quality
-  issues that we have not yet fully characterised.** Investigating both sources
-  directly is a next step already underway, separate from this modelling work.
-  Separately, if there is existing expert knowledge of specific known issues with
-  either source (e.g. particular boroughs, years, or record types that are known to
-  be unreliable), that knowledge can be built into a future version of the model
-  directly — this is a case where local expertise could meaningfully improve the
-  estimates, and we'd welcome it.
+  issues that we have not yet fully characterised.** We need to dig further into the two main inputs used so far. The cut of the planning data that is currently being used is a cut James produced directly with his code. We have not looked deeply into exactly what to extract from the planning database and this is likely the biggest source of improvement to model quality available. Similarly the UPRN net changes are from a file provided by Ben. I have reproduced the code from Seb where this input is produced - further information from OS Address Base could be extracted, including additions and removals separately, which would enrich the input and could improve the model. 
+
+- **Treating the Census counts as exact - if we think the census numbersmbers contain substantial error we could enforce this constraint probablilistically instead of exactly .** But this would add complexity for probably little gain and is not something we recommend doing without a specific reason.
+
 - **This kind of model can also be extended to draw on other data sources** —
   Energy Performance Certificate (EPC) records are one candidate that could plausibly
-  help distinguish which years changes happened in, if there's an appetite to
-  explore adding a third data source alongside planning and OS AddressBase data.
+  help distinguish which years changes happened in.
+
 - **We have tested, but not included, two other modelling ideas**: accounting for a
   delay between when a change happens and when it shows up in the records ("temporal
   lag"), and letting changes in one area inform the picture in neighbouring areas
@@ -170,11 +148,9 @@ account for.
   year-by-year confidence picture worse. We haven't ruled out a different way of
   building in either idea helping in future, but based on what we've tried so far we
   don't expect adding them back in to meaningfully change the totals reported above.
-- **The dashboard is the right tool for area-specific questions** — anyone can look
+- **The dashboard is useful for area-specific questions** — anyone can look
   up a specific LSOA or borough and see exactly which group it falls into and why,
   rather than relying on the borough-level averages above. It also breaks down which
   kinds of areas tend to fall into the "genuinely unclear" group — in short, areas
   with a larger amount of change to account for are systematically less likely to
-  have a confident year-by-year picture, regardless of borough.
-- Questions or requests for a specific area/borough breakdown not covered here
-  should go to the modelling team directly.
+  have a confident year-by-year picture, regardless of borough. Looking into the outputs using the dashboard is likely to surface issues and possible sources of improvement. One benefit of this kind of model is that it is quite easy to interrogate why the model makes the posterior predictions that it does, so if you have questions about why the model make a particular prediction, let us know and we can look into it. 
