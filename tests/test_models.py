@@ -9,6 +9,7 @@ from housing_projections.models.models import (
     AZ3,
     AZ4,
     AZ5,
+    AZ6,
     M0,
     M1,
     M5,
@@ -35,6 +36,7 @@ from housing_projections.models.models import (
     AZ1h,
     AZ2b,
     AZ4b,
+    AZ6b,
     M0h,
     M1h,
     _build_fixed_lag,
@@ -2262,6 +2264,157 @@ class TestAZ5Sampling:
 
         sigma_noise_P = m.trace.posterior['sigma_noise_P'].values
         assert sigma_noise_P.min() >= AZ5.sigma_noise_floor
+
+
+class TestAZ6Structure:
+    def test_build_returns_model(self, data_dict):
+        assert isinstance(AZ6(data_dict).build(), pm.Model)
+
+    def test_no_census_obs(self, data_dict):
+        m = AZ6(data_dict)
+        m.build()
+        assert 'census_obs' not in m.model.named_vars
+
+    def test_has_zero_sum_delta(self, data_dict):
+        # AZ0a's z-prior, unchanged.
+        m = AZ6(data_dict)
+        m.build()
+        assert 'delta' in m.model.named_vars
+        assert 'z' in m.model.named_vars
+
+    def test_z_sums_to_d_exactly(self, data_dict):
+        m = AZ6(data_dict)
+        m.build()
+        with m.model:
+            z_draws = pm.draw(m.model['z'], draws=5, random_seed=0)
+        resid = np.abs(z_draws.sum(axis=-1) - data_dict['D'][None, :])
+        assert resid.max() < 1e-6
+
+    def test_has_independent_p_and_e_likelihoods(self, data_dict):
+        m = AZ6(data_dict)
+        m.build()
+        assert 'P_like' in m.model.named_vars
+        assert 'E_like' in m.model.named_vars
+
+    def test_has_independent_agreement_probs(self, data_dict):
+        m = AZ6(data_dict)
+        m.build()
+        for name in ('agreement_prob_P', 'agreement_prob_E'):
+            assert name in m.model.named_vars
+            assert m.model.named_vars[name].eval().shape == (
+                data_dict['n_areas'], data_dict['n_years'])
+
+    def test_has_pi_offset_no_lambda_weights(self, data_dict):
+        # M13's per-record marginalised offset, not AZ1-family's
+        # per-area/pooled lambda_weights lag convolution.
+        m = AZ6(data_dict)
+        m.build()
+        assert 'pi_offset_P' in m.model.named_vars
+        assert 'pi_offset_E' in m.model.named_vars
+        assert 'lambda_weights_P' not in m.model.named_vars
+        assert 'lambda_weights_E' not in m.model.named_vars
+        n_candidates = 2 * AZ6.max_offset + 1
+        assert m.model.named_vars['pi_offset_P'].eval().shape == (n_candidates,)
+
+    def test_no_hierarchical_lag_machinery(self, data_dict):
+        # Unlike AZ1a-AZ1h/AZ4/AZ4b/AZ5, AZ6 has no lag hierarchy at all --
+        # max_lag/n_lags/lag_alpha are unused, mirroring M13.
+        assert AZ6.max_lag is None
+
+    def test_var_names(self):
+        assert set(AZ6.var_names) == {
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
+            'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E',
+        }
+
+    def test_sample_kwargs_overrides_target_accept(self):
+        assert AZ6.sample_kwargs['target_accept'] == 0.95
+
+
+@pytest.mark.slow
+class TestAZ6Sampling:
+    def test_full_pipeline(self, data_dict):
+        m = AZ6(data_dict)
+        m.sample(use_nutpie=False, draws=20, tune=20, chains=1, cores=1,
+                 target_accept=0.8, random_seed=0)
+
+        assert 'z' in m.trace.posterior
+        assert 'P_like' in m.trace.log_likelihood
+        assert 'E_like' in m.trace.log_likelihood
+
+        z = m.trace.posterior['z'].values
+        D = data_dict['D']
+        resid = np.abs(z.sum(axis=-1) - D[None, None, :])
+        assert resid.max() < 1e-6
+
+
+class TestAZ6bStructure:
+    def test_build_returns_model(self, data_dict):
+        assert isinstance(AZ6b(data_dict).build(), pm.Model)
+
+    def test_z_sums_to_d_exactly(self, data_dict):
+        m = AZ6b(data_dict)
+        m.build()
+        with m.model:
+            z_draws = pm.draw(m.model['z'], draws=5, random_seed=0)
+        resid = np.abs(z_draws.sum(axis=-1) - data_dict['D'][None, :])
+        assert resid.max() < 1e-6
+
+    def test_sigma_agree_never_below_floor(self, data_dict):
+        m = AZ6b(data_dict)
+        m.build()
+        with m.model:
+            draws = pm.draw(
+                [m.model['sigma_agree_plan'], m.model['sigma_agree_uprn']],
+                draws=50, random_seed=0)
+        for d in draws:
+            assert d.min() >= AZ6b.sigma_obs_floor
+
+    def test_sigma_disagree_not_floored(self, data_dict):
+        # Deliberately unfloored, unlike sigma_agree -- see class docstring.
+        m = AZ6b(data_dict)
+        m.build()
+        assert 'sigma_disagree_plan_excess' not in m.model.named_vars
+        assert 'sigma_disagree_uprn_excess' not in m.model.named_vars
+
+    def test_has_pi_offset_no_lambda_weights(self, data_dict):
+        m = AZ6b(data_dict)
+        m.build()
+        assert 'pi_offset_P' in m.model.named_vars
+        assert 'pi_offset_E' in m.model.named_vars
+        assert 'lambda_weights_P' not in m.model.named_vars
+        assert 'lambda_weights_E' not in m.model.named_vars
+
+    def test_var_names(self):
+        assert set(AZ6b.var_names) == {
+            'sigma_agree_plan', 'sigma_agree_uprn',
+            'sigma_disagree_plan', 'sigma_disagree_uprn',
+            'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E',
+        }
+
+    def test_sample_kwargs_overrides_target_accept(self):
+        assert AZ6b.sample_kwargs['target_accept'] == 0.95
+
+
+@pytest.mark.slow
+class TestAZ6bSampling:
+    def test_full_pipeline(self, data_dict):
+        m = AZ6b(data_dict)
+        m.sample(use_nutpie=False, draws=20, tune=20, chains=1, cores=1,
+                 target_accept=0.8, random_seed=0)
+
+        assert 'z' in m.trace.posterior
+        assert 'P_like' in m.trace.log_likelihood
+        assert 'E_like' in m.trace.log_likelihood
+
+        z = m.trace.posterior['z'].values
+        D = data_dict['D']
+        resid = np.abs(z.sum(axis=-1) - D[None, None, :])
+        assert resid.max() < 1e-6
+
+        sigma_agree_plan = m.trace.posterior['sigma_agree_plan'].values
+        assert sigma_agree_plan.min() >= AZ6b.sigma_obs_floor
 
 
 # ── Sampling integration tests (slow — run with pytest -m slow) ──────────────

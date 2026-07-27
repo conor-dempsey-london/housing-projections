@@ -29,6 +29,7 @@ from .builders import (
     _build_planning_likelihood_marginalized_lag,
     _build_planning_likelihood_simple,
     _build_pre_inference,
+    _build_temporal_reallocation_likelihood,
     _build_zero_sum_z_prior,
     _build_zero_sum_z_prior_top_boost,
     _build_zero_sum_z_prior_top_boost_smooth,
@@ -37,7 +38,7 @@ from .builders import (
 __all__ = [
     "AZ0", "AZ0a", "AZ0b",
     "AZ1a", "AZ1b", "AZ1c", "AZ1d", "AZ1e", "AZ1f", "AZ1g", "AZ1h",
-    "AZ2", "AZ2b", "AZ3", "AZ4", "AZ4b", "AZ5",
+    "AZ2", "AZ2b", "AZ3", "AZ4", "AZ4b", "AZ5", "AZ6", "AZ6b",
 ]
 
 # ── AZ0: Anchored zero-sum prior + backward-only reallocation mixture ────────
@@ -1543,6 +1544,211 @@ class AZ4b(DwellingModel):
                 P_mean, data['P_obs'], sigma_plan, self.sigma_noise_floor, self.nu_obs, name='P')
             _build_noise_mixture_likelihood(
                 E_mean, data['E_obs'], sigma_uprn, self.sigma_noise_floor, self.nu_obs, name='E')
+
+        self.model = model
+        return model
+
+
+class AZ6(DwellingModel):
+    """
+    AZ0a's anchored zero-sum z prior + the old M-family's M13 likelihood
+    (_build_temporal_reallocation_likelihood), combined for the first time —
+    a single, controlled change (z-prior swap only, likelihood construction
+    byte-for-byte identical to M13's) rather than a new mechanism.
+
+    Motivation: M13 was "the best model so far" in the M0-M16 progression
+    (see docs/model-progression-notes.md section 1) — it fixed M11/M12's
+    scalar multimodality outright by replacing _build_lag's population-wide
+    convolution kernel (one blended mean forced onto every cell, active or
+    not) with a per-ACTIVE-RECORD marginalised temporal offset: only cells
+    where |P_obs| or |E_obs| exceeds active_threshold get the offset
+    machinery at all, and the offset is marginalised via logsumexp (a
+    genuine mixture of densities, not a mean-blend) independently per
+    record, not as one shared profile a whole area must commit to. That is
+    a direct, already-validated fix for exactly the failure mode this AZ
+    family's own AZ1a-AZ1h progression re-discovered from scratch: AZ1a's
+    fully-pooled kernel forced one shared mean-blend onto every area
+    (structural, unfixable); AZ1b's per-area hierarchical simplex still
+    forced ALL of an area's years through one shared lag vector, producing
+    genuine hard multimodality for ~10-15% of areas whose distinct spikes
+    each wanted a different lag category (see docs/az-ess-diagnosis.md);
+    AZ1f's attempt to marginalize AZ1b's likelihood directly instead
+    destroyed the cross-year consistency that gave lambda_weights any
+    identifiability at all, letting every cell cherry-pick independently.
+    M13's construction never had that failure mode in the first place,
+    because it never forces a whole-area commitment: the active/inactive
+    gate keeps quiet years untouched, and marginalising per RECORD (not
+    per area) lets two different spikes in the same area imply two
+    different offsets.
+
+    M13 itself was never carried forward past the M-family: the entire
+    M9-M16 line was abandoned for an unrelated reason (z_flatness_summary
+    found several of them, on their shared free z-prior, produced z that
+    is ~95-100% flat despite ~95% of areas having real active signal — a
+    property of that family's z-prior, not of M13's likelihood specifically).
+    AZ0a's anchored zero-sum prior was built specifically to fix that
+    flatness failure and has been validated clean on real data (max r-hat
+    1.006, min ESS 3180, 0 divergences) — but nobody has yet tried M13's
+    likelihood on top of it. This model is exactly that swap: AZ0a's prior,
+    M13's likelihood, unchanged.
+
+    Kept deliberately identical to M13's own construction rather than
+    "improved" up front: same active_threshold/max_offset, same
+    Beta(2,2) rho_P/rho_E, same unfloored HalfNormal sigma_agree/
+    sigma_disagree. One flagged, testable prediction going in (checked
+    empirically once sampled, not assumed): AZ3's own history found that
+    an UNFLOORED signal-branch scale in a mixture likelihood (there,
+    sigma_plan/sigma_uprn against a noise branch) collapses toward zero
+    once a mixture branch gives outliers an escape valve, because a plain
+    HalfNormal's mode is at 0 regardless of its own sigma. sigma_agree_plan/
+    sigma_agree_uprn here play the structurally equivalent role against
+    the disagree branch, so the same collapse-into-a-funnel risk applies —
+    if diagnostics show it, the fix is AZ3's own validated floor
+    (sigma_obs_floor + HalfNormal excess), applied as a follow-up model
+    exactly the way AZ2->AZ2b and AZ0a->AZ3 each isolated one fix per step,
+    not folded in here pre-emptively.
+
+    mu_area is threaded through unchanged from _build_zero_sum_z_prior
+    (D/n_years, a fixed per-area numpy constant) into the disagree branch,
+    playing the same role M13's own _build_z_prior_hierarchical mu_area
+    played — the "area's flat long-run rate" a disagreeing observation
+    reverts to, now consistent with AZ0a's z prior instead of a separately
+    fit hierarchical mean.
+
+    sample_kwargs matches M13's own target_accept=0.95 (new mixture
+    geometry, same precautionary bump as AZ0/AZ0b/AZ1b/AZ3's first pass).
+    """
+
+    name        = 'AZ6'
+    description = ("AZ0a's anchored zero-sum z prior + the M-family's M13 "
+                    "likelihood (per-active-record marginalised temporal "
+                    "offset) -- the first time this z-prior and this "
+                    "likelihood have been combined")
+    var_names   = ['sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
+                   'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E']
+
+    sigma_delta_floor = 3.0   # same as AZ0/AZ0a/.../AZ5
+    k_sigma_delta     = 0.08  # same as AZ0/AZ0a/.../AZ5
+    active_threshold  = 3.0   # same as M13
+    max_offset        = 2     # same as M13
+
+    sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
+
+    def build(self):
+        data, n_areas, n_years, D, _ = self._build_context()
+
+        with pm.Model(coords=self._default_coords()) as model:
+
+            mu_area, _, _, z = _build_zero_sum_z_prior(
+                D, n_areas, n_years,
+                floor=self.sigma_delta_floor, k=self.k_sigma_delta)
+
+            sigma_agree_plan    = pm.HalfNormal('sigma_agree_plan', sigma=3)
+            sigma_agree_uprn    = pm.HalfNormal('sigma_agree_uprn', sigma=3)
+            sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
+            sigma_disagree_uprn = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
+            rho_P               = pm.Beta('rho_P', alpha=2, beta=2)
+            rho_E               = pm.Beta('rho_E', alpha=2, beta=2)
+
+            _build_temporal_reallocation_likelihood(
+                z, data['P_obs'], mu_area, sigma_agree_plan, sigma_disagree_plan,
+                rho_P, self.nu_obs, name='P',
+                active_threshold=self.active_threshold, max_offset=self.max_offset)
+            _build_temporal_reallocation_likelihood(
+                z, data['E_obs'], mu_area, sigma_agree_uprn, sigma_disagree_uprn,
+                rho_E, self.nu_obs, name='E',
+                active_threshold=self.active_threshold, max_offset=self.max_offset)
+
+        self.model = model
+        return model
+
+
+class AZ6b(DwellingModel):
+    """
+    AZ6 + AZ3's already-validated floor fix (`sigma_obs_floor=2.0 +
+    HalfNormal(3)` excess), applied to `sigma_agree_plan`/`sigma_agree_uprn`
+    specifically — the follow-up flagged in AZ6's own docstring and
+    `docs/az-family-work-plan.md`'s Phase 7, not a new mechanism.
+
+    AZ6's real-data run confirmed the predicted risk: `sigma_agree_plan`
+    collapsed to ~0.11 (r-hat 2.01, chain means 0.065-0.169) and
+    `sigma_agree_uprn` to ~1.17 (r-hat 1.63) — an order of magnitude below
+    AZ0a's converged `sigma_plan`/`sigma_uprn` (~7-9) and below even AZ3's
+    own floored value (2.0). Mechanistically identical to AZ3's original
+    problem (an unfloored signal-branch scale collapsing toward zero once a
+    mixture branch gives outliers/mismatches an escape valve, because a
+    plain HalfNormal's mode sits at 0 regardless of its own sigma), but
+    measurably worse here: AZ0a's z prior pins each area's total to D
+    *exactly* (zero-sum-constrained), leaving z less freedom to drift toward
+    a comfortable middle ground than M13's original soft hierarchical prior
+    did, so more cells land close to an exact match under the "agree"
+    branch and pull sigma_agree harder toward the collapse.
+
+    Deliberately does NOT floor `sigma_disagree_plan`/`sigma_disagree_uprn`
+    (unlike AZ3, which only ever floored its signal branch too, never its
+    noise branch's own separate `sigma_noise_floor`-based floor). The
+    disagree branch compares observations against `mu_area` — a generic,
+    non-zero fixed constant (D/n_years) — not zero, so the specific
+    "unbounded density at a large exact-zero mass" degenerate mode that
+    motivated every floor in this family (AZ0's original collapse,
+    AZ3's `sigma_noise_floor`, AZ3's later `sigma_obs_floor`) doesn't apply
+    to it here, and M13's own real-data run never flagged
+    `sigma_disagree_plan`/`sigma_disagree_uprn` as a problem either. Adding
+    an unneeded floor would be a second, undiagnosed change bundled into
+    what should be one targeted fix.
+
+    Otherwise byte-for-byte identical to AZ6: same z-prior, same
+    active_threshold/max_offset, same Beta(2,2) rho_P/rho_E,
+    same target_accept=0.95.
+    """
+
+    name        = 'AZ6b'
+    description = ("AZ6 + AZ3's floor fix (sigma_obs_floor=2.0 + HalfNormal(3) "
+                    "excess) applied to sigma_agree_plan/sigma_agree_uprn -- "
+                    "testing whether this closes AZ6's collapse-to-near-zero "
+                    "signal-branch funnel")
+    var_names   = ['sigma_agree_plan', 'sigma_agree_uprn',
+                   'sigma_disagree_plan', 'sigma_disagree_uprn',
+                   'rho_P', 'rho_E', 'pi_offset_P', 'pi_offset_E']
+
+    sigma_delta_floor = 3.0   # same as AZ6
+    k_sigma_delta     = 0.08  # same as AZ6
+    active_threshold  = 3.0   # same as AZ6/M13
+    max_offset        = 2     # same as AZ6/M13
+    sigma_obs_floor   = 2.0   # same as AZ3 -- floors sigma_agree only, see docstring
+
+    sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
+
+    def build(self):
+        data, n_areas, n_years, D, _ = self._build_context()
+
+        with pm.Model(coords=self._default_coords()) as model:
+
+            mu_area, _, _, z = _build_zero_sum_z_prior(
+                D, n_areas, n_years,
+                floor=self.sigma_delta_floor, k=self.k_sigma_delta)
+
+            sigma_agree_plan_excess = pm.HalfNormal('sigma_agree_plan_excess', sigma=3)
+            sigma_agree_uprn_excess = pm.HalfNormal('sigma_agree_uprn_excess', sigma=3)
+            sigma_agree_plan = pm.Deterministic(
+                'sigma_agree_plan', self.sigma_obs_floor + sigma_agree_plan_excess)
+            sigma_agree_uprn = pm.Deterministic(
+                'sigma_agree_uprn', self.sigma_obs_floor + sigma_agree_uprn_excess)
+
+            sigma_disagree_plan = pm.HalfNormal('sigma_disagree_plan', sigma=20)
+            sigma_disagree_uprn = pm.HalfNormal('sigma_disagree_uprn', sigma=20)
+            rho_P               = pm.Beta('rho_P', alpha=2, beta=2)
+            rho_E               = pm.Beta('rho_E', alpha=2, beta=2)
+
+            _build_temporal_reallocation_likelihood(
+                z, data['P_obs'], mu_area, sigma_agree_plan, sigma_disagree_plan,
+                rho_P, self.nu_obs, name='P',
+                active_threshold=self.active_threshold, max_offset=self.max_offset)
+            _build_temporal_reallocation_likelihood(
+                z, data['E_obs'], mu_area, sigma_agree_uprn, sigma_disagree_uprn,
+                rho_E, self.nu_obs, name='E',
+                active_threshold=self.active_threshold, max_offset=self.max_offset)
 
         self.model = model
         return model

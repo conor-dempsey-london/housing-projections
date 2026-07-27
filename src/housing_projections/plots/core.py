@@ -506,6 +506,11 @@ REFERENCE_AREAS = {
     'E01033700': 'high Pareto-k, mostly-quiet years (D=556)',
     'E01035656': 'under-tracked spike (498), D=412',
     'E01002702': "AZ1b mode-summary example: chains split on E's lag category",
+    'E01002713': ("plausible ~3yr delayed-registration case: E=248 in 2018, "
+                  "P=252 in 2021, D=268 -- AZ1b's lag_E pins to max_lag's "
+                  "boundary here (can't represent the gap); tier2/unresolved "
+                  "in production, narrowly missing the resolved-scenario "
+                  "correlation bar (-0.26 vs -0.30)"),
 }
 
 
