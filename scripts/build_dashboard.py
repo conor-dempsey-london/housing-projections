@@ -521,6 +521,19 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
             _pe_rows.append({{"year": _row.year, "source": "UPRN",
                               "obs": _row.E_obs, "resp_noise": _row.resp_noise_E}})
         _pe_df = pd.DataFrame(_pe_rows)
+        # Altair embeds every column of a chart's source dataframe into the spec,
+        # not just the ones actually encoded -- so passing the full _year_rows
+        # (which also carries tier/tier_subtype/borough_name etc.) leaks
+        # tier_subtype's NaN (blank for every tier1/tier3 area) into the chart's
+        # data, even though nothing here encodes that column. Altair 6.x happens
+        # to sanitize NaN across a whole dataframe before JSON-encoding it, so
+        # this is invisible locally, but the older Altair (5.x) that marimo's
+        # WASM export currently resolves in Pyodide does not, and Altair's
+        # strict chart_to_json (allow_nan=False) then throws -- surfacing in the
+        # browser as an untraceable "internal error" on every tier1/tier3 area.
+        # Restricting to just the encoded columns sidesteps the version gap
+        # entirely rather than depending on either version's NaN handling.
+        _year_rows_chart = _year_rows[["year", "z_mean", "z_lo90", "z_hi90"]]
 
         _bars = (
             alt.Chart(_pe_df)
@@ -543,7 +556,7 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
         )
 
         _band = (
-            alt.Chart(_year_rows)
+            alt.Chart(_year_rows_chart)
             .mark_area(opacity=0.12 if _is_resolved_tier2 else 0.25, color="gray")
             .encode(x=alt.X("year:O", title="Year"), y="z_lo90:Q", y2="z_hi90:Q")
         )
@@ -584,7 +597,7 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
             )
         else:
             _line = (
-                alt.Chart(_year_rows)
+                alt.Chart(_year_rows_chart)
                 .mark_line(point=True, color="black")
                 .encode(
                     x=alt.X("year:O", title="Year"),
