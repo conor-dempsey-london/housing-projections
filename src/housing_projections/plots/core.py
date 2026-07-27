@@ -38,7 +38,7 @@ def select_sample_areas(D, n_sample=6, random_state=None):
 def plot_z_area(ax, z_post, idx, infer_years=INFER_YEARS,
                 P_obs=None, E_obs=None, D=None, n_years=10,
                 show_legend=False, alpha_ci=0.9, lsoa_codes=None,
-                resp_noise_P=None, resp_noise_E=None):
+                resp_noise_P=None, resp_noise_E=None, show_post_sum=True):
     """
     Plot posterior z for a single area with optional observations and baselines.
 
@@ -48,7 +48,7 @@ def plot_z_area(ax, z_post, idx, infer_years=INFER_YEARS,
     z_post      : (chains, draws, n_areas, n_years)
     idx         : int — area index
     P_obs       : (n_areas, n_years) — planning observations, optional
-    E_obs       : (n_areas, n_years) — BEN observations, optional
+    E_obs       : (n_areas, n_years) — UPRN observations, optional
     D           : (n_areas,) — census differences, optional
     n_years     : int
     show_legend : bool
@@ -65,6 +65,15 @@ def plot_z_area(ax, z_post, idx, infer_years=INFER_YEARS,
                   single flat colour, so which specific spikes the model
                   is discounting as noise is visible directly on the plot
                   rather than needing a separate lookup.
+    show_post_sum : bool, default True — whether to show the posterior
+                  z-sum vs D comparison (title suffix + the "Post. sum/n"
+                  reference line). Meaningful for models where the census
+                  total is a soft/probabilistic constraint (the M-family),
+                  where the posterior sum can genuinely differ from D. For
+                  models with an exact zero-sum prior (the AZ-family — every
+                  draw's z sums to D by construction), this comparison is
+                  always a trivial zero-width match and carries no
+                  information — set False there.
     """
     lo_pct = 100 * (1 - alpha_ci) / 2
     hi_pct = 100 * (1 - (1 - alpha_ci) / 2)
@@ -98,30 +107,35 @@ def plot_z_area(ax, z_post, idx, infer_years=INFER_YEARS,
 
     if E_obs is not None:
         if resp_noise_E is not None:
-            ax.plot(infer_years, E_obs[idx], color=COLOURS['ben'],
+            ax.plot(infer_years, E_obs[idx], color=COLOURS['uprn'],
                     alpha=0.3, linewidth=1.0, zorder=2)
             ax.scatter(infer_years, E_obs[idx], c=resp_noise_E[idx],
                       cmap='RdYlGn_r', vmin=0, vmax=1, marker='^', s=45,
                       edgecolor='black', linewidth=0.5, zorder=3,
-                      label='BEN (colour = P(noise))')
+                      label='UPRN (colour = P(noise))')
         else:
-            ax.plot(infer_years, E_obs[idx], color=COLOURS['ben'],
-                    marker='^', alpha=0.7, linewidth=1.0, label='BEN')
+            ax.plot(infer_years, E_obs[idx], color=COLOURS['uprn'],
+                    marker='^', alpha=0.7, linewidth=1.0, label='UPRN')
 
     if D is not None:
         ax.axhline(D[idx] / n_years, color=COLOURS['baseline'],
                    linewidth=0.8, linestyle='--', alpha=0.5,
                    label=f'D/n ({D[idx]/n_years:.1f})')
-        ax.axhline(z_sum_mean / n_years, color=COLOURS['posterior'],
-                   linewidth=1.2, linestyle='-.',
-                   label=f'Post. sum/n ({z_sum_mean:.0f})')
+        if show_post_sum:
+            ax.axhline(z_sum_mean / n_years, color=COLOURS['posterior'],
+                       linewidth=1.2, linestyle='-.',
+                       label=f'Post. sum/n ({z_sum_mean:.0f})')
 
     ax.axhline(0, color='black', linewidth=0.5, linestyle=':')
     label = lsoa_codes[idx] if lsoa_codes is not None else f'LSOA {idx}'
-    ax.set_title(f'{label}  (D={D[idx]:.0f}  '
-                 f'post. sum={z_sum_mean:.0f} '
-                 f'[{z_sum_lo:.0f}, {z_sum_hi:.0f}])'
-                 if D is not None else label)
+    if D is not None:
+        title = f'{label}  (D={D[idx]:.0f}'
+        if show_post_sum:
+            title += f'  post. sum={z_sum_mean:.0f} [{z_sum_lo:.0f}, {z_sum_hi:.0f}]'
+        title += ')'
+    else:
+        title = label
+    ax.set_title(title)
     ax.set_xlabel('Year')
     ax.set_ylabel('Net dwelling change')
     ax.spines[['top', 'right']].set_visible(False)
@@ -255,15 +269,15 @@ def plot_z_area_modes(ax, z_post, idx, infer_years=INFER_YEARS,
 
     if E_obs is not None:
         if resp_noise_E is not None:
-            ax.plot(infer_years, E_obs[idx], color=COLOURS['ben'],
+            ax.plot(infer_years, E_obs[idx], color=COLOURS['uprn'],
                     alpha=0.3, linewidth=1.0, zorder=2)
             ax.scatter(infer_years, E_obs[idx], c=resp_noise_E[idx],
                       cmap='RdYlGn_r', vmin=0, vmax=1, marker='^', s=45,
                       edgecolor='black', linewidth=0.5, zorder=3,
-                      label='BEN (colour = P(noise))')
+                      label='UPRN (colour = P(noise))')
         else:
-            ax.plot(infer_years, E_obs[idx], color=COLOURS['ben'],
-                    marker='^', alpha=0.7, linewidth=1.0, label='BEN')
+            ax.plot(infer_years, E_obs[idx], color=COLOURS['uprn'],
+                    marker='^', alpha=0.7, linewidth=1.0, label='UPRN')
 
     if D is not None:
         ax.axhline(D[idx] / n_years, color=COLOURS['baseline'],
@@ -340,7 +354,7 @@ def plot_residuals_by_year(ax, residuals, label, infer_years=INFER_YEARS):
     """
     ax.plot(infer_years, residuals.mean(axis=0), marker='o',
             color=COLOURS['planning'] if 'plan' in label.lower()
-            else COLOURS['ben'])
+            else COLOURS['uprn'])
     ax.axhline(0, color='black', linewidth=0.5)
     ax.set_xlabel('Year')
     ax.set_ylabel('Mean residual')
@@ -363,7 +377,7 @@ def plot_residuals_vs_D(ax, residuals, D, label):
     """
     ax.scatter(D, residuals.mean(axis=1), alpha=0.3, s=5,
                color=COLOURS['planning'] if 'plan' in label.lower()
-               else COLOURS['ben'])
+               else COLOURS['uprn'])
     ax.axhline(0, color='black', linewidth=0.8)
     ax.set_xlabel('Census diff (D)')
     ax.set_ylabel('Mean residual')
@@ -399,7 +413,7 @@ def plot_uncertainty_vs_disagreement(ax, z_post, P_obs, E_obs,
 
     ax.scatter(disagreement[mask], ci_width[mask],
                alpha=0.2, s=3, color='steelblue')
-    ax.set_xlabel('|Planning - BEN|')
+    ax.set_xlabel('|Planning - UPRN|')
     ax.set_ylabel(f'{int(alpha_ci*100)}% CI width')
     ax.set_title(f'Uncertainty vs source disagreement (|obs|>{threshold})')
     ax.spines[['top', 'right']].set_visible(False)
@@ -470,7 +484,7 @@ def plot_sample_areas(trace, data, n_sample=6, title='',
     for ax in axes.ravel()[n_sample:]:
         ax.set_visible(False)
 
-    plt.suptitle(f'{title} — posterior z vs planning and BEN')
+    plt.suptitle(f'{title} — posterior z vs planning and UPRN')
     plt.tight_layout()
 
     return fig, axes
@@ -701,14 +715,14 @@ def plot_spike_tracking_examples(trace, data, n_examples=6, title='',
 
 def plot_posterior_predictive(post_pred, data, title=''):
     """
-    Plot posterior predictive vs observed for planning and BEN.
+    Plot posterior predictive vs observed for planning and UPRN.
     """
     P_post = post_pred.posterior_predictive['P_like'].values
     E_post = post_pred.posterior_predictive['E_like'].values
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
     plot_predictive_distribution(axes[0], P_post, data['P_obs'], 'Planning')
-    plot_predictive_distribution(axes[1], E_post, data['E_obs'], 'BEN')
+    plot_predictive_distribution(axes[1], E_post, data['E_obs'], 'UPRN')
 
     plt.suptitle(f'{title} — posterior predictive vs observed')
     plt.tight_layout()
@@ -718,7 +732,7 @@ def plot_posterior_predictive(post_pred, data, title=''):
 
 def plot_prior_predictive(prior, data, title=''):
     """
-    Plot prior predictive vs observed for planning and BEN.
+    Plot prior predictive vs observed for planning and UPRN.
     """
     P_prior = prior.prior_predictive['P_like'].values
     E_prior = prior.prior_predictive['E_like'].values
@@ -727,7 +741,7 @@ def plot_prior_predictive(prior, data, title=''):
     plot_predictive_distribution(axes[0], P_prior, data['P_obs'],
                                  'Planning (prior predictive)')
     plot_predictive_distribution(axes[1], E_prior, data['E_obs'],
-                                 'BEN (prior predictive)')
+                                 'UPRN (prior predictive)')
 
     plt.suptitle(f'{title} — prior predictive vs observed')
     plt.tight_layout()
@@ -737,7 +751,7 @@ def plot_prior_predictive(prior, data, title=''):
 
 def plot_residual_analysis(trace, data, title='', quantile_clip=0.99):
     """
-    Six-panel residual analysis treating planning and BEN symmetrically:
+    Six-panel residual analysis treating planning and UPRN symmetrically:
     - Residual distributions (clipped to quantile_clip for readability)
     - Mean and median residuals by year
     - Residuals vs census diff
@@ -753,11 +767,11 @@ def plot_residual_analysis(trace, data, title='', quantile_clip=0.99):
     z_mean_post = z_post.mean(axis=(0, 1))
 
     resid_plan  = data['P_obs'] - z_mean_post
-    resid_ben   = data['E_obs'] - z_mean_post
+    resid_uprn   = data['E_obs'] - z_mean_post
 
     sources = [
         (resid_plan, 'Planning', COLOURS['planning']),
-        (resid_ben,  'BEN',      COLOURS['ben']),
+        (resid_uprn,  'UPRN',      COLOURS['uprn']),
     ]
 
     fig, axes = plt.subplots(3, 2, figsize=(12, 12))
