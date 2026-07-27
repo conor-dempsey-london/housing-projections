@@ -132,7 +132,7 @@ account for.
   AddressBase-derived dwelling-change records — likely have their own data-quality
   issues that we have not yet fully characterised.** We need to dig further into the two main inputs used so far. The cut of the planning data that is currently being used is a cut James produced directly with his code. We have not looked deeply into exactly what to extract from the planning database and this is likely the biggest source of improvement to model quality available. Similarly the UPRN net changes are from a file provided by Ben. I have reproduced the code from Seb where this input is produced - further information from OS Address Base could be extracted, including additions and removals separately, which would enrich the input and could improve the model. 
 
-- **Treating the Census counts as exact - if we think the census numbersmbers contain substantial error we could enforce this constraint probablilistically instead of exactly .** But this would add complexity for probably little gain and is not something we recommend doing without a specific reason.
+- **Treating the Census counts as exact - if we think the census numbers contain substantial error we could enforce this constraint probabilistically instead of exactly .** But this would add complexity for probably little gain and is not something we recommend doing without a specific reason.
 
 - **This kind of model can also be extended to draw on other data sources** —
   Energy Performance Certificate (EPC) records are one candidate that could plausibly
@@ -146,8 +146,8 @@ account for.
   worse on our most rigorous accuracy check, and the lag version, combined with this
   model, gave at best a marginal improvement on one measure while making the
   year-by-year confidence picture worse. We haven't ruled out a different way of
-  building in either idea helping in future, but based on what we've tried so far we
-  don't expect adding them back in to meaningfully change the totals reported above.
+  building in either idea helping in future however.
+
 - **The dashboard is useful for area-specific questions** — anyone can look
   up a specific LSOA or borough and see exactly which group it falls into and why,
   rather than relying on the borough-level averages above. It also breaks down which
