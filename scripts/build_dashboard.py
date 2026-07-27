@@ -352,7 +352,7 @@ def _(borough_london_totals, mo):
 
 
 @app.cell(hide_code=True)
-def _(alt, area_tier_summary, borough_choice, lsoa_boundaries, mo):
+def _(alt, area_tier_summary, borough_boundaries, borough_choice, lsoa_boundaries, mo, pd):
     if borough_choice.value == "London":
         _content = mo.md(
             "*Pick a borough above to see its LSOA-level detail map (all of London at "
@@ -360,6 +360,30 @@ def _(alt, area_tier_summary, borough_choice, lsoa_boundaries, mo):
             "above for the London-wide view).*"
         )
     else:
+        # Small locator map -- plain grey London boroughs with the selected one
+        # highlighted, so it's clear where in London this LSOA detail sits without
+        # having to cross-reference the borough choropleth further up.
+        _locator_df = pd.DataFrame(
+            {{"borough_name": [f["properties"]["borough_name"] for f in borough_boundaries["features"]]}}
+        )
+        _locator_df["selected"] = _locator_df["borough_name"] == borough_choice.value
+
+        _locator = (
+            alt.Chart(alt.Data(values=borough_boundaries["features"]))
+            .mark_geoshape(stroke="white", strokeWidth=0.4)
+            .transform_lookup(
+                lookup="properties.borough_name",
+                from_=alt.LookupData(_locator_df, "borough_name", ["selected"]),
+            )
+            .encode(
+                color=alt.Color(
+                    "selected:N", legend=None,
+                    scale=alt.Scale(domain=[True, False], range=["#e41a1c", "#d9d9d9"]),
+                ),
+            )
+            .properties(width=150, height=130)
+        )
+
         _tier_labels = {{
             "tier1": "Confident", "tier2": "Labelled scenarios", "tier3": "Diffuse / total-only"
         }}
@@ -395,7 +419,7 @@ def _(alt, area_tier_summary, borough_choice, lsoa_boundaries, mo):
         )
         _content = mo.vstack(
             [
-                _chart,
+                mo.hstack([_chart, _locator], justify="start", gap=2, align="start"),
                 mo.md(
                     "*This map isn't clickable -- use the LSOA search/table further down "
                     "to look up a specific area's detail.*"
