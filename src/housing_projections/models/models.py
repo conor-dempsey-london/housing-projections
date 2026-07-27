@@ -28,6 +28,7 @@ from .az_family import (
     AZ2b,
     AZ4b,
     AZ6b,
+    AZ6c,
 )
 from .base import DwellingModel
 from .builders import (
@@ -91,6 +92,7 @@ ALL_MODELS: dict[str, type[DwellingModel]] = {
     AZ1d.name: AZ1d, AZ1e.name: AZ1e, AZ1f.name: AZ1f, AZ1g.name: AZ1g, AZ1h.name: AZ1h,
     AZ2.name: AZ2, AZ2b.name: AZ2b, AZ3.name: AZ3,
     AZ4.name: AZ4, AZ4b.name: AZ4b, AZ5.name: AZ5, AZ6.name: AZ6, AZ6b.name: AZ6b,
+    AZ6c.name: AZ6c,
 }
 
 __all__ = [

@@ -37,6 +37,7 @@ from housing_projections.models.models import (
     AZ2b,
     AZ4b,
     AZ6b,
+    AZ6c,
     M0h,
     M1h,
     _build_fixed_lag,
@@ -2415,6 +2416,96 @@ class TestAZ6bSampling:
 
         sigma_agree_plan = m.trace.posterior['sigma_agree_plan'].values
         assert sigma_agree_plan.min() >= AZ6b.sigma_obs_floor
+
+
+class TestAZ6cStructure:
+    def test_build_returns_model(self, data_dict):
+        assert isinstance(AZ6c(data_dict).build(), pm.Model)
+
+    def test_z_sums_to_d_exactly(self, data_dict):
+        m = AZ6c(data_dict)
+        m.build()
+        with m.model:
+            z_draws = pm.draw(m.model['z'], draws=5, random_seed=0)
+        resid = np.abs(z_draws.sum(axis=-1) - data_dict['D'][None, :])
+        assert resid.max() < 1e-6
+
+    def test_no_e_offset_machinery(self, data_dict):
+        # E has no lag mechanism at all -- no pi_offset_E, no agreement_prob_E.
+        m = AZ6c(data_dict)
+        m.build()
+        assert 'pi_offset_E' not in m.model.named_vars
+        assert 'agreement_prob_E' not in m.model.named_vars
+        assert 'pi_offset_P' in m.model.named_vars
+
+    def test_has_noise_mixture_for_both_sources(self, data_dict):
+        m = AZ6c(data_dict)
+        m.build()
+        assert 'resp_noise_P' in m.model.named_vars
+        assert 'resp_noise_E' in m.model.named_vars
+        assert m.model.named_vars['resp_noise_P'].eval().shape == (
+            data_dict['n_areas'], data_dict['n_years'])
+
+    def test_sigma_agree_plan_never_below_floor(self, data_dict):
+        m = AZ6c(data_dict)
+        m.build()
+        with m.model:
+            draws = pm.draw(m.model['sigma_agree_plan'], draws=50, random_seed=0)
+        assert draws.min() >= AZ6c.sigma_obs_floor
+
+    def test_sigma_uprn_never_below_floor(self, data_dict):
+        m = AZ6c(data_dict)
+        m.build()
+        with m.model:
+            draws = pm.draw(m.model['sigma_uprn'], draws=50, random_seed=0)
+        assert draws.min() >= AZ6c.sigma_obs_floor
+
+    def test_p_noise_branch_never_below_floor(self, data_dict):
+        m = AZ6c(data_dict)
+        m.build()
+        with m.model:
+            draws = pm.draw(m.model['sigma_noise_plan'], draws=50, random_seed=0)
+        assert draws.min() >= AZ6c.sigma_noise_floor
+
+    def test_e_noise_branch_never_below_floor(self, data_dict):
+        m = AZ6c(data_dict)
+        m.build()
+        with m.model:
+            draws = pm.draw(m.model['sigma_noise_E'], draws=50, random_seed=0)
+        assert draws.min() >= AZ6c.sigma_noise_floor
+
+    def test_var_names(self):
+        assert set(AZ6c.var_names) == {
+            'sigma_agree_plan', 'sigma_noise_plan', 'rho_P', 'pi_offset_P',
+            'sigma_uprn', 'sigma_noise_E', 'rho_E',
+        }
+
+    def test_sample_kwargs_overrides_target_accept(self):
+        assert AZ6c.sample_kwargs['target_accept'] == 0.95
+
+
+@pytest.mark.slow
+class TestAZ6cSampling:
+    def test_full_pipeline(self, data_dict):
+        m = AZ6c(data_dict)
+        m.sample(use_nutpie=False, draws=20, tune=20, chains=1, cores=1,
+                 target_accept=0.8, random_seed=0)
+
+        assert 'z' in m.trace.posterior
+        assert 'P_like' in m.trace.log_likelihood
+        assert 'E_like' in m.trace.log_likelihood
+
+        z = m.trace.posterior['z'].values
+        D = data_dict['D']
+        resid = np.abs(z.sum(axis=-1) - D[None, None, :])
+        assert resid.max() < 1e-6
+
+        sigma_agree_plan = m.trace.posterior['sigma_agree_plan'].values
+        assert sigma_agree_plan.min() >= AZ6c.sigma_obs_floor
+        sigma_noise_plan = m.trace.posterior['sigma_noise_plan'].values
+        assert sigma_noise_plan.min() >= AZ6c.sigma_noise_floor
+        sigma_noise_E = m.trace.posterior['sigma_noise_E'].values
+        assert sigma_noise_E.min() >= AZ6c.sigma_noise_floor
 
 
 # ── Sampling integration tests (slow — run with pytest -m slow) ──────────────

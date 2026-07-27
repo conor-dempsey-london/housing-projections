@@ -38,7 +38,7 @@ from .builders import (
 __all__ = [
     "AZ0", "AZ0a", "AZ0b",
     "AZ1a", "AZ1b", "AZ1c", "AZ1d", "AZ1e", "AZ1f", "AZ1g", "AZ1h",
-    "AZ2", "AZ2b", "AZ3", "AZ4", "AZ4b", "AZ5", "AZ6", "AZ6b",
+    "AZ2", "AZ2b", "AZ3", "AZ4", "AZ4b", "AZ5", "AZ6", "AZ6b", "AZ6c",
 ]
 
 # ── AZ0: Anchored zero-sum prior + backward-only reallocation mixture ────────
@@ -1749,6 +1749,125 @@ class AZ6b(DwellingModel):
                 z, data['E_obs'], mu_area, sigma_agree_uprn, sigma_disagree_uprn,
                 rho_E, self.nu_obs, name='E',
                 active_threshold=self.active_threshold, max_offset=self.max_offset)
+
+        self.model = model
+        return model
+
+
+class AZ6c(DwellingModel):
+    """
+    AZ6b, redesigned around two findings rather than a guess:
+
+    1. **E's lag/offset mechanism is dropped entirely** (E compared directly,
+       same-year, against z — mirroring AZ1d/AZ1g/AZ5's already-validated
+       asymmetric "P gets a lag mechanism, E doesn't" design). Those earlier
+       models justified the asymmetry only via a convergence argument (E's
+       lag category being disproportionately unstable). This one has a
+       substantive, directional justification instead: an empirical check
+       (`docs/az-family-work-plan.md` Phase 7's second follow-up) searched
+       every area for its single best-matching P/E spike PAIR — same sign,
+       within `max_offset=2` years, close in magnitude
+       (`min(|P|,|E|)/max(|P|,|E|)`), and jointly accounting for a
+       significant share of that area's whole-decade census change
+       (`mean(|P|,|E|)/|D|`, `|D|>=20` to exclude near-zero-census areas
+       where that ratio is meaningless) — and found P's spike year comes
+       AFTER E's in 74-91% of directional (non-same-year) matches across
+       every threshold combination tested, getting MORE lopsided as the
+       matching criteria get stricter (90.9% at the primary
+       closeness>=0.7/significance>=0.3 setting). For the events that
+       actually matter for year-attribution, E's own timing is the better
+       proxy for the true event year; P is the one that shows up late.
+
+    2. **AZ3's noise mechanism is folded in for both sources**, motivated by
+       AZ6b's own spike-tracking plot: two reference cases (E01033491,
+       E01035656 — both large SINGLE-source spikes with no census-implied
+       magnitude to corroborate them) were still badly under-tracked. AZ6b's
+       disagree branch compares a mismatched P record against `mu_area` (the
+       area's flat long-run rate) — a real alternative explanation, but not
+       the right one for a genuinely implausible one-off value, which is
+       exactly the failure mode AZ3's noise branch (compare against 0, hard
+       floored scale) was built to catch.
+
+       Rather than bolt a THIRD mixture branch onto P's existing
+       agree/disagree pair (real risk of reproducing AZ0's original 3-way
+       degenerate-mode collapse), P's existing disagree branch is
+       REPURPOSED into AZ3's noise branch directly: the same
+       `_build_temporal_reallocation_likelihood` call AZ6b already uses, but
+       with `mu_area` replaced by a zero array (so the "doesn't fit the
+       offset-marginalized signal" branch is explained as noise around 0,
+       not the area's typical rate) and `sigma_disagree_plan` floored
+       exactly like AZ3's `sigma_noise` (`sigma_noise_floor=25.0 +
+       HalfNormal` excess) instead of AZ6b's bare `HalfNormal(20)`. This
+       keeps P's likelihood a clean 2-way per-record mixture — reusing the
+       SAME builder call with two targeted argument changes, not new
+       construction — and `resp_noise_P` is reconstructed as a Deterministic
+       (`1 - agreement_prob_P`) so `plot_spike_tracking_examples`' noise
+       colour-coding (built for AZ3's naming convention) works here too.
+
+       E, with no lag mechanism at all now, gets AZ3's noise mixture
+       unchanged and verbatim (`_build_noise_mixture_likelihood`) — the
+       exact same call AZ3/AZ5 already use for their own E branch.
+
+    `sigma_agree_plan` stays floored exactly as validated in AZ6b
+    (`sigma_obs_floor=2.0 + HalfNormal(3)` excess) — unrelated to either
+    change above, kept because AZ6b already showed it's needed.
+
+    sample_kwargs matches AZ6/AZ6b's target_accept=0.95 and default 4 chains
+    — no per-area hierarchy here (unlike AZ1a-h), so no reason yet to expect
+    the kind of hard multimodality that justified 8 chains there.
+    """
+
+    name        = 'AZ6c'
+    description = ("AZ6b with E's lag dropped (same-year only, per an "
+                    "empirical P-after-E spike-pair check) and AZ3's floored "
+                    "noise mechanism folded into P's disagree branch "
+                    "(target 0, not mu_area) plus E's own likelihood")
+    var_names   = ['sigma_agree_plan', 'sigma_noise_plan', 'rho_P', 'pi_offset_P',
+                   'sigma_uprn', 'sigma_noise_E', 'rho_E']
+
+    sigma_delta_floor = 3.0    # same as AZ6/AZ6b
+    k_sigma_delta     = 0.08   # same as AZ6/AZ6b
+    active_threshold  = 3.0    # same as AZ6/AZ6b/M13
+    max_offset        = 2      # same as AZ6/AZ6b/M13
+    sigma_obs_floor   = 2.0    # same as AZ6b/AZ3 -- floors sigma_agree_plan/sigma_uprn
+    sigma_noise_floor = 25.0   # same as AZ3 -- floors P's noise branch and E's noise branch
+
+    sample_kwargs = {**DEFAULT_SAMPLE_KWARGS, 'target_accept': 0.95}
+
+    def build(self):
+        data, n_areas, n_years, D, _ = self._build_context()
+
+        with pm.Model(coords=self._default_coords()) as model:
+
+            _, _, _, z = _build_zero_sum_z_prior(
+                D, n_areas, n_years,
+                floor=self.sigma_delta_floor, k=self.k_sigma_delta)
+
+            zero_target = np.zeros(n_areas)  # see docstring -- repurposes the
+                                              # "disagree" branch into AZ3's
+                                              # noise-around-zero branch
+
+            sigma_agree_plan_excess = pm.HalfNormal('sigma_agree_plan_excess', sigma=3)
+            sigma_agree_plan = pm.Deterministic(
+                'sigma_agree_plan', self.sigma_obs_floor + sigma_agree_plan_excess)
+
+            sigma_noise_plan_excess = pm.HalfNormal('sigma_noise_plan_excess', sigma=15)
+            sigma_noise_plan = pm.Deterministic(
+                'sigma_noise_plan', self.sigma_noise_floor + sigma_noise_plan_excess)
+
+            rho_P = pm.Beta('rho_P', alpha=2, beta=2)
+
+            agreement_prob_P, _ = _build_temporal_reallocation_likelihood(
+                z, data['P_obs'], zero_target, sigma_agree_plan, sigma_noise_plan,
+                rho_P, self.nu_obs, name='P',
+                active_threshold=self.active_threshold, max_offset=self.max_offset)
+            pm.Deterministic('resp_noise_P', 1 - agreement_prob_P, dims=('area', 'year'))
+
+            sigma_uprn_excess = pm.HalfNormal('sigma_uprn_excess', sigma=3)
+            sigma_uprn = pm.Deterministic('sigma_uprn', self.sigma_obs_floor + sigma_uprn_excess)
+
+            _build_noise_mixture_likelihood(
+                z, data['E_obs'], sigma_uprn, self.sigma_noise_floor, self.nu_obs, name='E')
 
         self.model = model
         return model
