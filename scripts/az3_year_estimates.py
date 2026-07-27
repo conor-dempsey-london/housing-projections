@@ -268,6 +268,14 @@ def main():
     z_hi_all = np.percentile(z_flat_all, 95, axis=0)
     print(f'   z_post {z_post.nbytes / 1e9:.2f} GB loaded')
 
+    # -- Raw observations + per-cell noise-mixture posterior, for the dashboard's
+    # per-area panel (shows P_obs/E_obs bars faded by resp_noise, matching
+    # scripts/stakeholder_example_plots.py's convention) --------------------------
+    P_obs_all = data['P_obs']
+    E_obs_all = data['E_obs']
+    resp_noise_P_all = trace.posterior['resp_noise_P'].mean(dim=('chain', 'draw')).values
+    resp_noise_E_all = trace.posterior['resp_noise_E'].mean(dim=('chain', 'draw')).values
+
     # -- Tier 2: scenario decomposition on flagged years only -----------------------
     tier2_idx = area_df.index[area_df['tier'] == 'tier2_candidate'].tolist()
     print(f'-- Tier 2 scenario decomposition for {len(tier2_idx)} candidate areas --')
@@ -339,6 +347,10 @@ def main():
                 'z_mean': z_mean_all[area_idx, year_idx],
                 'z_lo90': z_lo_all[area_idx, year_idx],
                 'z_hi90': z_hi_all[area_idx, year_idx],
+                'P_obs': P_obs_all[area_idx, year_idx],
+                'E_obs': E_obs_all[area_idx, year_idx],
+                'resp_noise_P': resp_noise_P_all[area_idx, year_idx],
+                'resp_noise_E': resp_noise_E_all[area_idx, year_idx],
             })
     year_estimates_df = pd.DataFrame(year_rows)
     year_estimates_df.to_csv(OUTPUT_DIR / 'area_year_estimates.csv', index=False)

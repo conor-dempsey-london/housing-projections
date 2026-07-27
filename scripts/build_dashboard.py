@@ -25,6 +25,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = _REPO_ROOT / 'results' / 'artifacts' / 'az3_year_estimates'
 OUTPUT_PATH = _REPO_ROOT / 'notebooks' / '8.0-cd-az3_estimates_dashboard.py'
 
+# Regenerate lsoa_boundaries.geojson via scripts/export_lsoa_boundaries.py
+# whenever the underlying LSOA geometry/outlier-exclusion changes.
+
 
 def _encode(path):
     raw = path.read_bytes()
@@ -38,6 +41,7 @@ def main():
         'AREA_TIER_SUMMARY_GZB64': _encode(DATA_DIR / 'area_tier_summary.csv'),
         'BOROUGH_LONDON_TOTALS_GZB64': _encode(DATA_DIR / 'borough_london_totals.csv'),
         'BOROUGH_BOUNDARIES_GZB64': _encode(DATA_DIR / 'borough_boundaries.geojson'),
+        'LSOA_BOUNDARIES_GZB64': _encode(DATA_DIR / 'lsoa_boundaries.geojson'),
     }
     for name, blob in blobs.items():
         print(f'{name}: {len(blob) / 1e3:.0f} KB (base64)')
@@ -84,12 +88,14 @@ def _():
     _AREA_TIER_SUMMARY_GZB64 = "{AREA_TIER_SUMMARY_GZB64}"
     _BOROUGH_LONDON_TOTALS_GZB64 = "{BOROUGH_LONDON_TOTALS_GZB64}"
     _BOROUGH_BOUNDARIES_GZB64 = "{BOROUGH_BOUNDARIES_GZB64}"
+    _LSOA_BOUNDARIES_GZB64 = "{LSOA_BOUNDARIES_GZB64}"
 
     area_year_estimates = _load_csv(_AREA_YEAR_ESTIMATES_GZB64)
     area_scenarios = _load_csv(_AREA_SCENARIOS_GZB64)
     area_tier_summary = _load_csv(_AREA_TIER_SUMMARY_GZB64)
     borough_london_totals = _load_csv(_BOROUGH_LONDON_TOTALS_GZB64)
     borough_boundaries = _load_geojson(_BOROUGH_BOUNDARIES_GZB64)
+    lsoa_boundaries = _load_geojson(_LSOA_BOUNDARIES_GZB64)
     return (
         alt,
         area_scenarios,
@@ -98,6 +104,7 @@ def _():
         borough_boundaries,
         borough_london_totals,
         json,
+        lsoa_boundaries,
         pd,
     )
 
@@ -338,10 +345,65 @@ def _(borough_london_totals, mo):
     borough_choice = mo.ui.dropdown(
         options=sorted(borough_london_totals["geography"].unique()),
         value="London",
-        label="Show year-by-year total for",
+        label="Drill down to a borough (drives the map, trend chart and LSOA table below)",
     )
     borough_choice
     return (borough_choice,)
+
+
+@app.cell(hide_code=True)
+def _(alt, area_tier_summary, borough_choice, lsoa_boundaries, mo):
+    if borough_choice.value == "London":
+        _content = mo.md(
+            "*Pick a borough above to see its LSOA-level detail map (all of London at "
+            "once is too much detail to render usefully here -- use the borough map "
+            "above for the London-wide view).*"
+        )
+    else:
+        _tier_labels = {{
+            "tier1": "Confident", "tier2": "Labelled scenarios", "tier3": "Diffuse / total-only"
+        }}
+        _lsoa_colour = area_tier_summary[["area", "tier"]].copy()
+        _lsoa_colour["tier_label"] = _lsoa_colour["tier"].map(_tier_labels)
+
+        _features = [
+            f for f in lsoa_boundaries["features"]
+            if f["properties"]["borough_name"] == borough_choice.value
+        ]
+
+        _chart = (
+            alt.Chart(alt.Data(values=_features))
+            .mark_geoshape(stroke="white", strokeWidth=0.3)
+            .transform_lookup(
+                lookup="properties.LSOA21CD",
+                from_=alt.LookupData(_lsoa_colour, "area", ["tier_label"]),
+            )
+            .encode(
+                color=alt.Color(
+                    "tier_label:N", title="Confidence group",
+                    scale=alt.Scale(
+                        domain=["Confident", "Labelled scenarios", "Diffuse / total-only"],
+                        range=["#4c78a8", "#f2a900", "#b3b3b3"],
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip("properties.LSOA21CD:N", title="LSOA"),
+                    alt.Tooltip("tier_label:N", title="Confidence group"),
+                ],
+            )
+            .properties(width=520, height=420, title=f"LSOA-level detail -- {{borough_choice.value}}")
+        )
+        _content = mo.vstack(
+            [
+                _chart,
+                mo.md(
+                    "*This map isn't clickable -- use the LSOA search/table further down "
+                    "to look up a specific area's detail.*"
+                ),
+            ]
+        )
+    _content
+    return
 
 
 @app.cell(hide_code=True)
@@ -455,28 +517,29 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(area_tier_summary, mo):
+def _(mo):
     lsoa_search = mo.ui.text(placeholder="e.g. E01002702", label="LSOA code")
-    borough_filter = mo.ui.dropdown(
-        options=["(all boroughs)"] + sorted(area_tier_summary["borough_name"].unique()),
-        value="(all boroughs)",
-        label="or filter by borough",
+    mo.hstack(
+        [
+            lsoa_search,
+            mo.md("*Borough filter uses the selector above, next to the map.*"),
+        ],
+        justify="start", gap=2,
     )
-    mo.hstack([lsoa_search, borough_filter], justify="start", gap=2)
-    return borough_filter, lsoa_search
+    return (lsoa_search,)
 
 
 @app.cell(hide_code=True)
-def _(area_tier_summary, borough_filter, lsoa_search, mo):
+def _(area_tier_summary, borough_choice, lsoa_search, mo):
     _filtered = area_tier_summary
-    if borough_filter.value != "(all boroughs)":
-        _filtered = _filtered[_filtered["borough_name"] == borough_filter.value]
+    if borough_choice.value != "London":
+        _filtered = _filtered[_filtered["borough_name"] == borough_choice.value]
     if lsoa_search.value.strip():
         _filtered = _filtered[
             _filtered["area"].str.contains(lsoa_search.value.strip(), case=False, na=False)
         ]
     _cols = ["area", "borough_name", "D", "tier", "tier_subtype"]
-    lsoa_table = mo.ui.table(_filtered[_cols].reset_index(drop=True), selection="single", page_size=8)
+    lsoa_table = mo.ui.table(_filtered[_cols].reset_index(drop=True), selection="multi", page_size=8)
     lsoa_table
     return (lsoa_table,)
 
@@ -485,153 +548,213 @@ def _(area_tier_summary, borough_filter, lsoa_search, mo):
 def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_table, mo, pd):
     mo.stop(
         len(lsoa_table.value) == 0,
-        mo.md("*Select a row above (or several -- the chart below follows the first one "
-              "selected) to see that LSOA's year-by-year breakdown.*"),
+        mo.md("*Select up to 5 rows above to see each one's year-by-year breakdown, "
+              "stacked below.*"),
     )
 
-    _area = lsoa_table.value.iloc[0]["area"]
-    _tier_row = area_tier_summary[area_tier_summary["area"] == _area].iloc[0]
-    _year_rows = area_year_estimates[area_year_estimates["area"] == _area].sort_values("year")
-    _years = _year_rows["year"].tolist()
+    _MAX_SELECTED = 5
 
-    _is_resolved_tier2 = _tier_row["tier"] == "tier2" and _tier_row["tier_subtype"] == "resolved"
+    def _build_area_panel(_area):
+        _tier_row = area_tier_summary[area_tier_summary["area"] == _area].iloc[0]
+        _year_rows = area_year_estimates[area_year_estimates["area"] == _area].sort_values("year")
+        _years = _year_rows["year"].tolist()
 
-    _band = (
-        alt.Chart(_year_rows)
-        .mark_area(opacity=0.12 if _is_resolved_tier2 else 0.25, color="gray")
-        .encode(x=alt.X("year:O", title="Year"), y="z_lo90:Q", y2="z_hi90:Q")
-    )
+        _is_resolved_tier2 = _tier_row["tier"] == "tier2" and _tier_row["tier_subtype"] == "resolved"
+        _d_val = _tier_row["D"]
 
-    if _is_resolved_tier2:
-        _scenarios = area_scenarios[area_scenarios["area"] == _area]
-        _scenario_rows = []
-        for r in _scenarios.itertuples():
-            _profile = json.loads(r.year_profile)
-            for _yr, _z in zip(_years, _profile):
-                _scenario_rows.append(
-                    {{"year": _yr, "z": _z, "scenario": f"{{r.scenario_label}} ({{r.weight:.0%}})"}}
-                )
-        _scenario_df = pd.DataFrame(_scenario_rows)
-        _lines = (
-            alt.Chart(_scenario_df)
-            .mark_line(point=True)
+        # P_obs/E_obs bars, faded continuously by the model's noise-mixture posterior
+        # probability that each observation is a data anomaly rather than a real change
+        # (opaque = trusted, faded = likely anomaly) -- same convention as
+        # scripts/stakeholder_example_plots.py's static charts. Altair's own continuous
+        # opacity legend renders as a labelled gradient, so the probability is
+        # interpretable numerically, not just qualitatively.
+        _pe_rows = []
+        for _row in _year_rows.itertuples():
+            _pe_rows.append({{"year": _row.year, "source": "Planning",
+                              "obs": _row.P_obs, "resp_noise": _row.resp_noise_P}})
+            _pe_rows.append({{"year": _row.year, "source": "UPRN",
+                              "obs": _row.E_obs, "resp_noise": _row.resp_noise_E}})
+        _pe_df = pd.DataFrame(_pe_rows)
+
+        _bars = (
+            alt.Chart(_pe_df)
+            .mark_bar()
             .encode(
                 x=alt.X("year:O", title="Year"),
-                y=alt.Y("z:Q", title="Estimated change (dwellings)"),
-                color=alt.Color("scenario:N", title="Scenario (posterior weight)"),
+                xOffset="source:N",
+                y=alt.Y("obs:Q", title="Observed value"),
+                color=alt.Color("source:N", title="Data source",
+                                scale=alt.Scale(domain=["Planning", "UPRN"],
+                                                range=["steelblue", "coral"])),
+                opacity=alt.Opacity("resp_noise:Q", title="P(data anomaly)",
+                                    scale=alt.Scale(domain=[0, 1], range=[0.9, 0.15])),
+                tooltip=[
+                    "year", "source",
+                    alt.Tooltip("obs:Q", title="Observed value"),
+                    alt.Tooltip("resp_noise:Q", title="P(data anomaly)", format=".0%"),
+                ],
             )
         )
-        _year_chart = mo.ui.altair_chart(
-            (_band + _lines).properties(
-                width=650, height=280,
-                title=f"{{_area}} -- estimated change per year, by scenario "
-                      f"(grey band: overall 90% CI)",
-            )
-        )
-    else:
-        _line = (
+
+        _band = (
             alt.Chart(_year_rows)
-            .mark_line(point=True)
-            .encode(
-                x=alt.X("year:O", title="Year"),
-                y=alt.Y("z_mean:Q", title="Estimated change (dwellings)"),
-            )
-        )
-        _year_chart = mo.ui.altair_chart(
-            (_band + _line).properties(
-                width=650, height=280,
-                title=f"{{_area}} -- estimated change per year (90% CI band)",
-            )
+            .mark_area(opacity=0.12 if _is_resolved_tier2 else 0.25, color="gray")
+            .encode(x=alt.X("year:O", title="Year"), y="z_lo90:Q", y2="z_hi90:Q")
         )
 
-    if _tier_row["tier"] == "tier1":
-        _panel = mo.vstack(
-            [
+        if _is_resolved_tier2:
+            _scenarios = area_scenarios[area_scenarios["area"] == _area]
+            _scenario_rows = []
+            for r in _scenarios.itertuples():
+                _profile = json.loads(r.year_profile)
+                for _yr, _z in zip(_years, _profile):
+                    _scenario_rows.append(
+                        {{"year": _yr, "z": _z, "scenario": f"{{r.scenario_label}} ({{r.weight:.0%}})"}}
+                    )
+            _scenario_df = pd.DataFrame(_scenario_rows)
+            _lines = (
+                alt.Chart(_scenario_df)
+                .mark_line(point=True)
+                .encode(
+                    x=alt.X("year:O", title="Year"),
+                    y=alt.Y("z:Q", title="Estimated change (dwellings)"),
+                    # Distinct from the Planning/UPRN bar colours (steelblue/coral) above --
+                    # same green/purple pair already validated for scenarios in
+                    # plots/core.py's _SCENARIO_COLOURS and scripts/stakeholder_example_plots.py.
+                    color=alt.Color("scenario:N", title="Scenario (posterior weight)",
+                                    scale=alt.Scale(range=["#4daf4a", "#984ea3"])),
+                )
+            )
+            # Plain chart object, not mo.ui.altair_chart -- same accommodation the
+            # borough choropleth above already needed: marimo's altair_chart wrapper
+            # drops the continuous opacity (P(anomaly)) legend entirely (confirmed by
+            # comparing against the identical spec rendered outside marimo, where it
+            # shows correctly). Nothing reads a selection from this chart, so the
+            # wrapper's interactivity isn't needed anyway.
+            _year_chart = (_bars + _band + _lines).resolve_scale(color="independent").properties(
+                width=650, height=320,
+                title=f"{{_area}}  (D={{_d_val:.0f}}) -- estimated change per year, by "
+                      f"scenario (grey band: overall 90% CI)",
+            )
+        else:
+            _line = (
+                alt.Chart(_year_rows)
+                .mark_line(point=True, color="black")
+                .encode(
+                    x=alt.X("year:O", title="Year"),
+                    y=alt.Y("z_mean:Q", title="Estimated change (dwellings)"),
+                )
+            )
+            _year_chart = (_bars + _band + _line).resolve_scale(color="independent").properties(
+                width=650, height=320,
+                title=f"{{_area}}  (D={{_d_val:.0f}}) -- estimated change per year "
+                      f"(90% CI band)",
+            )
+
+        if _tier_row["tier"] == "tier1":
+            _panel = mo.vstack(
+                [
+                    mo.md(
+                        f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 1, confident. "
+                        f"Decade total: {{_tier_row['D']:.0f}} dwellings."
+                    ),
+                    _year_chart,
+                ]
+            )
+        elif _tier_row["tier"] == "tier2" and _tier_row["tier_subtype"] == "resolved":
+            _scenarios = area_scenarios[area_scenarios["area"] == _area]
+            _lines = [
+                f"- **{{r.scenario_label}}** ({{r.weight:.0%}} of the posterior): concentrated in "
+                f"**{{int(r.peak_year)}}** (~{{r.peak_year_z:.0f}} dwellings that year)"
+                for r in _scenarios.itertuples()
+            ]
+            _panel = mo.vstack(
+                [
+                    mo.callout(
+                        mo.md(
+                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 2, ambiguous but "
+                            f"characterizable. Decade total: {{_tier_row['D']:.0f}} dwellings. "
+                            f"The model can't pin down a single year-by-year path, but the "
+                            f"ambiguity resolves into distinct, labelled scenarios:\\n\\n"
+                            + "\\n".join(_lines)
+                        ),
+                        kind="warn",
+                    ),
+                    _year_chart,
+                ]
+            )
+        elif (
+            _tier_row["tier"] == "tier2"
+            and _tier_row["tier_subtype"] == "unresolved"
+            and pd.notna(_tier_row["frac_flagged_magnitude"])
+            and _tier_row["frac_flagged_magnitude"] < 0.25
+        ):
+            _flagged_set = set(_tier_row["flagged_years"].split(","))
+            _dominant = (
+                _year_rows[~_year_rows["year"].astype(str).isin(_flagged_set)]
+                .assign(abs_z=lambda d: d["z_mean"].abs())
+                .sort_values("abs_z", ascending=False)
+                .head(2)
+            )
+            _dominant_desc = ", ".join(
+                f"{{int(row.year)}} (~{{row.z_mean:.0f}})" for row in _dominant.itertuples()
+            )
+            _panel = mo.vstack(
+                [
+                    mo.callout(
+                        mo.md(
+                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 2, mostly "
+                            f"confident. Decade total: {{_tier_row['D']:.0f}} dwellings. Most of "
+                            f"this area's year-by-year pattern is well pinned down -- the "
+                            f"dominant year(s) are **{{_dominant_desc}}**. The only unresolved "
+                            f"ambiguity is in **{{_tier_row['flagged_years']}}**, which together "
+                            f"account for only ~{{_tier_row['frac_flagged_magnitude']:.0%}} of the "
+                            f"decade's total change -- so treat those specific year(s) as "
+                            f"indicative only, not the rest of the chart."
+                        ),
+                        kind="info",
+                    ),
+                    _year_chart,
+                ]
+            )
+        else:
+            _reason = (
+                "no active recorded data this decade"
+                if _tier_row["tier"] == "tier3"
+                else "ambiguous, but no small set of clean scenarios describes it"
+            )
+            _panel = mo.vstack(
+                [
+                    mo.callout(
+                        mo.md(
+                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- decade total "
+                            f"(Census-recorded, treated as exact this round) is "
+                            f"**{{_tier_row['D']:.0f}} dwellings**, but the year-by-year breakdown is "
+                            f"genuinely diffuse ({{_reason}})."
+                        ),
+                        kind="neutral",
+                    ),
+                    _year_chart,
+                ]
+            )
+        return _panel
+
+    _selected = lsoa_table.value
+    _blocks = []
+    if len(_selected) > _MAX_SELECTED:
+        _blocks.append(
+            mo.callout(
                 mo.md(
-                    f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 1, confident. "
-                    f"Decade total: {{_tier_row['D']:.0f}} dwellings."
+                    f"You selected {{len(_selected)}} LSOAs -- showing the first "
+                    f"{{_MAX_SELECTED}}. Deselect some rows above to see different ones."
                 ),
-                _year_chart,
-            ]
+                kind="warn",
+            )
         )
-    elif _tier_row["tier"] == "tier2" and _tier_row["tier_subtype"] == "resolved":
-        _scenarios = area_scenarios[area_scenarios["area"] == _area]
-        _lines = [
-            f"- **{{r.scenario_label}}** ({{r.weight:.0%}} of the posterior): concentrated in "
-            f"**{{int(r.peak_year)}}** (~{{r.peak_year_z:.0f}} dwellings that year)"
-            for r in _scenarios.itertuples()
-        ]
-        _panel = mo.vstack(
-            [
-                mo.callout(
-                    mo.md(
-                        f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 2, ambiguous but "
-                        f"characterizable. Decade total: {{_tier_row['D']:.0f}} dwellings. "
-                        f"The model can't pin down a single year-by-year path, but the "
-                        f"ambiguity resolves into distinct, labelled scenarios:\\n\\n"
-                        + "\\n".join(_lines)
-                    ),
-                    kind="warn",
-                ),
-                _year_chart,
-            ]
-        )
-    elif (
-        _tier_row["tier"] == "tier2"
-        and _tier_row["tier_subtype"] == "unresolved"
-        and pd.notna(_tier_row["frac_flagged_magnitude"])
-        and _tier_row["frac_flagged_magnitude"] < 0.25
-    ):
-        _flagged_set = set(_tier_row["flagged_years"].split(","))
-        _dominant = (
-            _year_rows[~_year_rows["year"].astype(str).isin(_flagged_set)]
-            .assign(abs_z=lambda d: d["z_mean"].abs())
-            .sort_values("abs_z", ascending=False)
-            .head(2)
-        )
-        _dominant_desc = ", ".join(
-            f"{{int(row.year)}} (~{{row.z_mean:.0f}})" for row in _dominant.itertuples()
-        )
-        _panel = mo.vstack(
-            [
-                mo.callout(
-                    mo.md(
-                        f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 2, mostly "
-                        f"confident. Decade total: {{_tier_row['D']:.0f}} dwellings. Most of "
-                        f"this area's year-by-year pattern is well pinned down -- the "
-                        f"dominant year(s) are **{{_dominant_desc}}**. The only unresolved "
-                        f"ambiguity is in **{{_tier_row['flagged_years']}}**, which together "
-                        f"account for only ~{{_tier_row['frac_flagged_magnitude']:.0%}} of the "
-                        f"decade's total change -- so treat those specific year(s) as "
-                        f"indicative only, not the rest of the chart."
-                    ),
-                    kind="info",
-                ),
-                _year_chart,
-            ]
-        )
-    else:
-        _reason = (
-            "no active recorded data this decade"
-            if _tier_row["tier"] == "tier3"
-            else "ambiguous, but no small set of clean scenarios describes it"
-        )
-        _panel = mo.vstack(
-            [
-                mo.callout(
-                    mo.md(
-                        f"**{{_area}}** ({{_tier_row['borough_name']}}) -- decade total "
-                        f"(Census-recorded, treated as exact this round) is "
-                        f"**{{_tier_row['D']:.0f}} dwellings**, but the year-by-year breakdown is "
-                        f"genuinely diffuse ({{_reason}})."
-                    ),
-                    kind="neutral",
-                ),
-                _year_chart,
-            ]
-        )
+        _selected = _selected.iloc[:_MAX_SELECTED]
 
-    _panel
+    _blocks.extend(_build_area_panel(_a) for _a in _selected["area"])
+    mo.vstack(_blocks, gap=3)
     return
 
 
