@@ -93,6 +93,27 @@ def _():
     area_year_estimates = _load_csv(_AREA_YEAR_ESTIMATES_GZB64)
     area_scenarios = _load_csv(_AREA_SCENARIOS_GZB64)
     area_tier_summary = _load_csv(_AREA_TIER_SUMMARY_GZB64)
+
+    # Four confidence groups matching docs/az3-stakeholder-summary.md exactly --
+    # split BOTH tier2/resolved and tier2/unresolved by minor_ambiguity (share of
+    # an area's total decade |z| that its flagged/split years actually account
+    # for), not just unresolved as the dashboard originally did. A "resolved"
+    # 2-way scenario split can itself concern only a small sliver of an area's
+    # total change, which overstates the ambiguity the same way an unqualified
+    # "genuinely diffuse" label did for unresolved areas before that fix.
+    def _confidence_group(row):
+        if row["tier"] == "tier1":
+            return "confident"
+        if row["tier"] == "tier3":
+            return "genuinely_unclear"
+        if bool(row.get("minor_ambiguity", False)):
+            return "mostly_confident"
+        if row["tier_subtype"] == "resolved":
+            return "small_number_of_stories"
+        return "genuinely_unclear"
+
+    area_tier_summary["confidence_group"] = area_tier_summary.apply(_confidence_group, axis=1)
+
     borough_london_totals = _load_csv(_BOROUGH_LONDON_TOTALS_GZB64)
     borough_boundaries = _load_geojson(_BOROUGH_BOUNDARIES_GZB64)
     lsoa_boundaries = _load_geojson(_LSOA_BOUNDARIES_GZB64)
@@ -122,16 +143,22 @@ def _(mo):
         zero error; that assumption could be relaxed in future work. Given that assumption, the
         **total** change over the decade adds no further modelling uncertainty for any area;
         the **year-by-year breakdown** within that decade is not equally certain everywhere, so
-        every area below is labelled with one of three confidence tiers:
+        every area below is labelled with one of four confidence groups (matching the
+        stakeholder summary report):
 
-        - **Tier 1 -- Confident**: a single trustworthy year-by-year path.
-        - **Tier 2 -- Ambiguous, resolved**: 2-3 distinct, labelled possible stories (e.g.
-          "60% chance the change concentrated in 2019, 40% chance 2021"), each with its
-          relative likelihood.
-        - **Tier 2 -- Ambiguous, unresolved / Tier 3 -- Diffuse**: the total change carries no
+        - **Confident** (Tier 1): a single trustworthy year-by-year path.
+        - **Small number of likely stories** (Tier 2, resolved): 2-3 distinct, labelled
+          possible stories (e.g. "60% chance the change concentrated in 2019, 40% chance
+          2021"), each with its relative likelihood, covering a substantial share of the
+          area's total change.
+        - **Mostly confident, minor loose end** (Tier 2, either resolved or unresolved): the
+          dominant year(s) are just as reliable as a "confident" area's -- the only open
+          question (a minor scenario split, or an unresolved ambiguity) accounts for under a
+          quarter of the area's total change.
+        - **Genuinely unclear** (Tier 2 unresolved / Tier 3): the total change carries no
           further modelling uncertainty (under the assumption above) but no small set of
-          clean stories describes the year-by-year pattern -- reported as the total only, not
-          a misleading single-year guess.
+          clean stories describes the year-by-year pattern, and this isn't confined to a
+          minor part of it -- reported as the total only, not a misleading single-year guess.
         """
     )
     return
@@ -145,10 +172,11 @@ def _(area_tier_summary, borough_london_totals, mo):
     ].iloc[0]
 
     _n = len(area_tier_summary)
-    _tier_counts = area_tier_summary["tier"].value_counts()
-    _pct_tier1 = 100 * _tier_counts.get("tier1", 0) / _n
-    _pct_tier2 = 100 * _tier_counts.get("tier2", 0) / _n
-    _pct_tier3 = 100 * _tier_counts.get("tier3", 0) / _n
+    _group_counts = area_tier_summary["confidence_group"].value_counts()
+    _pct_confident = 100 * _group_counts.get("confident", 0) / _n
+    _pct_stories = 100 * _group_counts.get("small_number_of_stories", 0) / _n
+    _pct_mostly = 100 * _group_counts.get("mostly_confident", 0) / _n
+    _pct_unclear = 100 * _group_counts.get("genuinely_unclear", 0) / _n
 
     mo.hstack(
         [
@@ -160,9 +188,10 @@ def _(area_tier_summary, borough_london_totals, mo):
                     f"{{_london_total['z_total_hi90']:,.0f}}"
                 ),
             ),
-            mo.stat(value=f"{{_pct_tier1:.0f}}%", label="Areas confident (Tier 1)"),
-            mo.stat(value=f"{{_pct_tier2:.0f}}%", label="Areas with labelled scenarios (Tier 2)"),
-            mo.stat(value=f"{{_pct_tier3:.0f}}%", label="Areas diffuse / total-only (Tier 3)"),
+            mo.stat(value=f"{{_pct_confident:.0f}}%", label="Confident"),
+            mo.stat(value=f"{{_pct_stories:.0f}}%", label="Small number of likely stories"),
+            mo.stat(value=f"{{_pct_mostly:.0f}}%", label="Mostly confident, minor loose end"),
+            mo.stat(value=f"{{_pct_unclear:.0f}}%", label="Genuinely unclear"),
         ],
         justify="space-around",
     )
@@ -190,11 +219,11 @@ def _(area_tier_summary, pd):
     _tmp["abs_D"] = _tmp["D"].abs()
     _tmp["D_band"] = pd.cut(_tmp["abs_D"], bins=_bins, labels=_labels, include_lowest=True)
     d_band_stats = (
-        _tmp.groupby("D_band")["tier"]
+        _tmp.groupby("D_band")["confidence_group"]
         .value_counts(normalize=True)
         .unstack(fill_value=0)
         .reset_index()
-        .melt(id_vars="D_band", var_name="tier", value_name="fraction")
+        .melt(id_vars="D_band", var_name="confidence_group", value_name="fraction")
     )
     d_band_stats["fraction"] = d_band_stats["fraction"] * 100
     return (d_band_stats,)
@@ -203,11 +232,14 @@ def _(area_tier_summary, pd):
 @app.cell(hide_code=True)
 def _(alt, d_band_stats, mo):
     _band_order = ["0-10", "10-25", "25-50", "50-100", "100-250", "250+"]
-    _tier_labels = {{
-        "tier1": "Confident", "tier2": "Labelled scenarios", "tier3": "Diffuse / total-only"
+    _group_labels = {{
+        "confident": "Confident",
+        "small_number_of_stories": "Small number of likely stories",
+        "mostly_confident": "Mostly confident, minor loose end",
+        "genuinely_unclear": "Genuinely unclear",
     }}
     _named = d_band_stats.copy()
-    _named["tier_label"] = _named["tier"].map(_tier_labels)
+    _named["group_label"] = _named["confidence_group"].map(_group_labels)
 
     _chart = (
         alt.Chart(_named)
@@ -217,13 +249,14 @@ def _(alt, d_band_stats, mo):
                     sort=_band_order),
             y=alt.Y("fraction:Q", title="% of areas"),
             color=alt.Color(
-                "tier_label:N", title="Confidence group",
+                "group_label:N", title="Confidence group",
                 scale=alt.Scale(
-                    domain=["Confident", "Labelled scenarios", "Diffuse / total-only"],
-                    range=["#4c78a8", "#f2a900", "#b3b3b3"],
+                    domain=["Confident", "Small number of likely stories",
+                            "Mostly confident, minor loose end", "Genuinely unclear"],
+                    range=["#4c78a8", "#f2a900", "#6ba84f", "#b3b3b3"],
                 ),
             ),
-            tooltip=["D_band", "tier_label", alt.Tooltip("fraction:Q", format=".0f")],
+            tooltip=["D_band", "group_label", alt.Tooltip("fraction:Q", format=".0f")],
         )
         .properties(width=600, height=280, title="Confidence group by size of change")
     )
@@ -484,7 +517,7 @@ def _(area_tier_summary, borough_choice, lsoa_search, mo):
         _filtered = _filtered[
             _filtered["area"].str.contains(lsoa_search.value.strip(), case=False, na=False)
         ]
-    _cols = ["area", "borough_name", "D", "tier", "tier_subtype"]
+    _cols = ["area", "borough_name", "D", "confidence_group"]
     lsoa_table = mo.ui.table(_filtered[_cols].reset_index(drop=True), selection="multi", page_size=8)
     lsoa_table
     return (lsoa_table,)
@@ -610,12 +643,56 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
                       f"(90% CI band)",
             )
 
+        _is_minor = _tier_row["tier"] == "tier2" and bool(_tier_row.get("minor_ambiguity", False))
+
         if _tier_row["tier"] == "tier1":
             _panel = mo.vstack(
                 [
                     mo.md(
-                        f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 1, confident. "
+                        f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Confident. "
                         f"Decade total: {{_tier_row['D']:.0f}} dwellings."
+                    ),
+                    _year_chart,
+                ]
+            )
+        elif _tier_row["tier"] == "tier2" and _is_minor:
+            # Mostly confident, minor loose end -- applies whether the flagged years
+            # resolve into named scenarios or not; either way, only a small slice of
+            # the decade's total change (< 25%, frac_flagged_magnitude) is affected,
+            # which a blanket "ambiguous"/"scenario split" framing would overstate.
+            _flagged_set = set(_tier_row["flagged_years"].split(","))
+            _dominant = (
+                _year_rows[~_year_rows["year"].astype(str).isin(_flagged_set)]
+                .assign(abs_z=lambda d: d["z_mean"].abs())
+                .sort_values("abs_z", ascending=False)
+                .head(2)
+            )
+            _dominant_desc = ", ".join(
+                f"{{int(row.year)}} (~{{row.z_mean:.0f}})" for row in _dominant.itertuples()
+            )
+            if _tier_row["tier_subtype"] == "resolved":
+                _scenarios = area_scenarios[area_scenarios["area"] == _area]
+                _split_desc = "; ".join(
+                    f"**{{r.scenario_label}}** ({{r.weight:.0%}}) -> {{int(r.peak_year)}}"
+                    for r in _scenarios.itertuples()
+                )
+                _ambiguity_desc = f"a minor labelled-scenario split ({{_split_desc}})"
+            else:
+                _ambiguity_desc = f"unresolved ambiguity in **{{_tier_row['flagged_years']}}**"
+            _panel = mo.vstack(
+                [
+                    mo.callout(
+                        mo.md(
+                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Mostly confident, "
+                            f"minor loose end. Decade total: {{_tier_row['D']:.0f}} dwellings. Most of "
+                            f"this area's year-by-year pattern is well pinned down -- the "
+                            f"dominant year(s) are **{{_dominant_desc}}**. The only open question is "
+                            f"{{_ambiguity_desc}}, accounting for only "
+                            f"~{{_tier_row['frac_flagged_magnitude']:.0%}} of the decade's total "
+                            f"change -- so treat those specific year(s) as indicative only, not "
+                            f"the rest of the chart."
+                        ),
+                        kind="info",
                     ),
                     _year_chart,
                 ]
@@ -631,47 +708,13 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
                 [
                     mo.callout(
                         mo.md(
-                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 2, ambiguous but "
-                            f"characterizable. Decade total: {{_tier_row['D']:.0f}} dwellings. "
+                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Small number of "
+                            f"likely stories. Decade total: {{_tier_row['D']:.0f}} dwellings. "
                             f"The model can't pin down a single year-by-year path, but the "
                             f"ambiguity resolves into distinct, labelled scenarios:\\n\\n"
                             + "\\n".join(_lines)
                         ),
                         kind="warn",
-                    ),
-                    _year_chart,
-                ]
-            )
-        elif (
-            _tier_row["tier"] == "tier2"
-            and _tier_row["tier_subtype"] == "unresolved"
-            and pd.notna(_tier_row["frac_flagged_magnitude"])
-            and _tier_row["frac_flagged_magnitude"] < 0.25
-        ):
-            _flagged_set = set(_tier_row["flagged_years"].split(","))
-            _dominant = (
-                _year_rows[~_year_rows["year"].astype(str).isin(_flagged_set)]
-                .assign(abs_z=lambda d: d["z_mean"].abs())
-                .sort_values("abs_z", ascending=False)
-                .head(2)
-            )
-            _dominant_desc = ", ".join(
-                f"{{int(row.year)}} (~{{row.z_mean:.0f}})" for row in _dominant.itertuples()
-            )
-            _panel = mo.vstack(
-                [
-                    mo.callout(
-                        mo.md(
-                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Tier 2, mostly "
-                            f"confident. Decade total: {{_tier_row['D']:.0f}} dwellings. Most of "
-                            f"this area's year-by-year pattern is well pinned down -- the "
-                            f"dominant year(s) are **{{_dominant_desc}}**. The only unresolved "
-                            f"ambiguity is in **{{_tier_row['flagged_years']}}**, which together "
-                            f"account for only ~{{_tier_row['frac_flagged_magnitude']:.0%}} of the "
-                            f"decade's total change -- so treat those specific year(s) as "
-                            f"indicative only, not the rest of the chart."
-                        ),
-                        kind="info",
                     ),
                     _year_chart,
                 ]
@@ -686,10 +729,10 @@ def _(alt, area_scenarios, area_tier_summary, area_year_estimates, json, lsoa_ta
                 [
                     mo.callout(
                         mo.md(
-                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- decade total "
-                            f"(Census-recorded, treated as exact this round) is "
+                            f"**{{_area}}** ({{_tier_row['borough_name']}}) -- Genuinely unclear. "
+                            f"Decade total (Census-recorded, treated as exact this round) is "
                             f"**{{_tier_row['D']:.0f}} dwellings**, but the year-by-year breakdown is "
-                            f"genuinely diffuse ({{_reason}})."
+                            f"diffuse ({{_reason}})."
                         ),
                         kind="neutral",
                     ),
