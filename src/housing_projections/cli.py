@@ -132,9 +132,19 @@ def _trace_mtimes(traces_dir, model_names):
     }
 
 
-def _load_comparison_cache(traces_dir):
+def _load_comparison_cache(traces_dir, model_names):
     """
-    Load cached LOO comparison if it is still valid (all trace files unchanged).
+    Load cached LOO comparison if it is still valid: the cached model SET
+    matches the currently-requested `model_names` exactly, and none of those
+    trace files changed since the cache was written.
+
+    Previously only checked mtimes for whatever models happened to already be
+    in the cache, regardless of what was actually requested this run -- so
+    `compare --models A,B,C` after an earlier `compare --models A,B` run would
+    silently return the stale 2-model result, appearing to include C without
+    actually having recomputed anything. Caught by inspecting a comparison
+    that requested 4 models but rendered only the 2 from a previous narrower
+    run.
 
     Returns pd.DataFrame or None.
     """
@@ -144,7 +154,9 @@ def _load_comparison_cache(traces_dir):
         return None
     try:
         meta = json.loads(meta_path.read_text())
-        current_mtimes = _trace_mtimes(traces_dir, list(meta['mtimes']))
+        if set(meta['mtimes']) != set(model_names):
+            return None
+        current_mtimes = _trace_mtimes(traces_dir, model_names)
         if current_mtimes == meta['mtimes']:
             df = pd.read_csv(csv_path, index_col=0)
             print('  LOO comparison loaded from cache.')
@@ -248,7 +260,7 @@ def cmd_compare(args):
         sys.exit(1)
 
     print(f'\n── LOO model comparison ({len(traces)} models) ──────────────────')
-    comparison = _load_comparison_cache(args.traces_dir)
+    comparison = _load_comparison_cache(args.traces_dir, list(traces))
     if comparison is None:
         comparison = compute_model_comparison(traces, verbose=True)
         _save_comparison_cache(args.traces_dir, comparison, list(traces))
@@ -642,7 +654,7 @@ def cmd_report(args):
     # Load or compute LOO comparison (shared cache with `compare` command)
     comparison_df = None
     if len(traces) > 1:
-        comparison_df = _load_comparison_cache(args.traces_dir)
+        comparison_df = _load_comparison_cache(args.traces_dir, list(traces))
         if comparison_df is None:
             print('  Computing LOO comparison (this may take a while)...')
             try:

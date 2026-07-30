@@ -1,7 +1,16 @@
-"""Tests for housing_projections.cli — argument parsing only, no I/O."""
+"""Tests for housing_projections.cli — mostly argument parsing (no I/O), plus a
+small tmp_path-based regression test for the comparison cache's model-set check."""
+import os
+
+import pandas as pd
 import pytest
 
-from housing_projections.cli import _build_parser, _parse_model_list
+from housing_projections.cli import (
+    _build_parser,
+    _load_comparison_cache,
+    _parse_model_list,
+    _save_comparison_cache,
+)
 
 
 class TestParseModelList:
@@ -96,3 +105,60 @@ class TestParser:
         args = self._parse(['check-multimodality',
                             '--lag-var', 'lag_P_lambda_weights,lag_E_lambda_weights'])
         assert args.lag_var == 'lag_P_lambda_weights,lag_E_lambda_weights'
+
+
+class TestComparisonCache:
+    """Regression coverage for a real bug: `compare --models A,B,C` after an
+    earlier `compare --models A,B` run silently returned the stale 2-model
+    result, because the cache validity check only looked at mtimes for
+    whatever models were already in the cache, never at whether the currently
+    requested model set even matched."""
+
+    def _touch_trace(self, traces_dir, name, mtime=None):
+        path = traces_dir / f'{name}.nc'
+        path.write_text('placeholder')
+        if mtime is not None:
+            os.utime(path, (mtime, mtime))
+
+    def test_cache_hit_when_model_set_and_mtimes_match(self, tmp_path):
+        for name in ('A', 'B'):
+            self._touch_trace(tmp_path, name)
+        df = pd.DataFrame({'elpd': [1.0, 2.0]}, index=['A', 'B'])
+        _save_comparison_cache(tmp_path, df, ['A', 'B'])
+
+        loaded = _load_comparison_cache(tmp_path, ['A', 'B'])
+
+        assert loaded is not None
+        pd.testing.assert_frame_equal(loaded, df)
+
+    def test_cache_miss_when_a_new_model_is_requested(self, tmp_path):
+        for name in ('A', 'B', 'C'):
+            self._touch_trace(tmp_path, name)
+        df = pd.DataFrame({'elpd': [1.0, 2.0]}, index=['A', 'B'])
+        _save_comparison_cache(tmp_path, df, ['A', 'B'])
+
+        loaded = _load_comparison_cache(tmp_path, ['A', 'B', 'C'])
+
+        assert loaded is None
+
+    def test_cache_miss_when_fewer_models_requested(self, tmp_path):
+        for name in ('A', 'B'):
+            self._touch_trace(tmp_path, name)
+        df = pd.DataFrame({'elpd': [1.0, 2.0]}, index=['A', 'B'])
+        _save_comparison_cache(tmp_path, df, ['A', 'B'])
+
+        loaded = _load_comparison_cache(tmp_path, ['A'])
+
+        assert loaded is None
+
+    def test_cache_miss_when_a_cached_trace_changed(self, tmp_path):
+        for name in ('A', 'B'):
+            self._touch_trace(tmp_path, name)
+        df = pd.DataFrame({'elpd': [1.0, 2.0]}, index=['A', 'B'])
+        _save_comparison_cache(tmp_path, df, ['A', 'B'])
+
+        original_mtime = (tmp_path / 'A.nc').stat().st_mtime
+        self._touch_trace(tmp_path, 'A', mtime=original_mtime + 100)
+        loaded = _load_comparison_cache(tmp_path, ['A', 'B'])
+
+        assert loaded is None
