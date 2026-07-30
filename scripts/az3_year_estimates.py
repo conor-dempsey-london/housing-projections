@@ -102,13 +102,18 @@ CONCENTRATION_BAR = 0.5      # top-2-flagged-year argmax share, same bar as plot
                               # plot_z_area_modes -- rules out the combinatorial-exchangeability
                               # case (many flagged years, none individually dominant) that
                               # min_corr alone doesn't catch, see module docstring
-MINOR_AMBIGUITY_BAR = 0.25   # for tier2/unresolved areas, share of the area's total
-                              # decade |z| that comes from its KDE-flagged years. Below
-                              # this, the area's dominant year-by-year pattern is actually
-                              # confident and only a minor year or two is unresolved --
-                              # e.g. E01000251 (flagged: 2012/2013, ~15% of magnitude,
-                              # dominant bursts in 2018/2021 unflagged and tightly pinned
-                              # down) -- so "genuinely diffuse" overstates it. See
+MINOR_AMBIGUITY_BAR = 0.25   # for ANY tier2 area (resolved or unresolved), share of the
+                              # area's total decade |z| that comes from its KDE-flagged
+                              # years. Below this, the area's dominant year-by-year pattern
+                              # is actually confident and only a minor year or two is
+                              # unresolved/split -- e.g. E01000251 (unresolved: flagged
+                              # 2012/2013, ~15% of magnitude, dominant bursts in 2018/2021
+                              # unflagged and tightly pinned down) -- so a blanket
+                              # "ambiguous"/"genuinely diffuse" label overstates it. The
+                              # same overstatement applies to *resolved* areas whose 2-way
+                              # scenario split concerns only a minor sliver of the decade's
+                              # change (~28% of resolved areas, checked directly) -- see
+                              # `minor_ambiguity` below and
                               # docs/estimates-dashboard-report-plan.md for the investigation.
 SCENARIO_LETTERS = 'ABCD'
 
@@ -287,6 +292,7 @@ def main():
     area_df['flagged_concentration'] = np.nan
     area_df['frac_flagged_magnitude'] = np.nan
     area_df['flagged_years'] = ''
+    area_df['minor_ambiguity'] = False
 
     for n, area_idx in enumerate(tier2_idx):
         flagged = flagged_by_area_idx.get(area_idx, [])
@@ -297,12 +303,17 @@ def main():
 
         # Share of the area's total decade |z| that comes from its flagged years --
         # low values mean the area's dominant pattern is confident and only a minor
-        # year or two is unresolved (see MINOR_AMBIGUITY_BAR above).
+        # year or two is unresolved (see MINOR_AMBIGUITY_BAR above). Applies equally
+        # to resolved (labelled-scenario) and unresolved areas: a "resolved" 2-way
+        # split can itself concern only a small sliver of an area's total change,
+        # which is just as misleading to report as an unqualified "ambiguous" as the
+        # unresolved case originally was (see docs/estimates-dashboard-report-plan.md's
+        # follow-up note -- this was flagged there and not propagated until now).
         total_abs_z = np.abs(z_mean_all[area_idx, :]).sum()
         if flagged and total_abs_z > 0:
-            area_df.loc[area_idx, 'frac_flagged_magnitude'] = (
-                np.abs(z_mean_all[area_idx, flagged]).sum() / total_abs_z
-            )
+            frac = np.abs(z_mean_all[area_idx, flagged]).sum() / total_abs_z
+            area_df.loc[area_idx, 'frac_flagged_magnitude'] = frac
+            area_df.loc[area_idx, 'minor_ambiguity'] = bool(frac < MINOR_AMBIGUITY_BAR)
 
         if 'min_corr' in result:
             area_df.loc[area_idx, 'min_flagged_corr'] = result['min_corr']
@@ -364,7 +375,8 @@ def main():
     tier_cols = ['area', 'borough_name', 'borough', 'D', 'tier', 'tier_subtype',
                  'n_low_confidence_years', 'max_rhat', 'n_multimodal_years',
                  'n_flagged_years', 'flagged_years', 'min_flagged_corr',
-                 'flagged_concentration', 'frac_flagged_magnitude', 'has_active_year']
+                 'flagged_concentration', 'frac_flagged_magnitude', 'minor_ambiguity',
+                 'has_active_year']
     area_df[tier_cols].to_csv(OUTPUT_DIR / 'area_tier_summary.csv', index=False)
     print(f'   wrote area_tier_summary.csv ({len(area_df)} rows)')
     print('  ', area_df['tier'].value_counts().to_dict())
