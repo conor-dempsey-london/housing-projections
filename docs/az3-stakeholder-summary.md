@@ -52,16 +52,17 @@ groups:
 
 - **Confident (47% of areas)** — we have a single, reliable year-by-year picture of
   when the change happened.
-- **A small number of likely stories (29% of areas)** — we can't pin down exactly
+- **A small number of likely stories (21% of areas)** — we can't pin down exactly
   which year(s) the change happened in, but the uncertainty narrows down to 2 or 3
   specific, describable possibilities, each with a stated likelihood (e.g. "60%
-  likely 2019, 40% likely 2021").
-- **Mostly confident, with a minor loose end (2% of areas)** — the area's dominant
+  likely 2019, 40% likely 2021") — and this genuinely affects a substantial share of
+  that area's total change, not just a small part of it.
+- **Mostly confident, with a minor loose end (10% of areas)** — the area's dominant
   year(s) of change are just as reliable as a "confident" area's, but one or two
   minor years — together accounting for less than a quarter of that area's total
-  change — can't be pinned down. We only added this category after checking a case
-  a reviewer flagged as looking more confident than its label suggested — see
-  "Open questions and next steps" below.
+  change — can't be pinned down. This is sometimes an unresolved loose end, and
+  sometimes a "small number of likely stories" split (as above) that itself only
+  concerns that same minor slice of the total. 
 - **Genuinely unclear (23% of areas)** — the total change for the area is just as
   reliable as anywhere else, but we cannot say with any confidence which year(s) it
   happened in, and unlike the category above, this isn't confined to a minor part of
@@ -130,9 +131,18 @@ account for.
 
 - **Both of our two main data sources — planning completions data and the OS
   AddressBase-derived dwelling-change records — likely have their own data-quality
-  issues that we have not yet fully characterised.** We need to dig further into the two main inputs used so far. The cut of the planning data that is currently being used is a cut James produced directly with his code. We have not looked deeply into exactly what to extract from the planning database and this is likely the biggest source of improvement to model quality available. Similarly the UPRN net changes are from a file provided by Ben. I have reproduced the code from Seb where this input is produced - further information from OS Address Base could be extracted, including additions and removals separately, which would enrich the input and could improve the model. 
+  issues that we have not yet fully characterised.** We have not yet dug deeply
+  into what could be extracted directly from the underlying planning-completions
+  database, which is likely the biggest single source of improvement to model
+  quality available. Similarly for the OS AddressBase-derived records: further
+  information could potentially be extracted — for example, additions and removals
+  as separate series rather than just their net — which could enrich the input and
+  improve the model. Both are planned as further work.
 
-- **Treating the Census counts as exact - if we think the census numbers contain substantial error we could enforce this constraint probabilistically instead of exactly .** But this would add complexity for probably little gain and is not something we recommend doing without a specific reason.
+- **Treating the Census counts as exact** — if we think the census numbers contain
+  substantial error, we could enforce this constraint probabilistically instead of
+  exactly. But this would add complexity for probably little gain, and isn't
+  something we recommend doing without a specific reason.
 
 - **This kind of model can also be extended to draw on other data sources** —
   Energy Performance Certificate (EPC) records are one candidate that could plausibly
@@ -153,4 +163,6 @@ account for.
   rather than relying on the borough-level averages above. It also breaks down which
   kinds of areas tend to fall into the "genuinely unclear" group — in short, areas
   with a larger amount of change to account for are systematically less likely to
-  have a confident year-by-year picture, regardless of borough. Looking into the outputs using the dashboard is likely to surface issues and possible sources of improvement. One benefit of this kind of model is that it is quite easy to interrogate why the model makes the posterior predictions that it does, so if you have questions about why the model make a particular prediction, let us know and we can look into it. 
+  have a confident year-by-year picture, regardless of borough. Looking into the outputs using the dashboard is likely to surface issues and possible sources of improvement. One benefit of this kind of model is that it is quite easy to interrogate why the
+model makes the posterior predictions that it does, so if you have questions about
+why the model makes a particular prediction, let us know and we can look into it.

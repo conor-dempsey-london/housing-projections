@@ -42,13 +42,40 @@ Every area is one of:
 - **Tier 1 — Confident.** A single clear year-by-year path. Use the estimate and range as given.
 - **Tier 2 — Ambiguous.** The 10-year total is unaffected, but more than one story fits which year(s) absorbed the change.
   - **Resolved** — a small number of distinct, labelled scenarios (`area_scenarios.csv`), each with a likelihood.
-  - **Unresolved** — no clean split. Check `frac_flagged_magnitude` in `area_tier_summary.csv`
-    first: if it's low, the ambiguity is confined to a small part of the decade's change and
-    the rest of the year-by-year story (including the dominant year(s)) is still reliable;
-    only if it's high does "treat the year-by-year figures as indicative only" really apply.
+  - **Unresolved** — no clean split.
 - **Tier 3 — Total only.** Next to no annual data for this area. Only the 10-year Census total is reported.
 
-Roughly: most areas are Tier 1; ~30% are Tier 2 resolved.
+See "How this is decided" below for how an area ends up in one of these, and how
+`minor_ambiguity`/`frac_flagged_magnitude` refine "Resolved"/"Unresolved" further
+into the plain-language groups used in `docs/az3-stakeholder-summary.md` (which
+also has the current percentage breakdown — not repeated here to avoid the two
+documents drifting out of sync with each other).
+
+## How this is decided
+
+Every area's label comes from four steps, run in order:
+
+1. **Check each year on its own.** For each of an area's 10 years, does the model
+   see one clear value, or genuinely more than one plausible value? Years with
+   more than one plausible value get "flagged" — this is what `n_multimodal_years`
+   counts.
+2. **Sort the area into a rough bucket.** No real annual data at all → **Tier 3**
+   ("Genuinely unclear" in the stakeholder summary), stop here. Real data and zero
+   flagged years → **Tier 1** ("Confident"), stop here. Otherwise (real data, but
+   at least one flagged year) → **Tier 2** — something is genuinely ambiguous, and
+   the next two steps work out what kind.
+3. **For Tier 2 areas: does the ambiguity boil down to a short list of options, or
+   is it just fuzzy?** Looking only at the flagged years: if most of the model's
+   uncertainty commits to one of two specific combinations, that's **resolved** —
+   the alternatives can be named (`area_scenarios.csv`). If it's more spread out
+   with no clean fork, that's **unresolved** — real ambiguity, just not reducible
+   to a short list.
+4. **Check whether the ambiguity actually matters.** Add up how much of the area's
+   *total* change sits in the flagged years — `frac_flagged_magnitude`. Under ~25%
+   (`minor_ambiguity` = `True`) → **"Mostly confident, minor loose end"**, whether
+   resolved or unresolved — most of the area's story was never in question. 25%+
+   and resolved → **"Small number of likely stories"**. 25%+ and unresolved →
+   **"Genuinely unclear"**, alongside the Tier 3 areas from step 2.
 
 ## File details
 
@@ -95,7 +122,8 @@ One row per area — the tier and the evidence behind it.
 | `n_multimodal_years` | Years flagged with more than one plausible story |
 | `n_flagged_years` | Same, restricted to `tier2` areas |
 | `flagged_years` | Which years those are, e.g. `2012,2013` — `tier2` only |
-| `frac_flagged_magnitude` | Share of the area's total decade change that falls in the flagged years above — `tier2` only. **Low** (e.g. under ~25%) means the area's dominant year-by-year pattern is actually confident and only a minor year or two is unresolved; **high** means the ambiguity really does run through most of the decade's change |
+| `frac_flagged_magnitude` | Share of the area's total decade change that falls in the flagged years above — `tier2` only. **Low** (e.g. under ~25%) means the area's dominant year-by-year pattern is actually confident and only a minor year or two is unresolved/split; **high** means the ambiguity really does run through most of the decade's change |
+| `minor_ambiguity` | `True` if `frac_flagged_magnitude` is below the ~25% bar above — `tier2` only. Applies to **resolved** areas too, not just unresolved ones: a labelled scenario split can itself concern only a small sliver of an area's total change (this is true for ~28% of resolved areas) |
 | `has_active_year` | Any meaningful annual data at all — `False` ⇒ Tier 3 |
 | `max_rhat`, `min_flagged_corr`, `flagged_concentration` | Technical scores behind the tier classification; not for direct interpretation |
 
