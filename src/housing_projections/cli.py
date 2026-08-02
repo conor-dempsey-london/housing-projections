@@ -23,6 +23,7 @@ import pandas as pd
 
 from housing_projections.analysis import compute_model_comparison
 from housing_projections.data import (
+    PLD_FILENAME,
     load_data,
     make_borough_idx,
     make_data_dict,
@@ -209,9 +210,9 @@ def cmd_run_models(args):
         print(f'Unknown model(s): {invalid}. Available: {list(_ALL_MODELS)}', file=sys.stderr)
         sys.exit(1)
 
-    print(f'\n── Loading data from {args.data_path} ───────────────────────────')
-    validate_data_path(args.data_path)
-    gdf = load_data(args.data_path)
+    print(f'\n── Loading data from {args.data_path} (pld_file={args.pld_file}) ──')
+    validate_data_path(args.data_path, pld_filename=args.pld_file)
+    gdf = load_data(args.data_path, pld_filename=args.pld_file)
     gdf, _ = apply_outlier_exclusion(gdf)
     gdf_sample = select_spatial_sample(gdf, n_areas=args.n_areas or 200)
     data = make_data_dict(gdf_sample)
@@ -302,8 +303,8 @@ def cmd_diagnose(args):
 
     data = None
     try:
-        validate_data_path(args.data_path)
-        gdf  = load_data(args.data_path)
+        validate_data_path(args.data_path, pld_filename=args.pld_file)
+        gdf  = load_data(args.data_path, pld_filename=args.pld_file)
         gdf, _ = apply_outlier_exclusion(gdf, verbose=False)
         data = _data_matching_traces(gdf, traces)
     except Exception as exc:  # noqa: BLE001
@@ -489,8 +490,8 @@ def cmd_check_multimodality(args):
     gdf = None
     data = None
     try:
-        validate_data_path(args.data_path)
-        gdf = load_data(args.data_path)
+        validate_data_path(args.data_path, pld_filename=args.pld_file)
+        gdf = load_data(args.data_path, pld_filename=args.pld_file)
         gdf, _ = apply_outlier_exclusion(gdf, verbose=False)
         data = _data_matching_traces(gdf, traces)
     except Exception as exc:  # noqa: BLE001
@@ -632,9 +633,9 @@ def cmd_check_multimodality(args):
 # ── report ────────────────────────────────────────────────────────────────────
 
 def cmd_report(args):
-    print(f'\n── Loading data from {args.data_path} ───────────────────────────')
-    validate_data_path(args.data_path)
-    gdf = load_data(args.data_path)
+    print(f'\n── Loading data from {args.data_path} (pld_file={args.pld_file}) ──')
+    validate_data_path(args.data_path, pld_filename=args.pld_file)
+    gdf = load_data(args.data_path, pld_filename=args.pld_file)
     gdf, _ = apply_outlier_exclusion(gdf)
 
     model_names = (_parse_model_list(args.models) if args.models
@@ -714,6 +715,10 @@ def _build_parser():
     p_run = sub.add_parser('run-models', help='Sample models and save traces.')
     p_run.add_argument('--data-path', default='data',
                        help='Root directory of raw data files (default: data).')
+    p_run.add_argument('--pld-file', default=PLD_FILENAME,
+                       help='PLD completions CSV to load from <data-path>/pld/ '
+                            f'(default: {PLD_FILENAME}). See DATA_MANIFEST.md '
+                            'for alternate cuts available.')
     p_run.add_argument('--models', default=None,
                        help='Comma-separated model names, e.g. M0,M1,M3 (default: all).')
     p_run.add_argument('--n-areas', type=int, default=None,
@@ -734,6 +739,10 @@ def _build_parser():
     p_diag = sub.add_parser('diagnose', help='Quick per-model sampling diagnostics.')
     p_diag.add_argument('--data-path', default='data',
                         help='Root directory of raw data files — used for coverage (default: data).')
+    p_diag.add_argument('--pld-file', default=PLD_FILENAME,
+                        help='PLD completions CSV to load from <data-path>/pld/ '
+                             f'(default: {PLD_FILENAME}) — must match whichever cut the '
+                             'traces being diagnosed were actually sampled against.')
     p_diag.add_argument('--traces-dir', default='results/traces',
                         help='Directory containing saved .nc trace files (default: results/traces).')
     p_diag.add_argument('--models', default=None,
@@ -790,11 +799,19 @@ def _build_parser():
     p_mm.add_argument('--data-path', default='data',
                       help='Root directory of raw data files — only needed with --resolve '
                            '(default: data).')
+    p_mm.add_argument('--pld-file', default=PLD_FILENAME,
+                      help='PLD completions CSV to load from <data-path>/pld/ '
+                           f'(default: {PLD_FILENAME}) — must match whichever cut the '
+                           'traces being classified were actually sampled against.')
 
     # ── report ──────────────────────────────────────────────────────────────
     p_rep = sub.add_parser('report', help='Generate self-contained HTML analysis report.')
     p_rep.add_argument('--data-path', default='data',
                        help='Root directory of raw data files (default: data).')
+    p_rep.add_argument('--pld-file', default=PLD_FILENAME,
+                       help='PLD completions CSV to load from <data-path>/pld/ '
+                            f'(default: {PLD_FILENAME}) — must match whichever cut the '
+                            'traces being reported on were actually sampled against.')
     p_rep.add_argument('--traces-dir', default='results/traces',
                        help='Directory containing saved .nc trace files.')
     p_rep.add_argument('--models', default=None,

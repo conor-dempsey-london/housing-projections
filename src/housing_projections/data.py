@@ -18,12 +18,19 @@ from housing_projections.config import (
 DEFAULT_CENTER_LATLON = (51.544, -0.103)
 
 _UPRN_FILENAME = 'final_residential_uprn_net_changes_by_oa_fy (1).csv'
-_PLD_FILENAME = 'lsoa_completions_time_series_pivot.csv'
+PLD_FILENAME = 'lsoa_completions_time_series_pivot.csv'
 
 
-def validate_data_path(data_path):
+def validate_data_path(data_path, pld_filename=PLD_FILENAME):
     """
     Check that the expected raw data files are present under ``data_path``.
+
+    Parameters
+    ----------
+    data_path    : str or Path
+    pld_filename : str — PLD completions CSV to look for under ``<data_path>/pld/``,
+                   e.g. to validate an alternate cut placed alongside the default
+                   (see ``load_data``'s ``pld_filename`` parameter).
 
     Raises
     ------
@@ -32,7 +39,7 @@ def validate_data_path(data_path):
         exactly what to provide rather than getting a cryptic read error.
     """
     required = {
-        'PLD completions': os.path.join(data_path, 'pld', _PLD_FILENAME),
+        'PLD completions': os.path.join(data_path, 'pld', pld_filename),
         'UPRN estimates':  os.path.join(data_path, 'uprn', _UPRN_FILENAME),
     }
     missing = {label: path for label, path in required.items() if not os.path.exists(path)}
@@ -95,7 +102,7 @@ def _build_gdf(
     return gpd.GeoDataFrame(dwellings.merge(lsoa_gdf, on='LSOA21CD'))
 
 
-def load_data(data_path):
+def load_data(data_path, pld_filename=PLD_FILENAME):
     """
     Load, merge, and return a GeoDataFrame of London LSOAs with all data
     needed for modelling: census dwelling counts (2011 and 2021), planning
@@ -103,11 +110,18 @@ def load_data(data_path):
 
     Parameters
     ----------
-    data_path : str or Path
+    data_path    : str or Path
         Root directory containing the raw data subdirectories:
 
-        - ``pld/lsoa_completions_time_series_pivot.csv``
+        - ``pld/<pld_filename>``
         - ``uprn/final_residential_uprn_net_changes_by_oa_fy (1).csv``
+    pld_filename : str
+        PLD completions CSV to load from ``<data_path>/pld/`` — defaults to
+        the production cut (``lsoa_completions_time_series_pivot.csv``).
+        Pass an alternate filename (e.g.
+        ``lsoa_completions_time_series_pivot_unit_level.csv``) to run against
+        a different extraction without moving files around — see
+        ``DATA_MANIFEST.md`` for what's available and how each was produced.
 
     Returns
     -------
@@ -117,12 +131,12 @@ def load_data(data_path):
         ``intercensal_change``, planning columns (INFER_COLS_PLAN),
         UPRN columns (INFER_COLS_UPRN), plus ``geometry``.
     """
-    validate_data_path(data_path)
+    validate_data_path(data_path, pld_filename=pld_filename)
 
     # ── I/O shell — four external reads ──────────────────────────────────────
     completions = _load_csv(
         os.path.join(data_path, 'pld'),
-        'lsoa_completions_time_series_pivot.csv',
+        pld_filename,
     )
     completions.rename(columns={'LSOA Cd': 'LSOA21CD'}, inplace=True)
 
