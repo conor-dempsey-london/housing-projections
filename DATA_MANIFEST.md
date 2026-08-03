@@ -46,10 +46,30 @@ affect model results, and tag the commit that updates it.
   that never reach `status='Completed'`) that need the project's existing
   `apply_outlier_exclusion` step to not distort results locally — already handled by that
   step, not a new gap, but worth knowing before using this file without that screening.
+- **2026-08-03: AZ3 re-sampled at FULL scale** (4,987 LSOAs, matched exactly to
+  `results/traces_full/AZ3.nc`'s own area universe; saved to
+  `results/traces_full_corrected/AZ3.nc`, ~2.4h, 0 divergences, max r-hat 1.01). Confirms
+  the 200-LSOA result and is cleaner: `frac_flat_despite_active` 4.65%->3.75%,
+  planning-residual std/MAE 35.15/8.26 -> 31.17/7.69, UPRN-side residuals essentially
+  unchanged (37.56/8.89 -> 37.55/8.98, vs a small UPRN cost seen at 200-LSOA scale),
+  planning-residual Moran's I no longer significant (p=0.047 -> p=0.28). Dwelling totals
+  are unaffected at every LSOA/borough by construction (AZ3 pins `sum(z)` to the census
+  figure exactly regardless of input) — the entire effect is on year attribution, not
+  headline counts. Full write-up, input-side breakdown, and per-area detail (including the
+  Islington scheme's LSOA followed through to its posterior `z`) in the published report —
+  see conversation record for the artifact link, not re-hosted in this repo.
+  **Caveat found in this full-scale run specifically**: matching to the production trace's
+  frozen LSOA list (to keep both runs on an identical area universe) meant
+  `apply_outlier_exclusion` was not re-run independently on the corrected values, so 5 of
+  4,987 matched LSOAs (E01000153, E01001356, E01001358, E01033876, E01033926) carry an
+  unscreened hard-outlier cell in this specific run. Does not affect the 200-LSOA
+  comparison or the input-side borough breakdown, both of which screened outliers
+  per-input independently.
 - Not yet done: full-London K-fold/finalization validation (the checklist AZ3 was
-  originally selected against); a cross-check against PLD's own pre-aggregated
-  `residential_details.total_no_proposed_residential_units` field; EPC (`epc_number`)
-  fill-rate at full scale.
+  originally selected against); re-running the full-scale AZ3 comparison with independent
+  outlier exclusion per input (see caveat above); a cross-check against PLD's own
+  pre-aggregated `residential_details.total_no_proposed_residential_units` field; EPC
+  (`epc_number`) fill-rate at full scale.
 - **Status: a validated candidate, not yet substituted for the production file.** The
   production file above is still what `run-models`/`compare`/`report` actually use as of
   this tag.
