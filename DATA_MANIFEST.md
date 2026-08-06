@@ -56,8 +56,9 @@ affect model results, and tag the commit that updates it.
   are unaffected at every LSOA/borough by construction (AZ3 pins `sum(z)` to the census
   figure exactly regardless of input) — the entire effect is on year attribution, not
   headline counts. Full write-up, input-side breakdown, and per-area detail (including the
-  Islington scheme's LSOA followed through to its posterior `z`) in the published report —
-  see conversation record for the artifact link, not re-hosted in this repo.
+  Islington scheme's LSOA followed through to its posterior `z`) in the published report:
+  local copy at `results/pld_reextraction_report.html` (gitignored, not tracked —
+  regenerate or re-fetch from the live artifact link in the conversation record if missing).
   **Caveat found in this full-scale run specifically**: matching to the production trace's
   frozen LSOA list (to keep both runs on an identical area universe) meant
   `apply_outlier_exclusion` was not re-run independently on the corrected values, so 5 of
