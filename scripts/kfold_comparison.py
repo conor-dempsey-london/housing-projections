@@ -58,6 +58,7 @@ from arviz_stats.loo import SamplingWrapper  # noqa: E402
 
 from housing_projections.config import DATA_PATH, INFER_YEARS  # noqa: E402
 from housing_projections.data import (  # noqa: E402
+    PLD_FILENAME,
     load_data,
     make_data_dict,
     select_spatial_sample,
@@ -510,6 +511,12 @@ def main():
     ap.add_argument('--tune', type=int, default=500)
     ap.add_argument('--chains', type=int, default=4)
     ap.add_argument('--data-path', default=str(DATA_PATH) if DATA_PATH else 'data')
+    ap.add_argument('--pld-file', default=PLD_FILENAME,
+                    help='PLD completions CSV to load from <data-path>/pld/ '
+                         f'(default: {PLD_FILENAME}) — see DATA_MANIFEST.md for '
+                         'alternate cuts available. The reference trace '
+                         '(traces-dir/AZ0a.nc) only supplies the 200-area LSOA '
+                         'set/order to match; its own sampled values are not read.')
     ap.add_argument('--traces-dir', default='results/traces')
     ap.add_argument('--output-dir', default='results/artifacts/kfold_comparison')
     ap.add_argument('--models', default='AZ0a,AZ3,M5')
@@ -525,9 +532,9 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print('-- Loading reference trace (AZ0a.nc) and matching gdf --')
+    print(f'-- Loading reference trace (AZ0a.nc) and matching gdf (pld_file={args.pld_file}) --')
     reference_trace = az.from_netcdf(str(Path(args.traces_dir) / 'AZ0a.nc'))
-    gdf = load_data(args.data_path)
+    gdf = load_data(args.data_path, pld_filename=args.pld_file)
     gdf, _ = apply_outlier_exclusion(gdf, verbose=False)
     data = data_matching_trace(gdf, reference_trace)
     print(f'   {data["n_areas"]} areas matched')
